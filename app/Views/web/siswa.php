@@ -22,6 +22,13 @@
         background: #fff;
         color: #4b5563;
         text-decoration: none;
+        transition: all 0.2s;
+    }
+
+    .pagination li a:hover {
+        background-color: #f3f4f6;
+        color: #1f2937;
+        border-color: #d1d5db;
     }
 
     .pagination li.active a,
@@ -30,6 +37,15 @@
         color: #fff;
         border-color: #2563eb;
         font-weight: 700;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    }
+
+    .pagination li.disabled a,
+    .pagination li.disabled span {
+        color: #9ca3af;
+        background-color: #f9fafb;
+        cursor: not-allowed;
+        opacity: 0.7;
     }
 
     /* Modal Center Logic */
@@ -43,20 +59,20 @@
     <div class="p-5 border-b flex flex-col md:flex-row justify-between items-center gap-4 bg-white">
         <div>
             <h3 class="text-lg font-bold text-gray-800">Daftar Siswa</h3>
-            <p class="text-sm text-gray-500">Total: <?= $total_data ?> Siswa</p>
+            <p class="text-sm text-gray-500">Total: <?= esc($total_data) ?> Siswa</p>
         </div>
 
         <div class="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
             <form action="/admin/siswa" method="GET" class="flex-1 md:w-48">
-                <select name="kelas" onchange="this.form.submit()" class="w-full border-gray-200 rounded-xl p-2.5 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 min-w-[120px]">
+                <select name="kelas" onchange="this.form.submit()" class="w-full border-gray-200 rounded-xl p-2.5 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 min-w-[120px] cursor-pointer">
                     <option value="">Semua Kelas</option>
                     <?php foreach ($list_kelas as $k): ?>
-                        <option value="<?= $k->kelas ?>" <?= ($kelas_aktif == $k->kelas) ? 'selected' : '' ?>><?= $k->kelas ?></option>
+                        <option value="<?= esc($k->kelas) ?>" <?= ($kelas_aktif == $k->kelas) ? 'selected' : '' ?>><?= esc($k->kelas) ?></option>
                     <?php endforeach; ?>
                 </select>
             </form>
 
-            <a href="/admin/siswa/export?kelas=<?= $kelas_aktif ?>" class="flex items-center justify-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700 shadow-md transition-all active:scale-95 whitespace-nowrap">
+            <a href="/admin/siswa/export?kelas=<?= esc($kelas_aktif) ?>" class="flex items-center justify-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700 shadow-md transition-all active:scale-95 whitespace-nowrap">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                 </svg>
@@ -70,37 +86,37 @@
                 Import
             </button>
 
-            <button onclick="toggleFormTambah()" class="flex items-center justify-center gap-1 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-md whitespace-nowrap">
+            <button onclick="toggleFormTambah()" class="flex items-center justify-center gap-1 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-md whitespace-nowrap active:scale-95 transition-all">
                 + Tambah
             </button>
         </div>
     </div>
 
-    <div id="form-tambah" class="bg-blue-50/50 p-6 border-b hidden">
-        <form action="/admin/siswa/store" method="POST" class="grid grid-cols-1 md:grid-cols-4 gap-5 items-end">
+    <div id="form-tambah" class="bg-blue-50/50 p-6 border-b hidden transition-all">
+        <form action="/admin/siswa/store" method="POST" id="formSiswa" class="grid grid-cols-1 md:grid-cols-4 gap-5 items-end">
             <div>
                 <label class="block text-xs font-bold text-gray-600 uppercase mb-2">NIS</label>
-                <input type="text" name="nis" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="102938">
+                <input type="text" name="nis" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="102938">
             </div>
             <div class="md:col-span-2">
                 <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Nama Lengkap</label>
-                <input type="text" name="nama_lengkap" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nama Lengkap">
+                <input type="text" name="nama_lengkap" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="Nama Lengkap">
             </div>
             <div>
                 <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Kelas</label>
-                <input type="text" name="kelas" required oninput="this.value = this.value.toUpperCase()" class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="XII-RPL">
+                <input type="text" name="kelas" required oninput="this.value = this.value.toUpperCase()" class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="XII-RPL">
             </div>
             <div class="md:col-span-4 flex justify-end gap-3 pt-2">
-                <button type="button" onclick="toggleFormTambah()" class="text-sm font-semibold text-gray-500 hover:text-gray-800">Batal</button>
-                <button type="submit" class="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold shadow hover:bg-blue-700">Simpan</button>
+                <button type="button" onclick="toggleFormTambah()" class="text-sm font-semibold text-gray-500 hover:text-gray-800 transition-colors px-4 py-2">Batal</button>
+                <button type="submit" class="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold shadow hover:bg-blue-700 btn-submit transition-all">Simpan Data</button>
             </div>
         </form>
     </div>
 
-    <div class="overflow-x-auto">
+    <div class="overflow-x-auto flex-1">
         <table class="w-full text-left">
             <thead>
-                <tr class="bg-gray-50/50 text-gray-400 text-[11px] font-bold uppercase tracking-wider">
+                <tr class="bg-gray-50/50 text-gray-400 text-[11px] font-bold uppercase tracking-wider border-y border-gray-100">
                     <th class="px-6 py-4">Informasi Siswa</th>
                     <th class="px-6 py-4">Status HP</th>
                     <th class="px-6 py-4 text-center">Keamanan</th>
@@ -110,45 +126,64 @@
             <tbody class="divide-y divide-gray-100">
                 <?php if (empty($siswa)): ?>
                     <tr>
-                        <td colspan="4" class="px-6 py-12 text-center text-gray-500 text-sm">Belum ada data siswa.</td>
+                        <td colspan="4" class="px-6 py-20 text-center">
+                            <div class="flex flex-col items-center">
+                                <div class="bg-gray-50 p-4 rounded-full mb-4 text-gray-300">
+                                    <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                    </svg>
+                                </div>
+                                <h4 class="text-gray-800 font-bold">Data Tidak Ditemukan</h4>
+                                <p class="text-gray-500 text-sm max-w-xs mx-auto mt-1">Belum ada data siswa untuk kriteria pencarian ini.</p>
+                            </div>
+                        </td>
                     </tr>
                 <?php endif; ?>
 
                 <?php foreach ($siswa as $s): ?>
-                    <tr class="hover:bg-gray-50 transition-colors group">
+                    <tr class="hover:bg-gray-50/50 transition-colors group">
                         <td class="px-6 py-4">
                             <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs"><?= substr($s->nama_lengkap, 0, 1) ?></div>
+                                <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs shadow-inner">
+                                    <?= esc(strtoupper(substr($s->nama_lengkap, 0, 1))) ?>
+                                </div>
                                 <div>
-                                    <div class="text-sm font-bold text-gray-800"><?= $s->nama_lengkap ?></div>
-                                    <div class="text-[11px] text-gray-400 font-medium"><?= $s->nis ?> • <?= $s->kelas ?></div>
+                                    <div class="text-sm font-bold text-gray-800"><?= esc($s->nama_lengkap) ?></div>
+                                    <div class="text-[11px] text-gray-500 font-medium bg-gray-100 px-2 py-0.5 rounded inline-block mt-1"><?= esc($s->nis) ?> • <?= esc($s->kelas) ?></div>
                                 </div>
                             </div>
                         </td>
                         <td class="px-6 py-4">
-                            <span class="px-2 py-1 rounded-lg text-[10px] font-bold <?= $s->device_id ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500' ?>">
-                                <?= $s->device_id ? 'TERIKAT' : 'KOSONG' ?>
-                            </span>
+                            <?php if ($s->device_id): ?>
+                                <div class="flex items-center gap-1.5 text-emerald-600 bg-emerald-50 px-2 py-1.5 rounded-lg text-[10px] font-bold w-fit border border-emerald-100">
+                                    <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
+                                    TERIKAT
+                                </div>
+                            <?php else: ?>
+                                <div class="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1.5 rounded-lg w-fit border border-gray-200">BELUM TERIKAT</div>
+                            <?php endif; ?>
                         </td>
                         <td class="px-6 py-4">
                             <div class="flex flex-col items-center">
-                                <span class="text-[10px] font-bold text-gray-600"><?= $s->fraud_count ?>/3 Fraud</span>
+                                <span class="text-[10px] font-bold <?= $s->is_blocked ? 'text-red-500' : 'text-gray-600' ?>">
+                                    <?= esc($s->fraud_count) ?>/3 Pelanggaran
+                                </span>
                                 <div class="w-16 h-1 bg-gray-100 rounded-full mt-1 overflow-hidden">
                                     <div class="h-full <?= $s->is_blocked ? 'bg-red-500' : 'bg-blue-500' ?>" style="width: <?= ($s->fraud_count / 3) * 100 ?>%"></div>
                                 </div>
                             </div>
                         </td>
                         <td class="px-6 py-4 text-right">
-                            <div class="flex justify-end gap-2">
-                                <button onclick='openEditModal(<?= json_encode($s) ?>)' class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg">
+                            <div class="flex justify-end gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                <button onclick="openEditModal(<?= htmlspecialchars(json_encode($s), ENT_QUOTES, 'UTF-8') ?>)" class="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 rounded-lg transition-colors">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                     </svg>
                                 </button>
 
                                 <?php if ($s->device_id): ?>
-                                    <form action="/admin/siswa/reset_device/<?= $s->id ?>" method="POST" class="inline">
-                                        <button type="submit" class="btn-confirm p-2 text-amber-600 hover:bg-amber-50 rounded-lg" data-text="Reset perangkat siswa ini?">
+                                    <form action="/admin/siswa/reset_device/<?= esc($s->id) ?>" method="POST" class="inline">
+                                        <button type="submit" class="btn-confirm p-2 text-amber-600 bg-amber-50 hover:bg-amber-100 border border-amber-100 rounded-lg transition-colors" data-text="Akses login akan diatur ulang untuk perangkat baru.">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
                                             </svg>
@@ -157,8 +192,8 @@
                                 <?php endif; ?>
 
                                 <?php if ($s->is_blocked): ?>
-                                    <form action="/admin/siswa/unblock/<?= $s->id ?>" method="POST" class="inline">
-                                        <button type="submit" class="btn-confirm p-2 text-red-600 hover:bg-red-50 rounded-lg" data-text="Buka blokir siswa ini?">
+                                    <form action="/admin/siswa/unblock/<?= esc($s->id) ?>" method="POST" class="inline">
+                                        <button type="submit" class="btn-confirm p-2 text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 rounded-lg transition-colors" data-text="Siswa akan diizinkan kembali untuk melakukan absensi.">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
                                             </svg>
@@ -173,10 +208,20 @@
         </table>
     </div>
 
-    <div class="p-5 border-t bg-gray-50/30 flex justify-between items-center">
-        <span class="text-xs text-gray-500 font-medium">Halaman <?= $page ?></span>
-        <?= $pager_links ?>
-    </div>
+    <?php if ($total_data > 0): ?>
+        <div class="p-5 border-t border-gray-100 bg-gray-50/30 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="text-sm text-gray-500 font-medium">
+                <?php
+                $start = ($page - 1) * $perPage + 1;
+                $end = min($page * $perPage, $total_data);
+                ?>
+                Menampilkan <span class="font-bold text-gray-800"><?= $start ?></span> hingga <span class="font-bold text-gray-800"><?= $end ?></span> dari <span class="font-bold text-gray-800"><?= esc($total_data) ?></span> siswa
+            </div>
+            <div class="pagination-wrapper">
+                <?= $pager_links ?>
+            </div>
+        </div>
+    <?php endif; ?>
 </div>
 
 <div id="modal-edit" class="fixed inset-0 z-[60] hidden items-center justify-center">
@@ -184,7 +229,7 @@
     <div class="bg-white rounded-3xl shadow-2xl z-10 w-full max-w-lg p-8 mx-4">
         <div class="flex justify-between items-center mb-6">
             <h3 class="text-xl font-bold text-gray-800">Edit Data Siswa</h3>
-            <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600">
+            <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path d="M6 18L18 6M6 6l12 12"></path>
                 </svg>
@@ -193,19 +238,19 @@
         <form id="form-edit-action" method="POST" class="space-y-5">
             <div>
                 <label class="block text-xs font-bold text-gray-600 uppercase mb-2">NIS</label>
-                <input type="text" id="edit-nis" name="nis" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="text" id="edit-nis" name="nis" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all">
             </div>
             <div>
                 <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Nama Lengkap</label>
-                <input type="text" id="edit-nama" name="nama_lengkap" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="text" id="edit-nama" name="nama_lengkap" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all">
             </div>
             <div>
                 <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Kelas</label>
-                <input type="text" id="edit-kelas" name="kelas" required oninput="this.value = this.value.toUpperCase()" class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="text" id="edit-kelas" name="kelas" required oninput="this.value = this.value.toUpperCase()" class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all">
             </div>
             <div class="flex justify-end gap-3 pt-4">
-                <button type="button" onclick="closeEditModal()" class="px-5 py-2.5 text-sm font-semibold text-gray-500">Batal</button>
-                <button type="submit" class="bg-blue-600 text-white px-8 py-2.5 rounded-xl text-sm font-semibold shadow-lg hover:bg-blue-700 transition-all">Simpan Perubahan</button>
+                <button type="button" onclick="closeEditModal()" class="px-5 py-2.5 text-sm font-semibold text-gray-500 hover:text-gray-800 transition-colors">Batal</button>
+                <button type="submit" class="bg-blue-600 text-white px-8 py-2.5 rounded-xl text-sm font-semibold shadow-lg hover:bg-blue-700 transition-all btn-submit">Simpan Perubahan</button>
             </div>
         </form>
     </div>
@@ -216,13 +261,13 @@
     <div class="bg-white rounded-3xl shadow-2xl z-10 w-full max-w-md p-8 mx-4">
         <div class="flex justify-between items-center mb-6">
             <h3 class="text-xl font-bold text-gray-800">Import Data Siswa</h3>
-            <button onclick="closeImportModal()" class="text-gray-400 hover:text-gray-600">
+            <button onclick="closeImportModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path d="M6 18L18 6M6 6l12 12"></path>
                 </svg>
             </button>
         </div>
-        <form action="/admin/siswa/import" method="POST" enctype="multipart/form-data" class="space-y-6">
+        <form action="/admin/siswa/import" method="POST" enctype="multipart/form-data" id="formImport" class="space-y-6">
             <div class="p-6 border-2 border-dashed border-slate-300 rounded-2xl text-center bg-slate-50 hover:bg-slate-100 transition-colors">
                 <input type="file" name="file_excel" id="file_excel" class="hidden" required accept=".xlsx">
                 <label for="file_excel" class="cursor-pointer block w-full h-full">
@@ -239,7 +284,7 @@
                 </p>
                 <a href="/admin/siswa/download_template" class="block text-center text-amber-900 font-bold text-xs mt-2 underline hover:text-amber-700">Unduh Template Excel</a>
             </div>
-            <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all">Mulai Import Data</button>
+            <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all btn-submit">Mulai Import Data</button>
         </form>
     </div>
 </div>
@@ -258,8 +303,8 @@
         document.getElementById('form-tambah').classList.toggle('hidden');
     }
 
-    // Modal Edit Logic (Menghindari CSS Conflict Tailwind)
     function openEditModal(data) {
+        // Data sudah aman dari XSS karena htmlspecialchars pada saat json_encode
         document.getElementById('edit-nis').value = data.nis;
         document.getElementById('edit-nama').value = data.nama_lengkap;
         document.getElementById('edit-kelas').value = data.kelas;
@@ -278,7 +323,6 @@
         document.body.classList.remove('modal-active');
     }
 
-    // Modal Import Logic
     function openImportModal() {
         const modal = document.getElementById('modal-import');
         modal.classList.remove('hidden');
@@ -291,6 +335,14 @@
         modal.classList.add('hidden');
         modal.classList.remove('flex');
         document.body.classList.remove('modal-active');
+        document.getElementById('file_excel').value = ''; // Reset input file
+        document.getElementById('file-name-preview').textContent = "Belum ada file dipilih";
     }
+
+    $(document).ready(function() {
+        $('#formSiswa, #form-edit-action, #formImport').on('submit', function() {
+            $(this).find('.btn-submit').addClass('btn-loading');
+        });
+    });
 </script>
 <?= $this->endSection() ?>
