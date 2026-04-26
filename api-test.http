@@ -1,0 +1,107 @@
+### =========================================================================
+
+
+### PENGUJIAN API: FORMAT FORM-URLENCODED
+
+
+### =========================================================================
+@baseUrl = http://smkn1tgb.local/api/v1
+@form = application/x-www-form-urlencoded
+@json = application/json
+
+
+### -------------------------------------------------------------------------
+
+
+### 1. LOGIN SISWA (Mendapatkan Token & Mengikat Device ID)
+
+
+### -------------------------------------------------------------------------
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: {{form}}
+Accept: {{json}}
+
+nis=2026123001&device_id=ANDROID-ID-88X99Y00Z&fcm_token=token-dummy-123
+
+
+### -------------------------------------------------------------------------
+
+
+### SIMPAN TOKEN OTOMATIS (Jangan dihapus)
+
+
+### -------------------------------------------------------------------------
+@token = {{login.response.body.data.token}}
+
+
+### =========================================================================
+
+
+### -------------------------------------------------------------------------
+
+
+### 2. ABSEN MASUK (Berhasil / Tepat Waktu)
+
+
+### -------------------------------------------------------------------------
+POST {{baseUrl}}/absen/masuk
+Content-Type: {{form}}
+Accept: {{json}}
+Authorization: Bearer {{token}}
+
+latitude=-6.914744&longitude=107.609810&is_mock=false&foto_selfie=base64_dummy
+
+
+### =========================================================================
+
+
+### -------------------------------------------------------------------------
+
+
+### 3. ABSEN MASUK (Gagal - Di Luar Geofence)
+
+
+### -------------------------------------------------------------------------
+POST {{baseUrl}}/absen/masuk
+Content-Type: {{form}}
+Accept: {{json}}
+Authorization: Bearer {{token}}
+
+latitude=-6.920000&longitude=107.610000&is_mock=false&foto_selfie=base64_dummy
+
+
+### =========================================================================
+
+
+### -------------------------------------------------------------------------
+
+
+### 4. ABSEN MASUK (Terdeteksi Fake GPS)
+
+
+### -------------------------------------------------------------------------
+POST {{baseUrl}}/absen/masuk
+Content-Type: {{form}}
+Accept: {{json}}
+Authorization: Bearer {{token}}
+
+latitude=-6.914744&longitude=107.609810&is_mock=true&foto_selfie=base64_dummy
+
+
+### =========================================================================
+
+
+### -------------------------------------------------------------------------
+
+
+### 5. ABSEN PULANG
+
+
+### -------------------------------------------------------------------------
+POST {{baseUrl}}/absen/pulang
+Content-Type: {{form}}
+Accept: {{json}}
+Authorization: Bearer {{token}}
+
+latitude=-6.914744&longitude=107.609810&is_mock=false
