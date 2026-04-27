@@ -2,7 +2,7 @@
 
 <?= $this->section('content') ?>
 <style>
-    /* Pagination Styling */
+    /* Pagination Styling - FIXED */
     .pagination {
         display: flex;
         flex-wrap: wrap;
@@ -13,39 +13,52 @@
     }
 
     .pagination li a,
-    .pagination li span {
-        display: block;
-        padding: 0.5rem 0.85rem;
+    .pagination li.active span,
+    .pagination li.disabled span {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 38px;
+        min-width: 38px;
+        padding: 0 0.75rem;
         font-size: 0.875rem;
+        font-weight: 500;
         border-radius: 0.5rem;
         border: 1px solid #e5e7eb;
-        background: #fff;
+        background-color: #fff;
         color: #4b5563;
         text-decoration: none;
-        transition: all 0.2s;
+        transition: all 0.2s ease-in-out;
+    }
+
+    /* Kunci Perbaikannya: Hilangkan style kotak ganda untuk span di dalam tag 'a' */
+    .pagination li a span {
+        display: inline;
+        padding: 0;
+        border: none;
+        background: transparent;
+        color: inherit;
     }
 
     .pagination li a:hover {
-        background-color: #f3f4f6;
-        color: #1f2937;
-        border-color: #d1d5db;
+        background-color: #f8fafc;
+        color: #1e293b;
+        border-color: #cbd5e1;
     }
 
-    .pagination li.active a,
     .pagination li.active span {
-        background: #2563eb;
-        color: #fff;
+        background-color: #2563eb;
+        color: #ffffff;
         border-color: #2563eb;
         font-weight: 700;
-        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
     }
 
-    .pagination li.disabled a,
     .pagination li.disabled span {
-        color: #9ca3af;
-        background-color: #f9fafb;
+        color: #94a3b8;
+        background-color: #f1f5f9;
         cursor: not-allowed;
-        opacity: 0.7;
+        border-color: #e2e8f0;
     }
 
     /* Modal Center Logic */
@@ -174,8 +187,8 @@
                             </div>
                         </td>
                         <td class="px-6 py-4 text-right">
-                            <div class="flex justify-end gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                                <button onclick="openEditModal(<?= htmlspecialchars(json_encode($s), ENT_QUOTES, 'UTF-8') ?>)" class="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 rounded-lg transition-colors">
+                            <div class="flex justify-end gap-2">
+                                <button onclick="openEditModal(<?= htmlspecialchars(json_encode($s), ENT_QUOTES, 'UTF-8') ?>)" class="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 rounded-lg transition-colors" title="Edit Data Siswa">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                     </svg>
@@ -183,7 +196,7 @@
 
                                 <?php if ($s->device_id): ?>
                                     <form action="/admin/siswa/reset_device/<?= esc($s->id) ?>" method="POST" class="inline">
-                                        <button type="submit" class="btn-confirm p-2 text-amber-600 bg-amber-50 hover:bg-amber-100 border border-amber-100 rounded-lg transition-colors" data-text="Akses login akan diatur ulang untuk perangkat baru.">
+                                        <button type="submit" class="btn-confirm p-2 text-amber-600 bg-amber-50 hover:bg-amber-100 border border-amber-100 rounded-lg transition-colors" data-text="Akses login akan diatur ulang untuk perangkat baru." title="Reset Pengikatan HP">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
                                             </svg>
@@ -193,7 +206,7 @@
 
                                 <?php if ($s->is_blocked): ?>
                                     <form action="/admin/siswa/unblock/<?= esc($s->id) ?>" method="POST" class="inline">
-                                        <button type="submit" class="btn-confirm p-2 text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 rounded-lg transition-colors" data-text="Siswa akan diizinkan kembali untuk melakukan absensi.">
+                                        <button type="submit" class="btn-confirm p-2 text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 rounded-lg transition-colors" data-text="Siswa akan diizinkan kembali untuk melakukan absensi." title="Buka Blokir Akun">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
                                             </svg>
@@ -304,7 +317,6 @@
     }
 
     function openEditModal(data) {
-        // Data sudah aman dari XSS karena htmlspecialchars pada saat json_encode
         document.getElementById('edit-nis').value = data.nis;
         document.getElementById('edit-nama').value = data.nama_lengkap;
         document.getElementById('edit-kelas').value = data.kelas;

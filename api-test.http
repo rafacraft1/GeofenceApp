@@ -8,6 +8,7 @@
 @baseUrl = http://smkn1tgb.local/api/v1
 @form = application/x-www-form-urlencoded
 @json = application/json
+@foto_1x1 = iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=
 
 
 ### -------------------------------------------------------------------------
@@ -22,7 +23,7 @@ POST {{baseUrl}}/auth/login
 Content-Type: {{form}}
 Accept: {{json}}
 
-nis=2026123001&device_id=ANDROID-ID-88X99Y00Z&fcm_token=token-dummy-123
+nis=20260001&device_id=ANDROID-ID-88X99Y00Z
 
 
 ### -------------------------------------------------------------------------
@@ -50,7 +51,7 @@ Content-Type: {{form}}
 Accept: {{json}}
 Authorization: Bearer {{token}}
 
-latitude=-6.914744&longitude=107.609810&is_mock=false&foto_selfie=base64_dummy
+lat=-6.914744&long=107.609810&is_mock=false&foto={{foto_1x1}}
 
 
 ### =========================================================================
@@ -68,7 +69,7 @@ Content-Type: {{form}}
 Accept: {{json}}
 Authorization: Bearer {{token}}
 
-latitude=-6.920000&longitude=107.610000&is_mock=false&foto_selfie=base64_dummy
+lat=-6.920000&long=107.610000&is_mock=false&foto={{foto_1x1}}
 
 
 ### =========================================================================
@@ -86,7 +87,7 @@ Content-Type: {{form}}
 Accept: {{json}}
 Authorization: Bearer {{token}}
 
-latitude=-6.914744&longitude=107.609810&is_mock=true&foto_selfie=base64_dummy
+lat=-6.914744&long=107.609810&is_mock=true&foto={{foto_1x1}}
 
 
 ### =========================================================================
@@ -104,4 +105,37 @@ Content-Type: {{form}}
 Accept: {{json}}
 Authorization: Bearer {{token}}
 
-latitude=-6.914744&longitude=107.609810&is_mock=false
+lat=-6.914744&long=107.609810&is_mock=false&foto={{foto_1x1}}
+
+
+### =========================================================================
+
+
+### -------------------------------------------------------------------------
+
+
+### 6. RIWAYAT ABSENSI
+
+
+### -------------------------------------------------------------------------
+GET {{baseUrl}}/absen/riwayat
+Accept: {{json}}
+Authorization: Bearer {{token}}
+
+
+### =========================================================================
+
+
+### -------------------------------------------------------------------------
+
+
+### 7. TRACKING LOKASI BACKGROUND
+
+
+### -------------------------------------------------------------------------
+POST {{baseUrl}}/tracking/update_lokasi
+Content-Type: {{form}}
+Accept: {{json}}
+Authorization: Bearer {{token}}
+
+lat=-6.914744&long=107.609810

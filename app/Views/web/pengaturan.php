@@ -15,49 +15,51 @@
             <div class="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl">
                 <div>
                     <label class="text-[10px] font-bold text-gray-400 uppercase">Latitude</label>
-                    <input type="text" id="lat" name="lat" value="<?= $config->sekolah_lat ?>" class="w-full bg-transparent font-bold text-sm text-gray-800 outline-none" readonly>
+                    <input type="text" id="lat" name="lat" value="<?= esc($config->latitude_sekolah) ?>" class="w-full bg-transparent font-bold text-sm text-gray-800 outline-none" readonly>
                 </div>
                 <div>
                     <label class="text-[10px] font-bold text-gray-400 uppercase">Longitude</label>
-                    <input type="text" id="long" name="long" value="<?= $config->sekolah_long ?>" class="w-full bg-transparent font-bold text-sm text-gray-800 outline-none" readonly>
+                    <input type="text" id="long" name="long" value="<?= esc($config->longitude_sekolah) ?>" class="w-full bg-transparent font-bold text-sm text-gray-800 outline-none" readonly>
                 </div>
             </div>
 
-            <div class="space-y-4">
+            <div>
+                <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Radius Diizinkan (Meter)</label>
+                <div class="flex items-center gap-3">
+                    <input type="range" id="radius-slider" min="10" max="500" step="5" value="<?= esc($config->radius_meter) ?>" class="flex-1 accent-blue-600">
+                    <input type="number" id="radius" name="radius" value="<?= esc($config->radius_meter) ?>" class="w-20 border border-gray-200 rounded-lg p-2 text-center text-sm font-bold text-blue-600 outline-none focus:border-blue-500 transition-colors">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-5 pt-4 border-t border-gray-100">
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Radius Jangkauan (Meter)</label>
-                    <div class="relative">
-                        <input type="number" id="radius" name="radius" value="<?= $config->radius_meter ?>" class="w-full border-gray-200 rounded-xl p-3 pl-10 text-sm focus:ring-2 focus:ring-blue-500 transition-all outline-none">
-                        <svg class="w-5 h-5 absolute left-3 top-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
-                        </svg>
-                    </div>
+                    <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Jam Masuk</label>
+                    <input type="time" name="jam_masuk" value="<?= esc($config->jam_masuk) ?>" class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer">
                 </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-600 mb-2">Jam Masuk</label>
-                        <input type="time" name="jam_masuk" value="<?= $config->jam_masuk ?>" class="w-full border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-600 mb-2 text-right">Jam Pulang</label>
-                        <input type="time" name="jam_pulang" value="<?= $config->jam_pulang ?>" class="w-full border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-                    </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Jam Pulang</label>
+                    <input type="time" name="jam_pulang" value="<?= esc($config->jam_pulang) ?>" class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer">
                 </div>
             </div>
 
-            <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-blue-700 transition shadow btn-submit">Simpan Perubahan</button>
+            <div class="pt-4">
+                <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 active:scale-95 transition-all btn-submit">Simpan Pengaturan</button>
+            </div>
         </form>
     </div>
 </div>
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         let latInput = document.getElementById('lat');
         let lngInput = document.getElementById('long');
         let radiusInput = document.getElementById('radius');
+        let radiusSlider = document.getElementById('radius-slider');
 
         let center = [latInput.value, lngInput.value];
         let map = L.map('map').setView(center, 17);
@@ -76,6 +78,7 @@
         let marker = L.marker(center, {
             icon: schoolIcon
         }).addTo(map);
+
         let circle = L.circle(center, {
             color: '#2563eb',
             fillColor: '#3b82f6',
@@ -93,7 +96,20 @@
             lngInput.value = lng.toFixed(8);
         });
 
-        radiusInput.addEventListener('input', (e) => circle.setRadius(e.target.value));
+        function updateRadius(val) {
+            circle.setRadius(val);
+            radiusInput.value = val;
+            radiusSlider.value = val;
+            map.fitBounds(circle.getBounds());
+        }
+
+        radiusSlider.addEventListener('input', function(e) {
+            updateRadius(e.target.value);
+        });
+
+        radiusInput.addEventListener('change', function(e) {
+            updateRadius(e.target.value);
+        });
 
         $('#formPengaturan').on('submit', function() {
             $(this).find('.btn-submit').addClass('btn-loading');
