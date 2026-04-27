@@ -9,11 +9,16 @@ class TrackingApi extends ResourceController
 {
     public function update_lokasi()
     {
-        $token = str_replace('Bearer ', '', $this->request->getHeaderLine('Authorization'));
-        $db = \Config\Database::connect();
-        $siswa = $db->table('siswa')->where('device_id', $token)->get()->getRow();
+        $authHeader = $this->request->getHeaderLine('Authorization');
+        $token = str_replace('Bearer ', '', $authHeader);
 
-        if (!$siswa || $siswa->is_blocked == 1) return $this->failUnauthorized();
+        $db = \Config\Database::connect();
+        // INTEGRASI POIN 2: Cek berdasarkan api_token
+        $siswa = $db->table('siswa')->where('api_token', $token)->get()->getRow();
+
+        if (!$siswa || $siswa->is_blocked == 1) {
+            return $this->failUnauthorized('Sesi tidak valid.');
+        }
 
         $db->table('riwayat_lokasi')->insert([
             'siswa_id'    => $siswa->id,

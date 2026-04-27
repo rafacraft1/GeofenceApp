@@ -20,12 +20,13 @@ class Pengaturan extends Controller
     {
         $db = \Config\Database::connect();
         $updateData = [
-            'sekolah_lat'     => $this->request->getPost('lat'),
-            'sekolah_long'    => $this->request->getPost('long'),
-            'radius_meter'    => $this->request->getPost('radius'),
-            'jam_masuk'       => $this->request->getPost('jam_masuk'),
-            'jam_pulang'      => $this->request->getPost('jam_pulang'),
-            'updated_at'      => date('Y-m-d H:i:s')
+            // Ubah menjadi latitude_sekolah dan longitude_sekolah
+            'latitude_sekolah'  => $this->request->getPost('lat'),
+            'longitude_sekolah' => $this->request->getPost('long'),
+            'radius_meter'      => $this->request->getPost('radius'),
+            'jam_masuk'         => $this->request->getPost('jam_masuk'),
+            'jam_pulang'        => $this->request->getPost('jam_pulang'),
+            'updated_at'        => date('Y-m-d H:i:s')
         ];
 
         // Toleransi menit tidak lagi diupdate/disimpan

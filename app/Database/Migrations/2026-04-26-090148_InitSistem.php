@@ -27,14 +27,13 @@ class InitSistem extends Migration
         // 2. TABEL PENGATURAN (Geofence & Waktu)
         // ========================================================================
         $this->forge->addField([
-            'id'              => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
-            'sekolah_lat'     => ['type' => 'DECIMAL', 'constraint' => '10,8'],
-            'sekolah_long'    => ['type' => 'DECIMAL', 'constraint' => '11,8'],
-            'radius_meter'    => ['type' => 'INT', 'constraint' => 11],
-            'jam_masuk'       => ['type' => 'TIME'],
-            'jam_pulang'      => ['type' => 'TIME'],
-            // Catatan: toleransi_menit telah dihapus sesuai SOP baru
-            'updated_at'      => ['type' => 'DATETIME', 'null' => true],
+            'id'               => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
+            'latitude_sekolah' => ['type' => 'DECIMAL', 'constraint' => '10,8'],
+            'longitude_sekolah' => ['type' => 'DECIMAL', 'constraint' => '11,8'],
+            'radius_meter'     => ['type' => 'INT', 'constraint' => 11, 'default' => 50],
+            'jam_masuk'        => ['type' => 'TIME'],
+            'jam_pulang'       => ['type' => 'TIME'],
+            'updated_at'       => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id', true);
         $this->forge->createTable('pengaturan');
@@ -49,7 +48,13 @@ class InitSistem extends Migration
             'kelas'        => ['type' => 'VARCHAR', 'constraint' => 50],
             'device_id'    => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
             'fraud_count'  => ['type' => 'INT', 'constraint' => 11, 'default' => 0],
-            'is_blocked'   => ['type' => 'BOOLEAN', 'default' => 0],
+            'is_blocked'   => ['type' => 'TINYINT', 'constraint' => 1, 'default' => 0],
+
+            // --- PENAMBAHAN KEAMANAN API ---
+            'api_token'    => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
+            'last_login'   => ['type' => 'DATETIME', 'null' => true],
+            // -------------------------------
+
             'created_at'   => ['type' => 'DATETIME', 'null' => true],
             'updated_at'   => ['type' => 'DATETIME', 'null' => true],
         ]);
@@ -68,7 +73,7 @@ class InitSistem extends Migration
         $this->forge->createTable('hari_libur');
 
         // ========================================================================
-        // 5. TABEL ABSENSI (Tergantung pada Siswa)
+        // 5. TABEL ABSENSI
         // ========================================================================
         $this->forge->addField([
             'id'           => ['type' => 'BIGINT', 'constraint' => 20, 'unsigned' => true, 'auto_increment' => true],
@@ -76,13 +81,12 @@ class InitSistem extends Migration
             'tanggal'      => ['type' => 'DATE'],
             'waktu_masuk'  => ['type' => 'TIME', 'null' => true],
             'waktu_pulang' => ['type' => 'TIME', 'null' => true],
-            'lat_masuk'    => ['type' => 'DECIMAL', 'constraint' => '10,8', 'null' => true],
-            'long_masuk'   => ['type' => 'DECIMAL', 'constraint' => '11,8', 'null' => true],
-            'jarak_masuk'  => ['type' => 'INT', 'constraint' => 11, 'null' => true],
+            'status'       => ['type' => 'ENUM', 'constraint' => ['Hadir', 'Terlambat', 'Izin', 'Sakit', 'Alpa', 'Manipulasi'], 'default' => 'Hadir'],
             'menit_telat'  => ['type' => 'INT', 'constraint' => 11, 'default' => 0],
-            'status'       => ['type' => 'ENUM', 'constraint' => ['Hadir', 'Terlambat', 'Sakit', 'Izin', 'Alpa', 'Manipulasi']],
-            'is_fake_gps'  => ['type' => 'BOOLEAN', 'default' => 0],
-            'keterangan'   => ['type' => 'TEXT', 'null' => true],
+            'foto_masuk'   => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
+            'foto_pulang'  => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
+            'keterangan'   => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
+            'is_fake_gps'  => ['type' => 'TINYINT', 'constraint' => 1, 'default' => 0],
             'created_at'   => ['type' => 'DATETIME', 'null' => true],
             'updated_at'   => ['type' => 'DATETIME', 'null' => true],
         ]);

@@ -19,11 +19,11 @@ class InitDataSeeder extends Seeder
 
         // 2. Data Pengaturan Default
         $this->db->table('pengaturan')->insert([
-            'sekolah_lat'     => -6.20000000,
-            'sekolah_long'    => 106.81666600,
+            'latitude_sekolah'     => -6.20000000,
+            'longitude_sekolah'    => 106.81666600,
             'radius_meter'    => 50,
-            'jam_masuk'       => '07:00:00',
-            'jam_pulang'      => '15:00:00',
+            'jam_masuk'       => '06:30:00',
+            'jam_pulang'      => '14:00:00',
             'updated_at'      => date('Y-m-d H:i:s')
         ]);
     }
