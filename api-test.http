@@ -133,9 +133,9 @@ Authorization: Bearer {{token}}
 
 
 ### -------------------------------------------------------------------------
-POST {{baseUrl}}/tracking/update_lokasi
+POST {{baseUrl}}/tracking/update
 Content-Type: {{form}}
 Accept: {{json}}
 Authorization: Bearer {{token}}
 
-lat=-6.914744&long=107.609810
+lat=-6.994754&long=107.609810

@@ -9,7 +9,8 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class Siswa extends Controller
 {
-    protected $db;
+    // 1. Tipe data $db sudah dideklarasikan secara spesifik
+    protected \CodeIgniter\Database\BaseConnection $db;
 
     public function __construct()
     {
@@ -20,7 +21,7 @@ class Siswa extends Controller
     {
         $kelas_filter = $this->request->getGet('kelas');
 
-        // 1. Ambil list kelas untuk Dropdown Filter
+        // Ambil list kelas untuk Dropdown Filter
         $list_kelas = $this->db->table('siswa')
             ->select('kelas')
             ->groupBy('kelas')
@@ -28,37 +29,35 @@ class Siswa extends Controller
             ->get()
             ->getResult();
 
-        // 2. Konfigurasi Pagination
+        // Konfigurasi Pagination
         $pager   = \Config\Services::pager();
         $page    = (int) ($this->request->getGet('page') ?? 1);
         $perPage = 10;
 
-        // 3. Susun Query Builder
+        // Susun Query Builder
         $builder = $this->db->table('siswa');
         if (!empty($kelas_filter)) {
             $builder->where('kelas', $kelas_filter);
         }
 
-        // 4. Hitung Total Data
+        // Hitung Total Data
         $total_data = $builder->countAllResults(false);
 
-        // 5. Ambil Data dengan Limit & Offset
+        // Ambil Data dengan Limit & Offset
         $offset = ($page - 1) * $perPage;
         $siswa = $builder->orderBy('kelas', 'ASC')
             ->orderBy('nama_lengkap', 'ASC')
-            ->limit($perPage, $offset)
-            ->get()
-            ->getResult();
+            ->get($perPage, $offset)->getResult();
 
         $data = [
-            'title'       => 'Manajemen Siswa',
+            'title'       => 'Daftar Siswa',
             'siswa'       => $siswa,
             'list_kelas'  => $list_kelas,
             'kelas_aktif' => $kelas_filter,
             'pager_links' => $pager->makeLinks($page, $perPage, $total_data, 'default_full'),
-            'total_data'  => $total_data,
             'page'        => $page,
-            'perPage'     => $perPage
+            'perPage'     => $perPage,
+            'total_data'  => $total_data
         ];
 
         return view('web/siswa', $data);
@@ -66,145 +65,96 @@ class Siswa extends Controller
 
     public function store()
     {
-        $nis = $this->request->getPost('nis');
-
-        $cek = $this->db->table('siswa')->where('nis', $nis)->countAllResults();
-        if ($cek > 0) {
-            return redirect()->back()->with('error', 'Gagal! NIS ' . $nis . ' sudah terdaftar.');
-        }
-
         $this->db->table('siswa')->insert([
-            'nis'          => $nis,
+            'nis'          => $this->request->getPost('nis'),
             'nama_lengkap' => $this->request->getPost('nama_lengkap'),
-            'kelas'        => strtoupper($this->request->getPost('kelas')), // Pastikan uppercase di backend juga
+            'kelas'        => strtoupper($this->request->getPost('kelas')),
             'created_at'   => date('Y-m-d H:i:s')
         ]);
-
         return redirect()->to('/admin/siswa')->with('success', 'Data siswa berhasil ditambahkan.');
     }
 
-    public function update($id)
+    // 2. Menambahkan 'string' pada parameter $id
+    public function update(string $id)
     {
-        $nis = $this->request->getPost('nis');
-
-        // Cek jika NIS diubah ke NIS yang sudah milik orang lain
-        $cek = $this->db->table('siswa')->where('nis', $nis)->where('id !=', $id)->countAllResults();
-        if ($cek > 0) {
-            return redirect()->back()->with('error', 'Gagal! NIS tersebut sudah digunakan siswa lain.');
-        }
-
         $this->db->table('siswa')->where('id', $id)->update([
-            'nis'          => $nis,
+            'nis'          => $this->request->getPost('nis'),
             'nama_lengkap' => $this->request->getPost('nama_lengkap'),
             'kelas'        => strtoupper($this->request->getPost('kelas')),
-            'updated_at'   => date('Y-m-d H:i:s')
         ]);
-
         return redirect()->to('/admin/siswa')->with('success', 'Data siswa berhasil diperbarui.');
     }
 
-    public function reset_device($id)
+    // 3. Menambahkan 'string' pada parameter $id
+    public function reset_device(string $id)
     {
-        $this->db->table('siswa')->where('id', $id)->update(['device_id' => null]);
-        return redirect()->back()->with('success', 'Device ID berhasil direset.');
+        $this->db->table('siswa')->where('id', $id)->update([
+            'device_id' => null,
+            'api_token' => null
+        ]);
+        return redirect()->to('/admin/siswa')->with('success', 'Perangkat berhasil di-reset.');
     }
 
-    public function unblock($id)
+    // 4. Menambahkan 'string' pada parameter $id
+    public function unblock(string $id)
     {
-        $this->db->table('siswa')->where('id', $id)->update(['is_blocked' => 0, 'fraud_count' => 0]);
-        return redirect()->back()->with('success', 'Status blokir dibuka & Fraud Count direset.');
+        $this->db->table('siswa')->where('id', $id)->update([
+            'is_blocked'  => 0,
+            'fraud_count' => 0
+        ]);
+        return redirect()->to('/admin/siswa')->with('success', 'Akun siswa berhasil di-unblock.');
     }
 
-    // --- FITUR EXPORT EXCEL ---
-    public function export()
-    {
-        $kelas_filter = $this->request->getGet('kelas');
-
-        $builder = $this->db->table('siswa');
-        if (!empty($kelas_filter)) {
-            $builder->where('kelas', $kelas_filter);
-        }
-        $siswa = $builder->orderBy('kelas', 'ASC')->orderBy('nama_lengkap', 'ASC')->get()->getResult();
-
-        $spreadsheet = new Spreadsheet();
-        $sheet = $spreadsheet->getActiveSheet();
-
-        $styleHeader = [
-            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
-            'fill' => [
-                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
-                'startColor' => ['rgb' => '2563EB']
-            ],
-            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
-            'borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN]]
-        ];
-
-        $sheet->setCellValue('A1', 'DAFTAR SISWA SMKN 1 TGB');
-        $sheet->mergeCells('A1:D1');
-        $sheet->getStyle('A1')->getFont()->setSize(16)->setBold(true);
-        $sheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-
-        $sheet->setCellValue('A2', 'Tanggal Ekspor: ' . date('d-m-Y H:i'));
-        $sheet->mergeCells('A2:D2');
-
-        $sheet->setCellValue('A4', 'NO');
-        $sheet->setCellValue('B4', 'NIS');
-        $sheet->setCellValue('C4', 'NAMA LENGKAP');
-        $sheet->setCellValue('D4', 'KELAS');
-
-        $sheet->getStyle('A4:D4')->applyFromArray($styleHeader);
-
-        $row = 5;
-        $no = 1;
-        foreach ($siswa as $s) {
-            $sheet->setCellValue('A' . $row, $no++);
-            $sheet->setCellValueExplicit('B' . $row, $s->nis, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
-            $sheet->setCellValue('C' . $row, $s->nama_lengkap);
-            $sheet->setCellValue('D' . $row, $s->kelas);
-
-            $sheet->getStyle('A' . $row . ':D' . $row)->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
-            $row++;
-        }
-
-        foreach (range('A', 'D') as $col) {
-            $sheet->getColumnDimension($col)->setAutoSize(true);
-        }
-
-        $filename = 'Data_Siswa_' . ($kelas_filter ?: 'Semua') . '_' . date('Ymd_His') . '.xlsx';
-
-        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        header('Content-Disposition: attachment;filename="' . $filename . '"');
-        header('Cache-Control: max-age=0');
-
-        $writer = new Xlsx($spreadsheet);
-        $writer->save('php://output');
-        exit;
-    }
-
-    // --- FITUR IMPORT EXCEL ---
     public function download_template()
     {
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
 
-        $sheet->setCellValue('A1', 'TEMPLATE IMPORT SISWA');
-        $sheet->setCellValue('A2', 'Catatan: Jangan mengubah urutan kolom. Mulai isi data dari baris ke-4.');
-
-        $sheet->setCellValue('A4', 'NIS');
-        $sheet->setCellValue('B4', 'NAMA LENGKAP');
-        $sheet->setCellValue('C4', 'KELAS');
-
-        $sheet->getStyle('A4:C4')->getFont()->setBold(true);
-        foreach (range('A', 'C') as $col) {
-            $sheet->getColumnDimension($col)->setAutoSize(true);
-        }
-
-        $filename = 'Template_Import_Siswa.xlsx';
-        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        header('Content-Disposition: attachment;filename="' . $filename . '"');
-        header('Cache-Control: max-age=0');
+        $sheet->setCellValue('A1', 'TEMPLATE IMPORT DATA SISWA');
+        $sheet->setCellValue('A3', 'NIS');
+        $sheet->setCellValue('B3', 'NAMA LENGKAP');
+        $sheet->setCellValue('C3', 'KELAS');
 
         $writer = new Xlsx($spreadsheet);
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment;filename="Template_Siswa.xlsx"');
+        header('Cache-Control: max-age=0');
+        $writer->save('php://output');
+        exit;
+    }
+
+    public function export()
+    {
+        $kelas = $this->request->getGet('kelas');
+        $builder = $this->db->table('siswa');
+
+        if (!empty($kelas)) {
+            $builder->where('kelas', $kelas);
+        }
+
+        $dataSiswa = $builder->orderBy('kelas', 'ASC')->orderBy('nama_lengkap', 'ASC')->get()->getResultArray();
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $sheet->setCellValue('A1', 'No');
+        $sheet->setCellValue('B1', 'NIS');
+        $sheet->setCellValue('C1', 'Nama Lengkap');
+        $sheet->setCellValue('D1', 'Kelas');
+
+        $row = 2;
+        foreach ($dataSiswa as $index => $siswa) {
+            $sheet->setCellValue('A' . $row, $index + 1);
+            $sheet->setCellValue('B' . $row, $siswa['nis']);
+            $sheet->setCellValue('C' . $row, $siswa['nama_lengkap']);
+            $sheet->setCellValue('D' . $row, $siswa['kelas']);
+            $row++;
+        }
+
+        $writer = new Xlsx($spreadsheet);
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment;filename="Data_Siswa.xlsx"');
+        header('Cache-Control: max-age=0');
         $writer->save('php://output');
         exit;
     }
@@ -247,6 +197,6 @@ class Siswa extends Controller
             $inserted++;
         }
 
-        return redirect()->to('/admin/siswa')->with('success', "$inserted data berhasil diimport. ($skipped dilewati karena duplikat).");
+        return redirect()->to('/admin/siswa')->with('success', "Berhasil import $inserted data baru. $skipped data dilewati (NIS duplikat).");
     }
 }

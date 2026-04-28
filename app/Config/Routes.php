@@ -31,6 +31,9 @@ $routes->group('admin', ['filter' => 'webAuth', 'namespace' => 'App\Controllers\
 
     $routes->get('absensi', 'Absensi::index');
     $routes->post('absensi/input_manual', 'Absensi::input_manual');
+
+    $routes->get('tracking/siswa/(:num)', '\App\Controllers\Web\Tracking::index/$1');
+    $routes->get('tracking/get_location/(:num)', '\App\Controllers\Web\Tracking::get_location/$1');
 });
 
 // --- Jalur API Android ---
