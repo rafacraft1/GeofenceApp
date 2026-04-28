@@ -15,31 +15,31 @@ class ApiAuthFilter implements FilterInterface
         $token  = str_replace('Bearer ', '', $header);
 
         if (empty($token)) {
-            return Services::response()->setStatusCode(401)->setJSON([
-                'status'  => 'error',
-                'message' => 'Token otentikasi tidak ditemukan.'
-            ]);
+            return Services::response()
+                ->setJSON(['status' => 'error', 'message' => 'Token otorisasi tidak ditemukan.'])
+                ->setStatusCode(401);
         }
 
-        // Dekode Token (Simulasi validasi ke DB via device_id / token untuk tahap MVP)
         $db = \Config\Database::connect();
-        $siswa = $db->table('siswa')->where('device_id', $token)->get()->getRow();
+
+        // --- PERBAIKAN: CEK BERDASARKAN api_token, BUKAN device_id ---
+        $siswa = $db->table('siswa')->where('api_token', $token)->get()->getRow();
 
         if (!$siswa) {
-            return Services::response()->setStatusCode(401)->setJSON([
-                'status'  => 'error',
-                'message' => 'Token tidak valid atau perangkat tidak dikenali.'
-            ]);
+            return Services::response()
+                ->setJSON(['status' => 'error', 'message' => 'Token tidak valid atau sesi berakhir.'])
+                ->setStatusCode(401);
         }
 
-        // Cek Status Pemblokiran (3 Strikes Rule)
         if ($siswa->is_blocked == 1) {
-            return Services::response()->setStatusCode(403)->setJSON([
-                'status'  => 'error',
-                'message' => 'Akun diblokir karena terdeteksi manipulasi (Fake GPS). Hubungi Admin.'
-            ]);
+            return Services::response()
+                ->setJSON(['status' => 'error', 'message' => 'Akun diblokir karena pelanggaran.'])
+                ->setStatusCode(403);
         }
     }
 
-    public function after(RequestInterface $request, ResponseInterface $response, $arguments = null) {}
+    public function after(RequestInterface $request, ResponseInterface $response, $arguments = null)
+    {
+        // Kosongkan saja untuk proses after
+    }
 }
