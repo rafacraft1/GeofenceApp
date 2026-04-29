@@ -18,10 +18,23 @@ class Dashboard extends Controller
             'total_siswa'    => $db->table('siswa')->countAllResults(),
             'hadir_hari_ini' => $db->table('absensi')->where('tanggal', $hari_ini)->whereIn('status', ['Hadir', 'Terlambat'])->countAllResults(),
             'alpa_hari_ini'  => $db->table('absensi')->where('tanggal', $hari_ini)->where('status', 'Alpa')->countAllResults(),
-            'fraud_hari_ini' => $db->table('absensi')->where('tanggal', $hari_ini)->where('status', 'Manipulasi')->countAllResults(),
+            'fraud_hari_ini' => $db->table('absensi')->where('tanggal', $hari_ini)->groupStart()->where('status', 'Manipulasi')->orWhere('is_fake_gps', 1)->groupEnd()->countAllResults(),
         ];
 
-        // 2. Data untuk Grafik (Tren 7 Hari Terakhir)
+        // 2. Data Deteksi Manipulasi Hari Ini (Real-time DB)
+        $data['list_manipulasi'] = $db->table('absensi')
+            ->select('absensi.waktu_masuk, absensi.status, absensi.is_fake_gps, siswa.nama_lengkap, siswa.kelas, siswa.nis, siswa.foto')
+            ->join('siswa', 'siswa.id = absensi.siswa_id')
+            ->where('absensi.tanggal', $hari_ini)
+            ->groupStart()
+            ->where('absensi.status', 'Manipulasi')
+            ->orWhere('absensi.is_fake_gps', 1)
+            ->groupEnd()
+            ->orderBy('absensi.waktu_masuk', 'DESC')
+            ->get()
+            ->getResult();
+
+        // 3. Data untuk Grafik (Tren 7 Hari Terakhir)
         $grafik_labels = [];
         $grafik_hadir = [];
         $grafik_terlambat = [];
