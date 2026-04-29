@@ -27,13 +27,18 @@ class InitSistem extends Migration
         // 2. TABEL PENGATURAN (Geofence & Waktu)
         // ========================================================================
         $this->forge->addField([
-            'id'               => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
-            'latitude_sekolah' => ['type' => 'DECIMAL', 'constraint' => '10,8'],
+            'id'                => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
+            'latitude_sekolah'  => ['type' => 'DECIMAL', 'constraint' => '10,8'],
             'longitude_sekolah' => ['type' => 'DECIMAL', 'constraint' => '11,8'],
-            'radius_meter'     => ['type' => 'INT', 'constraint' => 11, 'default' => 50],
-            'jam_masuk'        => ['type' => 'TIME'],
-            'jam_pulang'       => ['type' => 'TIME'],
-            'updated_at'       => ['type' => 'DATETIME', 'null' => true],
+            'radius_meter'      => ['type' => 'INT', 'constraint' => 11, 'default' => 50],
+
+            // --- PENAMBAHAN KOLOM FIREBASE ---
+            'firebase_url'      => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
+            // ---------------------------------
+
+            'jam_masuk'         => ['type' => 'TIME'],
+            'jam_pulang'        => ['type' => 'TIME'],
+            'updated_at'        => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id', true);
         $this->forge->createTable('pengaturan');
@@ -49,12 +54,8 @@ class InitSistem extends Migration
             'device_id'    => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
             'fraud_count'  => ['type' => 'INT', 'constraint' => 11, 'default' => 0],
             'is_blocked'   => ['type' => 'TINYINT', 'constraint' => 1, 'default' => 0],
-
-            // --- PENAMBAHAN KEAMANAN API ---
             'api_token'    => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
             'last_login'   => ['type' => 'DATETIME', 'null' => true],
-            // -------------------------------
-
             'created_at'   => ['type' => 'DATETIME', 'null' => true],
             'updated_at'   => ['type' => 'DATETIME', 'null' => true],
         ]);
@@ -112,7 +113,6 @@ class InitSistem extends Migration
 
     public function down()
     {
-        // Eksekusi Drop Table secara terbalik agar Foreign Key tidak bentrok
         $this->forge->dropTable('riwayat_lokasi', true);
         $this->forge->dropTable('absensi', true);
         $this->forge->dropTable('hari_libur', true);

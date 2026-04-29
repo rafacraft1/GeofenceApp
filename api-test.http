@@ -5,7 +5,7 @@
 
 
 ### =========================================================================
-@baseUrl = http://smkn1tgb.local/api/v1
+@baseUrl = http://smkn1tgb.test/api/v1
 @form = application/x-www-form-urlencoded
 @json = application/json
 @foto_1x1 = iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=
@@ -51,7 +51,7 @@ Content-Type: {{form}}
 Accept: {{json}}
 Authorization: Bearer {{token}}
 
-lat=-6.914744&long=107.609810&is_mock=false&foto={{foto_1x1}}
+lat=-6.20000000&long=106.81666600&is_mock=false&foto={{foto_1x1}}
 
 
 ### =========================================================================
@@ -69,7 +69,7 @@ Content-Type: {{form}}
 Accept: {{json}}
 Authorization: Bearer {{token}}
 
-lat=-6.920000&long=107.610000&is_mock=false&foto={{foto_1x1}}
+lat=-9.20000000&long=106.81666600&is_mock=false&foto={{foto_1x1}}
 
 
 ### =========================================================================
@@ -87,7 +87,7 @@ Content-Type: {{form}}
 Accept: {{json}}
 Authorization: Bearer {{token}}
 
-lat=-6.914744&long=107.609810&is_mock=true&foto={{foto_1x1}}
+lat=-6.20000000&long=106.81666600&is_mock=true&foto={{foto_1x1}}
 
 
 ### =========================================================================
