@@ -31,11 +31,7 @@ class InitSistem extends Migration
             'latitude_sekolah'  => ['type' => 'DECIMAL', 'constraint' => '10,8'],
             'longitude_sekolah' => ['type' => 'DECIMAL', 'constraint' => '11,8'],
             'radius_meter'      => ['type' => 'INT', 'constraint' => 11, 'default' => 50],
-
-            // --- PENAMBAHAN KOLOM FIREBASE ---
             'firebase_url'      => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
-            // ---------------------------------
-
             'jam_masuk'         => ['type' => 'TIME'],
             'jam_pulang'        => ['type' => 'TIME'],
             'updated_at'        => ['type' => 'DATETIME', 'null' => true],
@@ -51,6 +47,7 @@ class InitSistem extends Migration
             'nis'          => ['type' => 'VARCHAR', 'constraint' => 20, 'unique' => true],
             'nama_lengkap' => ['type' => 'VARCHAR', 'constraint' => 100],
             'kelas'        => ['type' => 'VARCHAR', 'constraint' => 50],
+            'foto'         => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
             'device_id'    => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
             'fraud_count'  => ['type' => 'INT', 'constraint' => 11, 'default' => 0],
             'is_blocked'   => ['type' => 'TINYINT', 'constraint' => 1, 'default' => 0],
@@ -109,15 +106,31 @@ class InitSistem extends Migration
         $this->forge->addKey('id', true);
         $this->forge->addForeignKey('siswa_id', 'siswa', 'id', 'CASCADE', 'CASCADE');
         $this->forge->createTable('riwayat_lokasi');
+
+        // ========================================================================
+        // 7. TABEL PENGUMUMAN
+        // ========================================================================
+        $this->forge->addField([
+            'id'         => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
+            'judul'      => ['type' => 'VARCHAR', 'constraint' => 255],
+            'isi'        => ['type' => 'TEXT'],
+            'tipe'       => ['type' => 'ENUM', 'constraint' => ['Info', 'Penting', 'Libur'], 'default' => 'Info'],
+            'created_at' => ['type' => 'DATETIME', 'null' => true],
+            'updated_at' => ['type' => 'DATETIME', 'null' => true],
+        ]);
+        $this->forge->addKey('id', true);
+        $this->forge->createTable('pengumuman');
     }
 
     public function down()
     {
+        // Eksekusi Drop Table secara terbalik agar Foreign Key tidak bentrok
         $this->forge->dropTable('riwayat_lokasi', true);
         $this->forge->dropTable('absensi', true);
         $this->forge->dropTable('hari_libur', true);
         $this->forge->dropTable('siswa', true);
         $this->forge->dropTable('pengaturan', true);
         $this->forge->dropTable('users', true);
+        $this->forge->dropTable('pengumuman', true);
     }
 }

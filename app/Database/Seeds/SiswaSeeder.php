@@ -41,6 +41,7 @@ class SiswaSeeder extends Seeder
                     // Menghasilkan nama acak (tanpa gelar seperti S.Pd)
                     'nama_lengkap' => $faker->name,
                     'kelas'        => $kelas,
+                    'foto'         => null, // <-- Tambahan kolom baru
                     'device_id'    => null,
                     'fraud_count'  => 0,
                     'is_blocked'   => 0,

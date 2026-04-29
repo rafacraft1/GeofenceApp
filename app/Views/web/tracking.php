@@ -55,7 +55,7 @@
             </div>
         <?php endif; ?>
 
-        <!-- Indikator Firebase Aktif (Sekarang dikendalikan oleh JS secara Real-time) -->
+        <!-- Indikator Firebase Aktif -->
         <div class="absolute top-4 right-4 z-[400] flex items-center gap-2 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-md border border-gray-100 transition-colors duration-300">
             <div id="status-dot" class="w-2.5 h-2.5 bg-gray-300 rounded-full"></div>
             <span id="status-text" class="text-xs font-bold text-gray-700 uppercase tracking-wide">Menyambungkan...</span>
@@ -90,45 +90,42 @@
         firebase.initializeApp(firebaseConfig);
         db = firebase.database();
 
-        // 🌟 LISTENER STATUS KONEKSI REAL-TIME 🌟
+        // LISTENER STATUS KONEKSI REAL-TIME
         db.ref('.info/connected').on('value', function(snap) {
             if (snap.val() === true) {
-                // Terhubung ke server Firebase
                 statusDot.className = 'w-2.5 h-2.5 bg-emerald-500 animate-ping rounded-full';
                 statusText.textContent = 'CONNECTED';
                 statusText.className = 'text-xs font-bold text-emerald-700 uppercase tracking-wide';
             } else {
-                // Terputus (karena tidak ada internet, ditolak, atau sedang menyambung)
                 statusDot.className = 'w-2.5 h-2.5 bg-red-500 rounded-full';
                 statusText.textContent = 'DISCONNECTED';
                 statusText.className = 'text-xs font-bold text-red-600 uppercase tracking-wide';
             }
         });
     } else {
-        // Jika URL Firebase belum diatur di database
         statusDot.className = 'w-2.5 h-2.5 bg-gray-500 rounded-full';
         statusText.textContent = 'TIDAK ADA URL';
     }
 
-    // 2. Inisialisasi Peta
+    // 2. Inisialisasi Peta (Menggunakan window.L untuk mencegah error linter)
     const sekolahLat = <?= esc($config->latitude_sekolah ?? 0) ?>;
     const sekolahLon = <?= esc($config->longitude_sekolah ?? 0) ?>;
     const radiusM = <?= esc($config->radius_meter ?? 0) ?>;
 
-    const map = L.map('map-radar', {
+    const map = window.L.map('map-radar', {
         zoomControl: false
     }).setView([sekolahLat, sekolahLon], 16);
 
-    L.control.zoom({
+    window.L.control.zoom({
         position: 'bottomright'
     }).addTo(map);
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    window.L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; OpenStreetMap &copy; CARTO'
     }).addTo(map);
 
-    // MARKER SEKOLAH MODERN (Dengan Text Overlay)
-    let schoolIcon = L.divIcon({
+    // MARKER SEKOLAH MODERN
+    let schoolIcon = window.L.divIcon({
         html: `
             <div class="relative flex flex-col items-center justify-end w-full h-full group">
                 <div class="absolute -top-2 bg-blue-600 px-3 py-1.5 rounded-md border-2 border-white shadow-lg text-white text-[11px] font-extrabold tracking-wide whitespace-nowrap z-20">
@@ -143,7 +140,7 @@
                         <circle cx="12" cy="9.5" r="4.5" fill="white" />
                     </svg>
                     <div class="absolute top-[11px] text-blue-700">
-                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3L1 9L4 10.63V17C4 18.65 7.58 20 12 20C16.42 20 20 18.65 20 17V10.63L23 9L12 3ZM12 5.16L18.89 9L12 12.84L5.11 9L12 5.16ZM18 17C18 17.5 15.35 18 12 18C8.65 18 6 17.5 6 17V11.75L12 15.08L18 11.75V17Z"/></svg>
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3L1 9L4 10.63V17C4 18.65 7.58 20 12 20C16.42 20 18.65 20 17V10.63L23 9L12 3ZM12 5.16L18.89 9L12 12.84L5.11 9L12 5.16ZM18 17C18 17.5 15.35 18 12 18C8.65 18 6 17.5 6 17V11.75L12 15.08L18 11.75V17Z"/></svg>
                     </div>
                 </div>
             </div>
@@ -153,12 +150,12 @@
         iconAnchor: [30, 85]
     });
 
-    L.marker([sekolahLat, sekolahLon], {
+    window.L.marker([sekolahLat, sekolahLon], {
         icon: schoolIcon
     }).addTo(map).bindPopup("<b>SMK Negeri 1 TGB</b>");
 
     // LINGKARAN GEOFENCE RADAR
-    L.circle([sekolahLat, sekolahLon], {
+    window.L.circle([sekolahLat, sekolahLon], {
         color: '#2563eb',
         fillColor: '#60a5fa',
         fillOpacity: 0.15,
@@ -191,7 +188,7 @@
             selectedIds.forEach(id => {
                 if (!activeMarkers[id]) {
                     // Pre-inisialisasi marker kosong
-                    activeMarkers[id] = L.marker([0, 0], {
+                    activeMarkers[id] = window.L.marker([0, 0], {
                         opacity: 0
                     });
 
@@ -211,7 +208,7 @@
                             const firstName = data.nama.split(' ')[0].substring(0, 12);
 
                             // MARKER SISWA (Dengan Text Overlay)
-                            activeMarkers[id].setIcon(L.divIcon({
+                            activeMarkers[id].setIcon(window.L.divIcon({
                                 html: `
                                     <div class="flex flex-col items-center">
                                         <!-- TEXT OVERLAY SISWA -->
@@ -231,7 +228,7 @@
 
                             // FITUR AUTO-FOCUS: Memundurkan peta jika posisi baru sangat jauh
                             if (isNewMarker) {
-                                const group = new L.featureGroup(Object.values(activeMarkers));
+                                const group = new window.L.featureGroup(Object.values(activeMarkers));
                                 map.fitBounds(group.getBounds(), {
                                     padding: [50, 50],
                                     maxZoom: 17

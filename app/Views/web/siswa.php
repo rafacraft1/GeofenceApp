@@ -3,7 +3,7 @@
 /**
  * @var object{kelas: string}[] $list_kelas
  * @var string $kelas_aktif
- * @var object{id: int|string, nis: string, nama_lengkap: string, kelas: string, device_id: string|null, is_blocked: int|string, fraud_count: int|string}[] $siswa
+ * @var object{id: int|string, nis: string, nama_lengkap: string, kelas: string, foto: string|null, device_id: string|null, is_blocked: int|string, fraud_count: int|string}[] $siswa
  * @var int|string $total_data
  * @var int|string $page
  * @var int|string $perPage
@@ -14,7 +14,6 @@
 
 <?= $this->section('content') ?>
 <style>
-    /* Pagination Styling - PROFESIONAL & CLEAN */
     .pagination {
         display: flex;
         flex-wrap: wrap;
@@ -43,7 +42,6 @@
         transition: all 0.2s ease-in-out;
     }
 
-    /* Menghilangkan border ganda pada span di dalam tag 'a' */
     .pagination li a span {
         display: inline;
         padding: 0;
@@ -83,7 +81,7 @@
     <div class="p-5 border-b flex flex-col md:flex-row justify-between items-center gap-4 bg-white">
         <div>
             <h3 class="text-lg font-bold text-gray-800">Daftar Siswa</h3>
-            <p class="text-sm text-gray-500">Kelola data siswa dan pantau perangkat.</p>
+            <p class="text-sm text-gray-500">Kelola data siswa, foto, dan pantau perangkat.</p>
         </div>
 
         <div class="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
@@ -97,16 +95,10 @@
             </form>
 
             <a href="/admin/siswa/export?kelas=<?= esc($kelas_aktif) ?>" class="flex items-center justify-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700 shadow-md transition-all active:scale-95 whitespace-nowrap">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                </svg>
                 Export
             </a>
 
             <button onclick="openImportModal()" class="flex items-center justify-center gap-2 bg-slate-100 text-slate-700 px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-200 shadow-sm transition-all active:scale-95 whitespace-nowrap">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-                </svg>
                 Import
             </button>
 
@@ -116,19 +108,24 @@
         </div>
     </div>
 
+    <!-- FORM TAMBAH (Ditambah enctype dan field foto) -->
     <div id="form-tambah" class="bg-blue-50/50 p-6 border-b hidden transition-all">
-        <form action="/admin/siswa/store" method="POST" id="formSiswa" class="grid grid-cols-1 md:grid-cols-4 gap-5 items-end">
+        <form action="/admin/siswa/store" method="POST" enctype="multipart/form-data" id="formSiswa" class="grid grid-cols-1 md:grid-cols-4 gap-5 items-end">
             <div>
                 <label class="block text-xs font-bold text-gray-600 uppercase mb-2">NIS</label>
                 <input type="text" name="nis" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="Contoh: 2026001">
             </div>
-            <div class="md:col-span-2">
+            <div>
                 <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Nama Lengkap</label>
-                <input type="text" name="nama_lengkap" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="Masukkan nama lengkap siswa">
+                <input type="text" name="nama_lengkap" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="Nama siswa">
             </div>
             <div>
                 <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Kelas</label>
                 <input type="text" name="kelas" required oninput="this.value = this.value.toUpperCase()" class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="Contoh: XII TKJ">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Foto (Opsional)</label>
+                <input type="file" name="foto" accept="image/*" class="w-full border-gray-200 rounded-xl p-2 bg-white text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
             </div>
             <div class="md:col-span-4 flex justify-end gap-3 pt-2">
                 <button type="button" onclick="toggleFormTambah()" class="text-sm font-semibold text-gray-500 px-4 py-2">Batal</button>
@@ -152,8 +149,13 @@
                     <tr class="hover:bg-gray-50/50 transition-colors group">
                         <td class="px-6 py-4">
                             <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs shadow-inner">
-                                    <?= esc(strtoupper(substr($s->nama_lengkap ?? '', 0, 1))) ?>
+                                <!-- AVATAR FOTO -->
+                                <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs shadow-inner overflow-hidden border border-gray-200 shrink-0">
+                                    <?php if (!empty($s->foto)): ?>
+                                        <img src="/uploads/siswa/<?= esc($s->foto) ?>" alt="Foto" class="w-full h-full object-cover">
+                                    <?php else: ?>
+                                        <?= esc(strtoupper(substr($s->nama_lengkap ?? '', 0, 1))) ?>
+                                    <?php endif; ?>
                                 </div>
                                 <div>
                                     <div class="text-sm font-bold text-gray-800"><?= esc($s->nama_lengkap) ?></div>
@@ -214,6 +216,15 @@
                                         </button>
                                     </form>
                                 <?php endif; ?>
+
+                                <!-- TOMBOL HAPUS -->
+                                <form action="/admin/siswa/delete/<?= esc($s->id) ?>" method="POST" class="inline">
+                                    <button type="submit" class="btn-confirm p-2 text-slate-600 bg-slate-50 hover:bg-red-100 hover:text-red-600 border border-slate-200 rounded-lg transition-colors" data-text="Data siswa beserta foto akan dihapus permanen!" title="Hapus Siswa">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                        </svg>
+                                    </button>
+                                </form>
                             </div>
                         </td>
                     </tr>
@@ -236,6 +247,7 @@
     </div>
 </div>
 
+<!-- MODAL EDIT (Ditambah enctype dan field foto) -->
 <div id="modal-edit" class="fixed inset-0 z-[60] hidden items-center justify-center p-4">
     <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="closeEditModal()"></div>
     <div class="bg-white rounded-3xl shadow-2xl z-10 w-full max-w-lg p-8">
@@ -245,7 +257,7 @@
                     <path d="M6 18L18 6M6 6l12 12"></path>
                 </svg></button>
         </div>
-        <form id="form-edit-action" method="POST" class="space-y-5">
+        <form id="form-edit-action" method="POST" enctype="multipart/form-data" class="space-y-5">
             <div>
                 <label class="block text-xs font-bold text-gray-600 uppercase mb-2">NIS</label>
                 <input type="text" id="edit-nis" name="nis" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all">
@@ -258,6 +270,10 @@
                 <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Kelas</label>
                 <input type="text" id="edit-kelas" name="kelas" required oninput="this.value = this.value.toUpperCase()" class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all">
             </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Ganti Foto (Kosongkan jika tidak ingin mengubah)</label>
+                <input type="file" name="foto" accept="image/*" class="w-full border-gray-200 rounded-xl p-2 bg-gray-50 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200">
+            </div>
             <div class="flex justify-end gap-3 pt-4">
                 <button type="button" onclick="closeEditModal()" class="px-5 py-2.5 text-sm font-semibold text-gray-400">Batal</button>
                 <button type="submit" class="bg-blue-600 text-white px-8 py-2.5 rounded-xl text-sm font-semibold shadow-lg hover:bg-blue-700 btn-submit transition-all">Simpan Perubahan</button>
@@ -266,6 +282,7 @@
     </div>
 </div>
 
+<!-- MODAL IMPORT (Tetap Sama) -->
 <div id="modal-import" class="fixed inset-0 z-[60] hidden items-center justify-center p-4">
     <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="closeImportModal()"></div>
     <div class="bg-white rounded-3xl shadow-2xl z-10 w-full max-w-md p-8">
@@ -310,6 +327,9 @@
         document.getElementById('edit-nis').value = data.nis;
         document.getElementById('edit-nama').value = data.nama_lengkap;
         document.getElementById('edit-kelas').value = data.kelas;
+        // Kosongkan input file agar tidak menyimpan file terakhir yang dipilih
+        document.querySelector('input[name="foto"]').value = "";
+
         document.getElementById('form-edit-action').action = '/admin/siswa/update/' + data.id;
         document.getElementById('modal-edit').classList.replace('hidden', 'flex');
         document.body.classList.add('modal-active');
@@ -328,7 +348,7 @@
     function closeImportModal() {
         document.getElementById('modal-import').classList.replace('flex', 'hidden');
         document.body.classList.remove('modal-active');
-        document.getElementById('file_excel').value = ''; // Reset input file
+        document.getElementById('file_excel').value = '';
         document.getElementById('file-name-preview').textContent = "Belum ada file dipilih";
     }
 

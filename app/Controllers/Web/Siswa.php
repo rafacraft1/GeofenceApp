@@ -9,7 +9,6 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class Siswa extends Controller
 {
-    // 1. Tipe data $db sudah dideklarasikan secara spesifik
     protected \CodeIgniter\Database\BaseConnection $db;
 
     public function __construct()
@@ -21,7 +20,6 @@ class Siswa extends Controller
     {
         $kelas_filter = $this->request->getGet('kelas');
 
-        // Ambil list kelas untuk Dropdown Filter
         $list_kelas = $this->db->table('siswa')
             ->select('kelas')
             ->groupBy('kelas')
@@ -29,22 +27,18 @@ class Siswa extends Controller
             ->get()
             ->getResult();
 
-        // Konfigurasi Pagination
         $pager   = \Config\Services::pager();
         $page    = (int) ($this->request->getGet('page') ?? 1);
         $perPage = 10;
 
-        // Susun Query Builder
         $builder = $this->db->table('siswa');
         if (!empty($kelas_filter)) {
             $builder->where('kelas', $kelas_filter);
         }
 
-        // Hitung Total Data
         $total_data = $builder->countAllResults(false);
-
-        // Ambil Data dengan Limit & Offset
         $offset = ($page - 1) * $perPage;
+
         $siswa = $builder->orderBy('kelas', 'ASC')
             ->orderBy('nama_lengkap', 'ASC')
             ->get($perPage, $offset)->getResult();
@@ -65,27 +59,70 @@ class Siswa extends Controller
 
     public function store()
     {
+        // Tangkap file foto
+        $foto = $this->request->getFile('foto');
+        $namaFoto = null;
+
+        // Jika foto diupload dan valid
+        if ($foto && $foto->isValid() && !$foto->hasMoved()) {
+            $namaFoto = $foto->getRandomName();
+            $foto->move('uploads/siswa', $namaFoto);
+        }
+
         $this->db->table('siswa')->insert([
             'nis'          => $this->request->getPost('nis'),
             'nama_lengkap' => $this->request->getPost('nama_lengkap'),
             'kelas'        => strtoupper($this->request->getPost('kelas')),
+            'foto'         => $namaFoto,
             'created_at'   => date('Y-m-d H:i:s')
         ]);
+
         return redirect()->to('/admin/siswa')->with('success', 'Data siswa berhasil ditambahkan.');
     }
 
-    // 2. Menambahkan 'string' pada parameter $id
     public function update(string $id)
     {
+        // Ambil data siswa lama untuk mengecek foto
+        $siswaLama = $this->db->table('siswa')->where('id', $id)->get()->getRow();
+
+        $foto = $this->request->getFile('foto');
+        $namaFoto = $siswaLama->foto; // Secara default, gunakan foto lama
+
+        // Jika ada foto baru yang diupload
+        if ($foto && $foto->isValid() && !$foto->hasMoved()) {
+            $namaFoto = $foto->getRandomName();
+            $foto->move('uploads/siswa', $namaFoto);
+
+            // Hapus foto lama dari server agar tidak jadi sampah
+            if (!empty($siswaLama->foto) && file_exists('uploads/siswa/' . $siswaLama->foto)) {
+                unlink('uploads/siswa/' . $siswaLama->foto);
+            }
+        }
+
         $this->db->table('siswa')->where('id', $id)->update([
             'nis'          => $this->request->getPost('nis'),
             'nama_lengkap' => $this->request->getPost('nama_lengkap'),
             'kelas'        => strtoupper($this->request->getPost('kelas')),
+            'foto'         => $namaFoto
         ]);
+
         return redirect()->to('/admin/siswa')->with('success', 'Data siswa berhasil diperbarui.');
     }
 
-    // 3. Menambahkan 'string' pada parameter $id
+    public function delete(string $id)
+    {
+        // Ambil data siswa untuk menghapus foto dari server
+        $siswa = $this->db->table('siswa')->where('id', $id)->get()->getRow();
+        if ($siswa) {
+            if (!empty($siswa->foto) && file_exists('uploads/siswa/' . $siswa->foto)) {
+                unlink('uploads/siswa/' . $siswa->foto);
+            }
+            $this->db->table('siswa')->where('id', $id)->delete();
+        }
+
+        return redirect()->to('/admin/siswa')->with('success', 'Data siswa beserta foto berhasil dihapus.');
+    }
+
     public function reset_device(string $id)
     {
         $this->db->table('siswa')->where('id', $id)->update([
@@ -95,7 +132,6 @@ class Siswa extends Controller
         return redirect()->to('/admin/siswa')->with('success', 'Perangkat berhasil di-reset.');
     }
 
-    // 4. Menambahkan 'string' pada parameter $id
     public function unblock(string $id)
     {
         $this->db->table('siswa')->where('id', $id)->update([
@@ -105,6 +141,7 @@ class Siswa extends Controller
         return redirect()->to('/admin/siswa')->with('success', 'Akun siswa berhasil di-unblock.');
     }
 
+    // ... (Fungsi download_template, export, dan import tetap sama, tidak perlu diubah) ...
     public function download_template()
     {
         $spreadsheet = new Spreadsheet();
@@ -174,7 +211,7 @@ class Siswa extends Controller
         $skipped = 0;
 
         foreach ($dataSiswa as $index => $row) {
-            if ($index < 4) continue; // Lewati baris 1 sampai 4 (Header)
+            if ($index < 4) continue;
 
             $nis = isset($row[0]) ? trim($row[0]) : '';
             $nama = isset($row[1]) ? trim($row[1]) : '';
