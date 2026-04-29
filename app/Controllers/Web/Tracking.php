@@ -2,17 +2,19 @@
 
 namespace App\Controllers\Web;
 
-use App\Controllers\BaseController;
+use CodeIgniter\Controller;
 
-class Tracking extends BaseController
+class Tracking extends Controller
 {
-    public function index($target_id = null)
+    public function index(string $target_id = null)
     {
         $db = \Config\Database::connect();
 
-        // Ambil semua siswa untuk ditampilkan di Sidebar Checklist
-        $siswa = $db->table('siswa')
-            ->select('id, nis, nama_lengkap, kelas')
+        // Ambil konfigurasi (Koordinat Sekolah & URL Firebase)
+        $config = $db->table('pengaturan')->where('id', 1)->get()->getRow();
+
+        // Ambil seluruh data siswa untuk Sidebar
+        $list_siswa = $db->table('siswa')
             ->orderBy('kelas', 'ASC')
             ->orderBy('nama_lengkap', 'ASC')
             ->get()
@@ -20,9 +22,9 @@ class Tracking extends BaseController
 
         $data = [
             'title'      => 'Radar Live Tracking',
-            'list_siswa' => $siswa,
-            'target_id'  => $target_id, // ID siswa jika di-klik dari tabel daftar siswa
-            'config'     => $db->table('pengaturan')->where('id', 1)->get()->getRow()
+            'config'     => $config,
+            'list_siswa' => $list_siswa,
+            'target_id'  => $target_id
         ];
 
         return view('web/tracking', $data);
