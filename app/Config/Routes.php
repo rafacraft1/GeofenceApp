@@ -57,6 +57,7 @@ $routes->group('api/v1', ['filter' => 'throttle', 'namespace' => 'App\Controller
 
     // Pengumuman (Bisa ditarik saat pertama kali buka APK tanpa harus login dulu)
     $routes->get('pengumuman', 'PengumumanApi::index');
+    $routes->get('waktu_server', 'WaktuApi::index');
 
     // Group Khusus Transaksi Data (Wajib menyertakan API Token)
     $routes->group('', ['filter' => 'apiAuth'], function ($routes) {
