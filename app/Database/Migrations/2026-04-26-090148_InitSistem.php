@@ -40,7 +40,7 @@ class InitSistem extends Migration
         $this->forge->createTable('pengaturan');
 
         // ========================================================================
-        // 3. TABEL SISWA
+        // 3. TABEL SISWA (Ditambah fcm_token)
         // ========================================================================
         $this->forge->addField([
             'id'           => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
@@ -52,6 +52,7 @@ class InitSistem extends Migration
             'fraud_count'  => ['type' => 'INT', 'constraint' => 11, 'default' => 0],
             'is_blocked'   => ['type' => 'TINYINT', 'constraint' => 1, 'default' => 0],
             'api_token'    => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
+            'fcm_token'    => ['type' => 'TEXT', 'null' => true], // <-- TAMBAHAN BARU
             'last_login'   => ['type' => 'DATETIME', 'null' => true],
             'created_at'   => ['type' => 'DATETIME', 'null' => true],
             'updated_at'   => ['type' => 'DATETIME', 'null' => true],
@@ -71,7 +72,7 @@ class InitSistem extends Migration
         $this->forge->createTable('hari_libur');
 
         // ========================================================================
-        // 5. TABEL ABSENSI (Ditambah lat/lon Masuk & Pulang)
+        // 5. TABEL ABSENSI
         // ========================================================================
         $this->forge->addField([
             'id'           => ['type' => 'BIGINT', 'constraint' => 20, 'unsigned' => true, 'auto_increment' => true],
@@ -126,7 +127,7 @@ class InitSistem extends Migration
         $this->forge->createTable('pengumuman');
 
         // ========================================================================
-        // 8. TABEL PENGAJUAN RESET DEVICE (Baru)
+        // 8. TABEL PENGAJUAN RESET DEVICE
         // ========================================================================
         $this->forge->addField([
             'id'         => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
@@ -143,8 +144,7 @@ class InitSistem extends Migration
 
     public function down()
     {
-        // Eksekusi Drop Table secara terbalik agar Foreign Key tidak bentrok
-        $this->forge->dropTable('pengajuan_reset', true); // Hapus tabel baru
+        $this->forge->dropTable('pengajuan_reset', true);
         $this->forge->dropTable('riwayat_lokasi', true);
         $this->forge->dropTable('absensi', true);
         $this->forge->dropTable('hari_libur', true);

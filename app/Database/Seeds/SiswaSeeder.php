@@ -41,11 +41,12 @@ class SiswaSeeder extends Seeder
                     // Menghasilkan nama acak (tanpa gelar seperti S.Pd)
                     'nama_lengkap' => $faker->name,
                     'kelas'        => $kelas,
-                    'foto'         => null, // <-- Tambahan kolom baru
+                    'foto'         => null,
                     'device_id'    => null,
                     'fraud_count'  => 0,
                     'is_blocked'   => 0,
                     'api_token'    => null,
+                    'fcm_token'    => null, // <-- TAMBAHAN BARU
                     'last_login'   => null,
                     'created_at'   => date('Y-m-d H:i:s'),
                     'updated_at'   => date('Y-m-d H:i:s'),

@@ -10,8 +10,9 @@ class AuthApi extends ResourceController
 
     public function login()
     {
-        $nis = $this->request->getPost('nis');
+        $nis       = $this->request->getPost('nis');
         $device_id = $this->request->getPost('device_id');
+        $fcmToken  = $this->request->getPost('fcm_token'); // <-- TANGKAP FCM TOKEN
 
         if (!$nis || !$device_id) {
             return $this->failValidationErrors('NIS dan Device ID wajib diisi.');
@@ -30,10 +31,11 @@ class AuthApi extends ResourceController
             return $this->failUnauthorized('Perangkat tidak dikenali. Gunakan HP yang terdaftar.');
         }
 
-        // 2. INTEGRASI POIN 2: Buat Token Baru (Bukan device_id)
+        // 2. Buat Token Baru & Simpan FCM Token
         $api_token = bin2hex(random_bytes(32));
         $db->table('siswa')->where('id', $siswa->id)->update([
             'api_token'  => $api_token,
+            'fcm_token'  => $fcmToken, // <-- UPDATE FCM TOKEN KE DB
             'last_login' => date('Y-m-d H:i:s')
         ]);
 
@@ -43,7 +45,7 @@ class AuthApi extends ResourceController
             'data'    => [
                 'siswa_id'     => $siswa->id,
                 'nama_lengkap' => $siswa->nama_lengkap,
-                'token'        => $api_token // Kirim token acak ini ke Android
+                'token'        => $api_token
             ]
         ]);
     }

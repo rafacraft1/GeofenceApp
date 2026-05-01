@@ -22,7 +22,6 @@ class TrackingApi extends ResourceController
         $db = \Config\Database::connect();
         $siswa = $db->table('siswa')->where('api_token', $token)->get()->getRow();
 
-        // Cek validitas token dan status blokir
         if (!$siswa || $siswa->is_blocked == 1) {
             return $this->failUnauthorized('Sesi tidak valid atau akun diblokir.');
         }
@@ -30,13 +29,10 @@ class TrackingApi extends ResourceController
         $rawLat = $this->request->getPost('lat');
         $rawLon = $this->request->getPost('long');
 
-        // === PERBAIKAN: Validasi keberadaan data sebelum di-cast ke float ===
-        // Mencegah PHP merekam koordinat 0.0 jika data dari Android kosong
         if ($rawLat === null || $rawLon === null || $rawLat === '' || $rawLon === '') {
             return $this->failValidationErrors('Koordinat latitude dan longitude wajib dikirim.');
         }
 
-        // Parsing data latitude dan longitude (dikunci ke format float agar kebal error/typo)
         $lat   = (float) $rawLat;
         $lon   = (float) $rawLon;
         $waktu = Time::now('Asia/Jakarta')->toDateTimeString();
@@ -53,9 +49,8 @@ class TrackingApi extends ResourceController
         $config = $db->table('pengaturan')->where('id', 1)->get()->getRow();
 
         if (!$config || empty($config->firebase_url)) {
-            // Jika firebase_url kosong, tetap catat ke DB, namun beri tahu via API
             return $this->respondCreated([
-                'status'  => 200, 
+                'status'  => 200,
                 'message' => 'Tersimpan lokal. Firebase belum disetting.'
             ]);
         }
@@ -63,11 +58,10 @@ class TrackingApi extends ResourceController
         try {
             $factory = (new Factory)
                 ->withServiceAccount(APPPATH . 'Config/firebase_credentials.json')
-                ->withDatabaseUri($config->firebase_url); // URL dinamis dari database
+                ->withDatabaseUri($config->firebase_url);
 
             $database = $factory->createDatabase();
 
-            // Perbarui kordinat siswa di node /live_tracking/{id_siswa}
             $database->getReference('live_tracking/' . $siswa->id)->set([
                 'lat'   => $lat,
                 'long'  => $lon,
@@ -77,17 +71,61 @@ class TrackingApi extends ResourceController
             ]);
         } catch (\Exception $e) {
             log_message('error', 'Firebase Error: ' . $e->getMessage());
-            
-            // === PERBAIKAN: Tetap return 200 karena MySQL sukses, tapi beri tahu Firebase error ===
+
             return $this->respondCreated([
-                'status'  => 200, 
+                'status'  => 200,
                 'message' => 'Tersimpan lokal. Gagal sinkronisasi Firebase.'
             ]);
         }
 
         return $this->respondCreated([
-            'status'  => 200, 
+            'status'  => 200,
             'message' => 'Lokasi berhasil diperbarui dan disinkronkan ke Firebase.'
         ]);
+    }
+
+    // ==========================================
+    // API TRIGGER TRACKING (DIPANGGIL OLEH WEB ADMIN)
+    // ==========================================
+    public function ping_siswa($siswa_id = null)
+    {
+        if (!$siswa_id) {
+            return $this->failValidationErrors('ID Siswa wajib diisi.');
+        }
+
+        $db = \Config\Database::connect();
+        $siswa = $db->table('siswa')->where('id', $siswa_id)->get()->getRow();
+
+        if (!$siswa) {
+            return $this->failNotFound('Data siswa tidak ditemukan.');
+        }
+
+        if (empty($siswa->fcm_token)) {
+            return $this->fail('Siswa ini belum memiliki FCM Token (Belum login di aplikasi terbaru).');
+        }
+
+        try {
+            // Inisialisasi Firebase Messaging
+            $factory = (new Factory)->withServiceAccount(APPPATH . 'Config/firebase_credentials.json');
+            $messaging = $factory->createMessaging();
+
+            // Buat SILENT PUSH NOTIFICATION (Data Message Only)
+            $message = \Kreait\Firebase\Messaging\CloudMessage::withTarget('token', $siswa->fcm_token)
+                ->withData([
+                    'action'    => 'TRACKING_REQUEST',
+                    'timestamp' => time()
+                ]);
+
+            // Tembakkan ke HP Siswa
+            $messaging->send($message);
+
+            return $this->respond([
+                'status'  => 200,
+                'message' => 'Sinyal pelacakan berhasil ditembakkan ke HP Siswa. Menunggu respon dari aplikasi...'
+            ]);
+        } catch (\Exception $e) {
+            log_message('error', 'Gagal mengirim FCM: ' . $e->getMessage());
+            return $this->fail('Gagal mengirim sinyal pelacakan. Error: ' . $e->getMessage());
+        }
     }
 }
