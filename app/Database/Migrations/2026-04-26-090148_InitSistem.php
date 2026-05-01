@@ -71,7 +71,7 @@ class InitSistem extends Migration
         $this->forge->createTable('hari_libur');
 
         // ========================================================================
-        // 5. TABEL ABSENSI
+        // 5. TABEL ABSENSI (Ditambah lat/lon Masuk & Pulang)
         // ========================================================================
         $this->forge->addField([
             'id'           => ['type' => 'BIGINT', 'constraint' => 20, 'unsigned' => true, 'auto_increment' => true],
@@ -82,7 +82,11 @@ class InitSistem extends Migration
             'status'       => ['type' => 'ENUM', 'constraint' => ['Hadir', 'Terlambat', 'Izin', 'Sakit', 'Alpa', 'Manipulasi'], 'default' => 'Hadir'],
             'menit_telat'  => ['type' => 'INT', 'constraint' => 11, 'default' => 0],
             'foto_masuk'   => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
+            'lat_masuk'    => ['type' => 'DECIMAL', 'constraint' => '10,8', 'null' => true],
+            'lon_masuk'    => ['type' => 'DECIMAL', 'constraint' => '11,8', 'null' => true],
             'foto_pulang'  => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
+            'lat_pulang'   => ['type' => 'DECIMAL', 'constraint' => '10,8', 'null' => true],
+            'lon_pulang'   => ['type' => 'DECIMAL', 'constraint' => '11,8', 'null' => true],
             'keterangan'   => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
             'is_fake_gps'  => ['type' => 'TINYINT', 'constraint' => 1, 'default' => 0],
             'created_at'   => ['type' => 'DATETIME', 'null' => true],
@@ -94,7 +98,7 @@ class InitSistem extends Migration
         $this->forge->createTable('absensi');
 
         // ========================================================================
-        // 6. TABEL RIWAYAT LOKASI (Tergantung pada Siswa)
+        // 6. TABEL RIWAYAT LOKASI
         // ========================================================================
         $this->forge->addField([
             'id'          => ['type' => 'BIGINT', 'constraint' => 20, 'unsigned' => true, 'auto_increment' => true],
@@ -120,11 +124,27 @@ class InitSistem extends Migration
         ]);
         $this->forge->addKey('id', true);
         $this->forge->createTable('pengumuman');
+
+        // ========================================================================
+        // 8. TABEL PENGAJUAN RESET DEVICE (Baru)
+        // ========================================================================
+        $this->forge->addField([
+            'id'         => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
+            'siswa_id'   => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true],
+            'alasan'     => ['type' => 'TEXT'],
+            'status'     => ['type' => 'ENUM', 'constraint' => ['pending', 'approved', 'rejected'], 'default' => 'pending'],
+            'created_at' => ['type' => 'DATETIME', 'null' => true],
+            'updated_at' => ['type' => 'DATETIME', 'null' => true],
+        ]);
+        $this->forge->addKey('id', true);
+        $this->forge->addForeignKey('siswa_id', 'siswa', 'id', 'CASCADE', 'CASCADE');
+        $this->forge->createTable('pengajuan_reset');
     }
 
     public function down()
     {
         // Eksekusi Drop Table secara terbalik agar Foreign Key tidak bentrok
+        $this->forge->dropTable('pengajuan_reset', true); // Hapus tabel baru
         $this->forge->dropTable('riwayat_lokasi', true);
         $this->forge->dropTable('absensi', true);
         $this->forge->dropTable('hari_libur', true);

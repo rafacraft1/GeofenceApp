@@ -8,6 +8,10 @@ use CodeIgniter\I18n\Time;
 class AbsensiApi extends ResourceController
 {
     protected $format = 'json';
+
+    /**
+     * @var \CodeIgniter\Database\BaseConnection
+     */
     protected $db;
 
     public function __construct()
@@ -58,7 +62,8 @@ class AbsensiApi extends ResourceController
         $tutup_masuk = $jam_pulang_pukul->subMinutes(60);
 
         if ($sekarang->isBefore($buka_masuk)) {
-            return $this->failForbidden('Presensi masuk belum dibuka. Dibuka pukul ' . $buka_masuk->toTimeString('H:i'));
+            // === PERBAIKAN: Gunakan format() alih-alih toTimeString() ===
+            return $this->failForbidden('Presensi masuk belum dibuka. Dibuka pukul ' . $buka_masuk->format('H:i'));
         }
 
         if ($sekarang->isAfter($tutup_masuk)) {
@@ -106,6 +111,7 @@ class AbsensiApi extends ResourceController
             $menit_telat = $sekarang->difference($jam_masuk_pukul)->getMinutes();
         }
 
+        // --- SIMPAN KOORDINAT MASUK ---
         $this->db->table('absensi')->insert([
             'siswa_id'    => $siswa->id,
             'tanggal'     => $tanggal_ini,
@@ -113,6 +119,8 @@ class AbsensiApi extends ResourceController
             'status'      => $status,
             'menit_telat' => \abs($menit_telat),
             'foto_masuk'  => $fileName,
+            'lat_masuk'   => $lat,
+            'lon_masuk'   => $lon,
             'created_at'  => \date('Y-m-d H:i:s')
         ]);
 
@@ -181,9 +189,12 @@ class AbsensiApi extends ResourceController
         $fileName = 'pulang_' . $siswa->id . '_' . \time() . '.jpg';
         \file_put_contents(FCPATH . 'uploads/absensi/' . $fileName, $decodedFoto);
 
+        // --- SIMPAN KOORDINAT PULANG ---
         $this->db->table('absensi')->where('id', $absen->id)->update([
             'waktu_pulang' => $sekarang->toTimeString(),
             'foto_pulang'  => $fileName,
+            'lat_pulang'   => $lat,
+            'lon_pulang'   => $lon,
             'updated_at'   => \date('Y-m-d H:i:s')
         ]);
 
