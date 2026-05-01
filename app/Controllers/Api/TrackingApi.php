@@ -8,10 +8,16 @@ use Kreait\Firebase\Factory;
 
 class TrackingApi extends ResourceController
 {
+    protected $format = 'json';
+
     public function update_lokasi()
     {
         $authHeader = $this->request->getHeaderLine('Authorization');
-        $token      = str_replace('Bearer ', '', $authHeader);
+        $token      = \str_replace('Bearer ', '', $authHeader);
+
+        if (empty($token)) {
+            return $this->failUnauthorized('Token tidak ditemukan.');
+        }
 
         $db = \Config\Database::connect();
         $siswa = $db->table('siswa')->where('api_token', $token)->get()->getRow();
@@ -21,9 +27,18 @@ class TrackingApi extends ResourceController
             return $this->failUnauthorized('Sesi tidak valid atau akun diblokir.');
         }
 
+        $rawLat = $this->request->getPost('lat');
+        $rawLon = $this->request->getPost('long');
+
+        // === PERBAIKAN: Validasi keberadaan data sebelum di-cast ke float ===
+        // Mencegah PHP merekam koordinat 0.0 jika data dari Android kosong
+        if ($rawLat === null || $rawLon === null || $rawLat === '' || $rawLon === '') {
+            return $this->failValidationErrors('Koordinat latitude dan longitude wajib dikirim.');
+        }
+
         // Parsing data latitude dan longitude (dikunci ke format float agar kebal error/typo)
-        $lat   = (float) $this->request->getPost('lat');
-        $lon   = (float) $this->request->getPost('long');
+        $lat   = (float) $rawLat;
+        $lon   = (float) $rawLon;
         $waktu = Time::now('Asia/Jakarta')->toDateTimeString();
 
         // 1. Simpan ke Database MySQL (Riwayat Lokasi)
@@ -39,7 +54,10 @@ class TrackingApi extends ResourceController
 
         if (!$config || empty($config->firebase_url)) {
             // Jika firebase_url kosong, tetap catat ke DB, namun beri tahu via API
-            return $this->respond(['status' => 'ok', 'message' => 'Tersimpan lokal. Firebase belum disetting.']);
+            return $this->respondCreated([
+                'status'  => 200, 
+                'message' => 'Tersimpan lokal. Firebase belum disetting.'
+            ]);
         }
 
         try {
@@ -59,8 +77,17 @@ class TrackingApi extends ResourceController
             ]);
         } catch (\Exception $e) {
             log_message('error', 'Firebase Error: ' . $e->getMessage());
+            
+            // === PERBAIKAN: Tetap return 200 karena MySQL sukses, tapi beri tahu Firebase error ===
+            return $this->respondCreated([
+                'status'  => 200, 
+                'message' => 'Tersimpan lokal. Gagal sinkronisasi Firebase.'
+            ]);
         }
 
-        return $this->respond(['status' => 'ok']);
+        return $this->respondCreated([
+            'status'  => 200, 
+            'message' => 'Lokasi berhasil diperbarui dan disinkronkan ke Firebase.'
+        ]);
     }
 }
