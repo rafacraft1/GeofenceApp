@@ -28,7 +28,7 @@ $routes->group('admin', ['filter' => 'webAuth', 'namespace' => 'App\Controllers\
     $routes->get('siswa', 'Siswa::index');
     $routes->post('siswa/store', 'Siswa::store');
     $routes->post('siswa/update/(:num)', 'Siswa::update/$1');
-    $routes->post('siswa/delete/(:num)', 'Siswa::delete/$1'); // <-- Route hapus siswa
+    $routes->post('siswa/delete/(:num)', 'Siswa::delete/$1');
     $routes->post('siswa/reset_device/(:num)', 'Siswa::reset_device/$1');
     $routes->post('siswa/unblock/(:num)', 'Siswa::unblock/$1');
     $routes->get('siswa/download_template', 'Siswa::download_template');
@@ -40,6 +40,9 @@ $routes->group('admin', ['filter' => 'webAuth', 'namespace' => 'App\Controllers\
     $routes->post('absensi/input_manual', 'Absensi::input_manual');
     $routes->get('tracking/siswa/(:num)', 'Tracking::index/$1');
     $routes->get('tracking/get_location/(:num)', 'Tracking::get_location/$1');
+
+    // === TAMBAHAN BARU: Route Ping FCM ke Android ===
+    $routes->post('tracking/ping_siswa/(:num)', '\App\Controllers\Api\TrackingApi::ping_siswa/$1');
 
     // Broadcast Pengumuman
     $routes->get('pengumuman', 'Pengumuman::index');
