@@ -114,7 +114,7 @@ class TrackingApi extends ResourceController
                 'token' => $siswa->fcm_token,
                 'data'  => [
                     'action'    => 'TRACKING_REQUEST',
-                    'timestamp' => time()
+                    'timestamp' => (string)time()
                 ],
                 'android' => [
                     'priority' => 'high' // Memaksa HP bangun dari mode sleep
