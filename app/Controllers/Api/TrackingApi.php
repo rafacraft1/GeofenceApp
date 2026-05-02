@@ -109,12 +109,17 @@ class TrackingApi extends ResourceController
             $factory = (new Factory)->withServiceAccount(APPPATH . 'Config/firebase_credentials.json');
             $messaging = $factory->createMessaging();
 
-            // Buat SILENT PUSH NOTIFICATION (Data Message Only)
-            $message = \Kreait\Firebase\Messaging\CloudMessage::withTarget('token', $siswa->fcm_token)
-                ->withData([
+            // Buat SILENT PUSH NOTIFICATION menggunakan fromArray (Mendukung kreait v7+)
+            $message = \Kreait\Firebase\Messaging\CloudMessage::fromArray([
+                'token' => $siswa->fcm_token,
+                'data'  => [
                     'action'    => 'TRACKING_REQUEST',
                     'timestamp' => time()
-                ]);
+                ],
+                'android' => [
+                    'priority' => 'high' // Memaksa HP bangun dari mode sleep
+                ]
+            ]);
 
             // Tembakkan ke HP Siswa
             $messaging->send($message);
