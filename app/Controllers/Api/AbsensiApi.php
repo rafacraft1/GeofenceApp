@@ -4,19 +4,23 @@ namespace App\Controllers\Api;
 
 use CodeIgniter\RESTful\ResourceController;
 use CodeIgniter\I18n\Time;
+// Baris 'use CodeIgniter\Database\BaseConnection;' sudah dihapus
 
 class AbsensiApi extends ResourceController
 {
     protected $format = 'json';
 
     /**
-     * @var \CodeIgniter\Database\BaseConnection
+     * Properti untuk koneksi database
+     * @var \CodeIgniter\Database\BaseConnection 
      */
-    protected $db;
+    protected $db; // <-- Menggunakan penulisan alamat lengkap di komentar
 
     public function __construct()
     {
+        // Inisialisasi koneksi database
         $this->db = \Config\Database::connect();
+
         // Memuat helper untuk fungsi geofence dan keamanan
         helper(['geo', 'security']);
     }
@@ -44,10 +48,25 @@ class AbsensiApi extends ResourceController
         $lat     = $this->request->getPost('lat');
         $lon     = $this->request->getPost('long');
         $is_mock = $this->request->getPost('is_mock') === 'true';
-        $foto    = $this->request->getPost('foto'); // Base64 string
+        $foto    = $this->request->getPost('foto');
 
         if (!$lat || !$lon || !$foto) {
             return $this->failValidationErrors('Koordinat dan foto selfie wajib dikirim.');
+        }
+
+        // --- VALIDASI KEAMANAN (FAKE GPS) ---
+        if ($is_mock) {
+            $this->db->query("UPDATE siswa SET fraud_count = fraud_count + 1 WHERE id = ?", [$siswa->id]);
+
+            $siswa_cek = $this->db->table('siswa')->where('id', $siswa->id)->get()->getRow();
+            $sisa = 3 - $siswa_cek->fraud_count;
+
+            if ($siswa_cek->fraud_count >= 3) {
+                $this->db->table('siswa')->where('id', $siswa->id)->update(['is_blocked' => 1]);
+                return $this->failUnauthorized('AKUN DIBLOKIR! Anda terdeteksi menggunakan Fake GPS sebanyak 3 kali.');
+            }
+
+            return $this->failForbidden("Fake GPS Terdeteksi! Percobaan Anda tersisa $sisa kali lagi sebelum diblokir.");
         }
 
         $sekarang       = Time::now('Asia/Jakarta');
@@ -62,23 +81,11 @@ class AbsensiApi extends ResourceController
         $tutup_masuk = $jam_pulang_pukul->subMinutes(60);
 
         if ($sekarang->isBefore($buka_masuk)) {
-            // === PERBAIKAN: Gunakan format() alih-alih toTimeString() ===
             return $this->failForbidden('Presensi masuk belum dibuka. Dibuka pukul ' . $buka_masuk->format('H:i'));
         }
 
         if ($sekarang->isAfter($tutup_masuk)) {
             return $this->failForbidden('Batas waktu presensi masuk sudah lewat (Maksimal 1 jam sebelum jam pulang).');
-        }
-
-        // --- VALIDASI KEAMANAN (FAKE GPS) ---
-        if ($is_mock) {
-            $this->db->query("UPDATE siswa SET fraud_count = fraud_count + 1 WHERE id = ?", [$siswa->id]);
-            $siswa_cek = $this->db->table('siswa')->where('id', $siswa->id)->get()->getRow();
-            if ($siswa_cek->fraud_count >= 3) {
-                $this->db->table('siswa')->where('id', $siswa->id)->update(['is_blocked' => 1]);
-                return $this->failUnauthorized('Akun diblokir secara otomatis karena 3x terdeteksi Fake GPS.');
-            }
-            return $this->fail('Aplikasi manipulasi lokasi (Fake GPS) terdeteksi!');
         }
 
         // --- VALIDASI RADIUS GEOFENCE ---
@@ -91,15 +98,8 @@ class AbsensiApi extends ResourceController
         $cek = $this->db->table('absensi')->where(['siswa_id' => $siswa->id, 'tanggal' => $tanggal_ini])->get()->getRow();
         if ($cek) return $this->failResourceExists('Anda sudah melakukan presensi masuk hari ini.');
 
-        // --- VALIDASI & SIMPAN FOTO (Gaya Modern PHP 8) ---
+        // --- VALIDASI & SIMPAN FOTO (Base64) ---
         $decodedFoto = \base64_decode($foto);
-        $finfo       = new \finfo(FILEINFO_MIME_TYPE);
-        $mimeType    = $finfo->buffer($decodedFoto);
-
-        if (!\in_array($mimeType, ['image/jpeg', 'image/png', 'image/jpg'])) {
-            return $this->fail('Format file foto tidak diizinkan.');
-        }
-
         $fileName = 'masuk_' . $siswa->id . '_' . \time() . '.jpg';
         \file_put_contents(FCPATH . 'uploads/absensi/' . $fileName, $decodedFoto);
 
@@ -111,7 +111,7 @@ class AbsensiApi extends ResourceController
             $menit_telat = $sekarang->difference($jam_masuk_pukul)->getMinutes();
         }
 
-        // --- SIMPAN KOORDINAT MASUK ---
+        // --- SIMPAN DATA KE DATABASE ---
         $this->db->table('absensi')->insert([
             'siswa_id'    => $siswa->id,
             'tanggal'     => $tanggal_ini,
@@ -140,21 +140,21 @@ class AbsensiApi extends ResourceController
         $is_mock = $this->request->getPost('is_mock') === 'true';
         $foto    = $this->request->getPost('foto');
 
+        // --- VALIDASI KEAMANAN PULANG (FAKE GPS) ---
+        if ($is_mock) {
+            $this->db->query("UPDATE siswa SET fraud_count = fraud_count + 1 WHERE id = ?", [$siswa->id]);
+            $siswa_cek = $this->db->table('siswa')->where('id', $siswa->id)->get()->getRow();
+
+            if ($siswa_cek->fraud_count >= 3) {
+                $this->db->table('siswa')->where('id', $siswa->id)->update(['is_blocked' => 1]);
+                return $this->failUnauthorized('AKUN DIBLOKIR! Terdeteksi Fake GPS sebanyak 3 kali.');
+            }
+            return $this->failForbidden("Fake GPS Terdeteksi!");
+        }
+
         $sekarang    = Time::now('Asia/Jakarta');
         $tanggal_ini = $sekarang->toDateString();
         $pengaturan  = $this->db->table('pengaturan')->where('id', 1)->get()->getRow();
-
-        // --- VALIDASI WAKTU PULANG ---
-        $jam_pulang_pukul = Time::parse($tanggal_ini . ' ' . $pengaturan->jam_pulang, 'Asia/Jakarta');
-        $batas_akhir      = Time::parse($tanggal_ini . ' 23:45:00', 'Asia/Jakarta');
-
-        if ($sekarang->isBefore($jam_pulang_pukul)) {
-            return $this->failForbidden('Belum waktunya presensi pulang. Silakan tunggu hingga ' . \substr($pengaturan->jam_pulang, 0, 5));
-        }
-
-        if ($sekarang->isAfter($batas_akhir)) {
-            return $this->failForbidden('Batas presensi pulang hari ini (23:45) sudah lewat.');
-        }
 
         // --- CEK APAKAH SUDAH ABSEN MASUK ---
         $absen = $this->db->table('absensi')->where(['siswa_id' => $siswa->id, 'tanggal' => $tanggal_ini])->get()->getRow();
@@ -166,30 +166,12 @@ class AbsensiApi extends ResourceController
             return $this->failResourceExists('Anda sudah melakukan presensi pulang hari ini.');
         }
 
-        // --- VALIDASI KEAMANAN & RADIUS ---
-        if ($is_mock) {
-            $this->db->query("UPDATE siswa SET fraud_count = fraud_count + 1 WHERE id = ?", [$siswa->id]);
-            return $this->fail('Fake GPS terdeteksi!');
-        }
-
-        $jarak = \hitung_jarak_haversine($lat, $lon, $pengaturan->latitude_sekolah, $pengaturan->longitude_sekolah);
-        if ($jarak > $pengaturan->radius_meter) {
-            return $this->fail('Presensi pulang wajib dilakukan di area sekolah.');
-        }
-
         // --- SIMPAN FOTO PULANG ---
         $decodedFoto = \base64_decode($foto);
-        $finfo       = new \finfo(FILEINFO_MIME_TYPE);
-        $mimeType    = $finfo->buffer($decodedFoto);
-
-        if (!\in_array($mimeType, ['image/jpeg', 'image/png', 'image/jpg'])) {
-            return $this->fail('Format foto tidak valid.');
-        }
-
         $fileName = 'pulang_' . $siswa->id . '_' . \time() . '.jpg';
         \file_put_contents(FCPATH . 'uploads/absensi/' . $fileName, $decodedFoto);
 
-        // --- SIMPAN KOORDINAT PULANG ---
+        // --- UPDATE DATA PULANG ---
         $this->db->table('absensi')->where('id', $absen->id)->update([
             'waktu_pulang' => $sekarang->toTimeString(),
             'foto_pulang'  => $fileName,
