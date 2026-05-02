@@ -22,6 +22,16 @@
                 <span id="counter-badge" class="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded-lg">0/4</span>
             </div>
             <input type="text" id="search-siswa" placeholder="Cari nama/kelas..." class="mt-3 w-full border-gray-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+
+            <!-- === REVISI: Class flex dihapus dari struktur awal === -->
+            <button id="btn-ping" onclick="pingSelectedStudents()" class="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl p-2.5 text-sm font-bold transition-all shadow-md hidden items-center justify-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+                Bangunkan HP Siswa
+            </button>
+            <div id="ping-status" class="text-[11px] text-center mt-2 font-bold hidden"></div>
+            <!-- ==================================================== -->
         </div>
 
         <div class="flex-1 overflow-y-auto p-2" id="student-list">
@@ -70,16 +80,13 @@
 <?= $this->section('scripts') ?>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-    // Elemen UI Status Koneksi
     const statusDot = document.getElementById('status-dot');
     const statusText = document.getElementById('status-text');
 
-    // 1. Inisialisasi Firebase (Dinamis dari Database)
     const firebaseUrl = "<?= esc($config->firebase_url ?? '') ?>";
     let db = null;
 
@@ -90,7 +97,6 @@
         firebase.initializeApp(firebaseConfig);
         db = firebase.database();
 
-        // LISTENER STATUS KONEKSI REAL-TIME
         db.ref('.info/connected').on('value', function(snap) {
             if (snap.val() === true) {
                 statusDot.className = 'w-2.5 h-2.5 bg-emerald-500 animate-ping rounded-full';
@@ -102,12 +108,8 @@
                 statusText.className = 'text-xs font-bold text-red-600 uppercase tracking-wide';
             }
         });
-    } else {
-        statusDot.className = 'w-2.5 h-2.5 bg-gray-500 rounded-full';
-        statusText.textContent = 'TIDAK ADA URL';
     }
 
-    // 2. Inisialisasi Peta (Menggunakan window.L untuk mencegah error linter)
     const sekolahLat = <?= esc($config->latitude_sekolah ?? 0) ?>;
     const sekolahLon = <?= esc($config->longitude_sekolah ?? 0) ?>;
     const radiusM = <?= esc($config->radius_meter ?? 0) ?>;
@@ -115,16 +117,13 @@
     const map = window.L.map('map-radar', {
         zoomControl: false
     }).setView([sekolahLat, sekolahLon], 16);
-
     window.L.control.zoom({
         position: 'bottomright'
     }).addTo(map);
-
     window.L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap &copy; CARTO'
+        attribution: '&copy; OpenStreetMap'
     }).addTo(map);
 
-    // MARKER SEKOLAH MODERN
     let schoolIcon = window.L.divIcon({
         html: `
             <div class="relative flex flex-col items-center justify-end w-full h-full group">
@@ -140,7 +139,9 @@
                         <circle cx="12" cy="9.5" r="4.5" fill="white" />
                     </svg>
                     <div class="absolute top-[11px] text-blue-700">
-                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3L1 9L4 10.63V17C4 18.65 7.58 20 12 20C16.42 20 18.65 20 17V10.63L23 9L12 3ZM12 5.16L18.89 9L12 12.84L5.11 9L12 5.16ZM18 17C18 17.5 15.35 18 12 18C8.65 18 6 17.5 6 17V11.75L12 15.08L18 11.75V17Z"/></svg>
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72l5 2.73 5-2.73v3.72z"/>
+                        </svg>
                     </div>
                 </div>
             </div>
@@ -153,41 +154,45 @@
     window.L.marker([sekolahLat, sekolahLon], {
         icon: schoolIcon
     }).addTo(map).bindPopup("<b>SMK Negeri 1 TGB</b>");
-
-    // LINGKARAN GEOFENCE RADAR
     window.L.circle([sekolahLat, sekolahLon], {
         color: '#2563eb',
         fillColor: '#60a5fa',
         fillOpacity: 0.15,
         weight: 2,
-        dashArray: '8, 6', // Garis putus-putus
+        dashArray: '8, 6',
         radius: radiusM
     }).addTo(map);
 
-    // 3. Logika Multi-Tracking & Auto-Focus
     let activeMarkers = {};
 
     function updateMapMarkers() {
         const selectedCheckboxes = document.querySelectorAll('.track-checkbox:checked');
         const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.value);
 
-        // Update badge counter di sidebar
         document.getElementById('counter-badge').textContent = `${selectedIds.length}/4`;
 
-        // Hapus marker yang tidak dicentang lagi
+        // Tampilkan tombol ping jika ada yang dicentang
+        const btnPing = document.getElementById('btn-ping');
+        if (selectedIds.length > 0) {
+            btnPing.classList.remove('hidden');
+            btnPing.classList.add('flex'); // <-- Ditambahkan lewat JS saat muncul
+        } else {
+            btnPing.classList.add('hidden');
+            btnPing.classList.remove('flex'); // <-- Dihapus saat disembunyikan
+            document.getElementById('ping-status').classList.add('hidden');
+        }
+
         for (let id in activeMarkers) {
             if (!selectedIds.includes(id)) {
                 map.removeLayer(activeMarkers[id]);
-                if (db) db.ref('live_tracking/' + id).off(); // Matikan listener Firebase
+                if (db) db.ref('live_tracking/' + id).off();
                 delete activeMarkers[id];
             }
         }
 
-        // Pantau siswa yang dicentang
         if (db) {
             selectedIds.forEach(id => {
                 if (!activeMarkers[id]) {
-                    // Pre-inisialisasi marker kosong
                     activeMarkers[id] = window.L.marker([0, 0], {
                         opacity: 0
                     });
@@ -196,22 +201,17 @@
                         const data = snapshot.val();
                         if (data && activeMarkers[id]) {
                             const pos = [data.lat, data.long];
-
-                            // Deteksi apakah ini pertama kalinya marker mendapat kordinat asli
                             const isNewMarker = activeMarkers[id].getLatLng().lat === 0;
 
                             activeMarkers[id].setLatLng(pos);
-                            activeMarkers[id].setOpacity(1); // Tampilkan marker
+                            activeMarkers[id].setOpacity(1);
                             activeMarkers[id].addTo(map);
 
-                            // Ambil nama depan siswa saja agar overlay tidak kepanjangan
                             const firstName = data.nama.split(' ')[0].substring(0, 12);
 
-                            // MARKER SISWA (Dengan Text Overlay)
                             activeMarkers[id].setIcon(window.L.divIcon({
                                 html: `
                                     <div class="flex flex-col items-center">
-                                        <!-- TEXT OVERLAY SISWA -->
                                         <div class="bg-red-500 px-2.5 py-1.5 rounded-md border-2 border-white shadow-lg text-white text-[11px] whitespace-nowrap font-bold relative flex items-center gap-1.5 hover:scale-110 transition-transform cursor-pointer">
                                             <div class="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
                                             ${firstName}
@@ -226,7 +226,6 @@
 
                             activeMarkers[id].bindPopup(`<b>${data.nama}</b><br>${data.kelas}<br>Waktu: ${data.waktu}`);
 
-                            // FITUR AUTO-FOCUS: Memundurkan peta jika posisi baru sangat jauh
                             if (isNewMarker) {
                                 const group = new window.L.featureGroup(Object.values(activeMarkers));
                                 map.fitBounds(group.getBounds(), {
@@ -241,22 +240,60 @@
         }
     }
 
-    // 4. Event Listener Sidebar dengan LIMIT 4
+    // === TAMBAHAN BARU: FUNGSI UNTUK MENEMBAKKAN API PING KE CI4 ===
+    function pingSelectedStudents() {
+        const selectedCheckboxes = document.querySelectorAll('.track-checkbox:checked');
+        const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+
+        if (selectedIds.length === 0) return;
+
+        const btn = document.getElementById('btn-ping');
+        const statusText = document.getElementById('ping-status');
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menghubungkan...';
+
+        statusText.classList.remove('hidden');
+        statusText.className = "text-[11px] text-center mt-2 font-bold text-orange-500";
+        statusText.innerText = "Mengirim sinyal pengetuk ke HP siswa...";
+
+        // Lakukan perulangan untuk menembak API Ping satu per satu sesuai siswa yang dicentang
+        let requests = selectedIds.map(id => {
+            return fetch(`/admin/tracking/ping_siswa/${id}`, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+        });
+
+        Promise.all(requests)
+            .then(responses => {
+                btn.disabled = false;
+                btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> Bangunkan Ulang HP';
+                statusText.className = "text-[11px] text-center mt-2 font-bold text-emerald-600";
+                statusText.innerText = "Sinyal terkirim! Menunggu koordinat balasan...";
+            })
+            .catch(error => {
+                console.error("Error ping:", error);
+                btn.disabled = false;
+                statusText.className = "text-[11px] text-center mt-2 font-bold text-red-500";
+                statusText.innerText = "Gagal menghubungi server.";
+            });
+    }
+
     document.querySelectorAll('.track-checkbox').forEach(cb => {
         cb.addEventListener('change', function(e) {
             const selectedCount = document.querySelectorAll('.track-checkbox:checked').length;
-
             if (selectedCount > 4) {
                 this.checked = false;
                 alert('Batas Maksimal Tercapai!\n\nAnda hanya dapat melacak maksimal 4 siswa secara bersamaan.');
                 return;
             }
-
             updateMapMarkers();
         });
     });
 
-    // 5. Fitur Pencarian di Sidebar
     document.getElementById('search-siswa').addEventListener('keyup', function(e) {
         const keyword = e.target.value.toLowerCase();
         document.querySelectorAll('.student-item').forEach(item => {
@@ -265,7 +302,6 @@
         });
     });
 
-    // Jalankan pertama kali saat halaman dimuat
     updateMapMarkers();
 </script>
 <?= $this->endSection() ?>
