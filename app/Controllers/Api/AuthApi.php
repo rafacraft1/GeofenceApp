@@ -45,6 +45,8 @@ class AuthApi extends ResourceController
             'data'    => [
                 'siswa_id'     => $siswa->id,
                 'nama_lengkap' => $siswa->nama_lengkap,
+                // === TAMBAHAN BARU: Kirim URL Foto ===
+                'foto'         => !empty($siswa->foto) ? base_url('uploads/siswa/' . $siswa->foto) : '',
                 'token'        => $api_token
             ]
         ]);
