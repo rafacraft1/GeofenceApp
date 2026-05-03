@@ -68,5 +68,6 @@ $routes->group('api/v1', ['filter' => 'throttle', 'namespace' => 'App\Controller
         $routes->post('absen/pulang', 'AbsensiApi::pulang');
         $routes->get('absen/riwayat', 'AbsensiApi::riwayat');
         $routes->post('tracking/update', 'TrackingApi::update_lokasi');
+        $routes->post('profile/upload-foto', 'ProfileApi::uploadFoto');
     });
 });

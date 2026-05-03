@@ -127,3 +127,13 @@ _modules/*
 
 # Sembunyikan kunci Firebase
 app/Config/firebase_credentials.json
+
+# =========================================================
+# Abaikan file hasil upload (Foto Profil & Absensi)
+# =========================================================
+public/uploads/absensi/*
+public/uploads/siswa/*
+
+# KECUALI file .gitkeep (agar struktur folder tetap terbawa ke server)
+!public/uploads/absensi/.gitkeep
+!public/uploads/siswa/.gitkeep
