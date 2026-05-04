@@ -3,10 +3,12 @@
 namespace App\Controllers\Web;
 
 use CodeIgniter\Controller;
+use CodeIgniter\Database\BaseConnection;
 
 class Pengaturan extends Controller
 {
-    protected \CodeIgniter\Database\BaseConnection $db;
+    /** @var BaseConnection */
+    protected BaseConnection $db;
 
     public function __construct()
     {
@@ -15,8 +17,8 @@ class Pengaturan extends Controller
 
     public function index()
     {
-        // Ambil data pengaturan ID 1
-        $config = $this->db->table('pengaturan')->where('id', 1)->get()->getRow();
+        // PERBAIKAN: Menggunakan id_pengaturan dan getRowArray()
+        $config = $this->db->table('pengaturan')->where('id_pengaturan', 1)->get()->getRowArray();
 
         $data = [
             'title'  => 'Pengaturan Sistem',
@@ -42,12 +44,12 @@ class Pengaturan extends Controller
             return redirect()->back()->withInput()->with('error', 'Pastikan semua data terisi dengan benar.');
         }
 
-        // Update data ke database
-        $this->db->table('pengaturan')->where('id', 1)->update([
+        // PERBAIKAN: Update data berdasarkan id_pengaturan
+        $this->db->table('pengaturan')->where('id_pengaturan', 1)->update([
             'latitude_sekolah'  => $this->request->getPost('latitude_sekolah'),
             'longitude_sekolah' => $this->request->getPost('longitude_sekolah'),
             'radius_meter'      => $this->request->getPost('radius_meter'),
-            'firebase_url'      => $this->request->getPost('firebase_url'), // Kolom baru
+            'firebase_url'      => $this->request->getPost('firebase_url'),
             'jam_masuk'         => $this->request->getPost('jam_masuk'),
             'jam_pulang'        => $this->request->getPost('jam_pulang'),
             'updated_at'        => date('Y-m-d H:i:s')

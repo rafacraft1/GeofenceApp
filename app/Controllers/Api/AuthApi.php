@@ -12,30 +12,37 @@ class AuthApi extends ResourceController
     {
         $nis       = $this->request->getPost('nis');
         $device_id = $this->request->getPost('device_id');
-        $fcmToken  = $this->request->getPost('fcm_token'); // <-- TANGKAP FCM TOKEN
+        $fcmToken  = $this->request->getPost('fcm_token');
 
         if (!$nis || !$device_id) {
             return $this->failValidationErrors('NIS dan Device ID wajib diisi.');
         }
 
         $db = \Config\Database::connect();
-        $siswa = $db->table('siswa')->where('nis', $nis)->get()->getRow();
+
+        // Join dengan tabel kelas untuk mendapatkan nama kelas (dibutuhkan Firebase)
+        $siswa = $db->table('siswa')
+            ->select('siswa.*, kelas.nama_kelas')
+            ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left')
+            ->where('nis', $nis)
+            ->get()
+            ->getRowArray();
 
         if (!$siswa) return $this->failNotFound('Siswa tidak ditemukan.');
-        if ($siswa->is_blocked == 1) return $this->failForbidden('Akun terblokir. Hubungi Admin.');
+        if ($siswa['is_blocked'] == 1) return $this->failForbidden('Akun terblokir. Hubungi Admin.');
 
         // 1. Logika Penguncian Perangkat (Device Binding)
-        if (empty($siswa->device_id)) {
-            $db->table('siswa')->where('id', $siswa->id)->update(['device_id' => $device_id]);
-        } elseif ($siswa->device_id !== $device_id) {
+        if (empty($siswa['device_id'])) {
+            $db->table('siswa')->where('id_siswa', $siswa['id_siswa'])->update(['device_id' => $device_id]);
+        } elseif ($siswa['device_id'] !== $device_id) {
             return $this->failUnauthorized('Perangkat tidak dikenali. Gunakan HP yang terdaftar.');
         }
 
         // 2. Buat Token Baru & Simpan FCM Token
         $api_token = bin2hex(random_bytes(32));
-        $db->table('siswa')->where('id', $siswa->id)->update([
+        $db->table('siswa')->where('id_siswa', $siswa['id_siswa'])->update([
             'api_token'  => $api_token,
-            'fcm_token'  => $fcmToken, // <-- UPDATE FCM TOKEN KE DB
+            'fcm_token'  => $fcmToken,
             'last_login' => date('Y-m-d H:i:s')
         ]);
 
@@ -43,10 +50,10 @@ class AuthApi extends ResourceController
             'status'  => 'success',
             'message' => 'Login berhasil',
             'data'    => [
-                'siswa_id'     => $siswa->id,
-                'nama_lengkap' => $siswa->nama_lengkap,
-                // === TAMBAHAN BARU: Kirim URL Foto ===
-                'foto'         => !empty($siswa->foto) ? base_url('uploads/siswa/' . $siswa->foto) : '',
+                'siswa_id'     => $siswa['id_siswa'],
+                'nama_lengkap' => $siswa['nama_siswa'],
+                'kelas'        => $siswa['nama_kelas'] ?? '-',
+                'foto'         => !empty($siswa['foto_profil']) ? base_url('uploads/siswa/' . $siswa['foto_profil']) : '',
                 'token'        => $api_token
             ]
         ]);

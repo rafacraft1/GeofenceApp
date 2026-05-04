@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @var object{id: int|string, judul: string, isi: string, tipe: string, created_at: string}[] $pengumuman
+ * @var array $pengumuman
  */
 ?>
 <?= $this->extend('layout/admin') ?>
@@ -16,6 +16,7 @@
             <p class="text-xs text-gray-500 mb-6">Pesan akan langsung muncul di aplikasi siswa.</p>
 
             <form action="/admin/pengumuman/store" method="POST" class="space-y-4" id="formPengumuman">
+                <?= csrf_field() ?>
                 <div>
                     <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Tipe Pengumuman</label>
                     <select name="tipe" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer bg-gray-50">
@@ -60,16 +61,16 @@
         <?php else: ?>
             <?php foreach ($pengumuman as $p): ?>
                 <?php
-                // Tentukan warna berdasarkan tipe
                 $bg_color = 'bg-blue-50';
                 $text_color = 'text-blue-600';
                 $icon = 'ℹ️';
-                if ($p->tipe == 'Penting') {
+
+                if ($p['tipe'] == 'Penting') {
                     $bg_color = 'bg-red-50';
                     $text_color = 'text-red-600';
                     $icon = '⚠️';
                 }
-                if ($p->tipe == 'Libur') {
+                if ($p['tipe'] == 'Libur') {
                     $bg_color = 'bg-emerald-50';
                     $text_color = 'text-emerald-600';
                     $icon = '🏖️';
@@ -81,16 +82,17 @@
                     </div>
                     <div class="flex-1 pb-1">
                         <div class="flex justify-between items-start mb-1">
-                            <h4 class="font-bold text-gray-800 text-base"><?= esc($p->judul) ?></h4>
-                            <span class="text-[10px] text-gray-400 font-semibold whitespace-nowrap"><?= date('d M Y, H:i', strtotime($p->created_at)) ?></span>
+                            <h4 class="font-bold text-gray-800 text-base"><?= esc((string) $p['judul']) ?></h4>
+                            <span class="text-[10px] text-gray-400 font-semibold whitespace-nowrap"><?= date('d M Y, H:i', strtotime((string) $p['created_at'])) ?></span>
                         </div>
-                        <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold <?= $bg_color ?> <?= $text_color ?> mb-2">Kategori: <?= esc($p->tipe) ?></span>
-                        <p class="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap"><?= esc($p->isi) ?></p>
+                        <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold <?= $bg_color ?> <?= $text_color ?> mb-2">Kategori: <?= esc((string) $p['tipe']) ?></span>
+                        <p class="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap"><?= esc((string) $p['isi']) ?></p>
                     </div>
 
                     <!-- Tombol Hapus (Muncul saat di-hover) -->
-                    <form action="/admin/pengumuman/delete/<?= esc($p->id) ?>" method="POST" class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button type="submit" class="btn-confirm p-2 bg-white text-gray-400 hover:text-red-500 hover:bg-red-50 border border-gray-200 rounded-lg shadow-sm" data-text="Pengumuman ini akan ditarik dari aplikasi siswa." title="Tarik / Hapus">
+                    <form action="/admin/pengumuman/delete/<?= esc((string) $p['id_pengumuman']) ?>" method="POST" class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <?= csrf_field() ?>
+                        <button type="submit" class="btn-confirm p-2 bg-white text-gray-400 hover:text-red-500 hover:bg-red-50 border border-gray-200 rounded-lg shadow-sm" onclick="return confirm('Tarik pengumuman ini?');" title="Tarik / Hapus">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                             </svg>
@@ -101,12 +103,15 @@
         <?php endif; ?>
     </div>
 </div>
+<!-- PENUTUP SECTION CONTENT DITAMBAHKAN DI SINI -->
+<?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
 <script>
-    $('#formPengumuman').on('submit', function() {
-        $(this).find('.btn-submit').addClass('btn-loading');
-    });
+    if (typeof $ !== 'undefined') {
+        $('#formPengumuman').on('submit', function() {
+            $(this).find('.btn-submit').addClass('btn-loading');
+        });
+    }
 </script>
-<?= $this->endSection() ?>
 <?= $this->endSection() ?>

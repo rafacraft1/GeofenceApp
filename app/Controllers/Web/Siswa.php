@@ -20,28 +20,31 @@ class Siswa extends Controller
     {
         $kelas_filter = $this->request->getGet('kelas');
 
-        $list_kelas = $this->db->table('siswa')
-            ->select('kelas')
-            ->groupBy('kelas')
-            ->orderBy('kelas', 'ASC')
+        // PERBAIKAN 1: Gunakan getResultArray()
+        $list_kelas = $this->db->table('kelas')
+            ->orderBy('nama_kelas', 'ASC')
             ->get()
-            ->getResult();
+            ->getResultArray();
 
         $pager   = \Config\Services::pager();
         $page    = (int) ($this->request->getGet('page') ?? 1);
         $perPage = 10;
 
-        $builder = $this->db->table('siswa');
+        $builder = $this->db->table('siswa')
+            ->select('siswa.*, kelas.nama_kelas')
+            ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
+
         if (!empty($kelas_filter)) {
-            $builder->where('kelas', $kelas_filter);
+            $builder->where('siswa.kelas_id', $kelas_filter);
         }
 
         $total_data = $builder->countAllResults(false);
         $offset = ($page - 1) * $perPage;
 
-        $siswa = $builder->orderBy('kelas', 'ASC')
-            ->orderBy('nama_lengkap', 'ASC')
-            ->get($perPage, $offset)->getResult();
+        // PERBAIKAN 2: Gunakan getResultArray()
+        $siswa = $builder->orderBy('kelas.nama_kelas', 'ASC')
+            ->orderBy('siswa.nama_siswa', 'ASC')
+            ->get($perPage, $offset)->getResultArray();
 
         $data = [
             'title'       => 'Daftar Siswa',
@@ -59,21 +62,22 @@ class Siswa extends Controller
 
     public function store()
     {
-        // Tangkap file foto
         $foto = $this->request->getFile('foto');
         $namaFoto = null;
 
-        // Jika foto diupload dan valid
         if ($foto && $foto->isValid() && !$foto->hasMoved()) {
             $namaFoto = $foto->getRandomName();
             $foto->move('uploads/siswa', $namaFoto);
         }
 
+        $nis = $this->request->getPost('nis');
+
         $this->db->table('siswa')->insert([
-            'nis'          => $this->request->getPost('nis'),
-            'nama_lengkap' => $this->request->getPost('nama_lengkap'),
-            'kelas'        => strtoupper($this->request->getPost('kelas')),
-            'foto'         => $namaFoto,
+            'nis'          => $nis,
+            'nama_siswa'   => $this->request->getPost('nama_siswa'),
+            'kelas_id'     => $this->request->getPost('kelas_id'),
+            'password'     => password_hash($nis, PASSWORD_BCRYPT),
+            'foto_profil'  => $namaFoto,
             'created_at'   => date('Y-m-d H:i:s')
         ]);
 
@@ -82,28 +86,26 @@ class Siswa extends Controller
 
     public function update(string $id)
     {
-        // Ambil data siswa lama untuk mengecek foto
-        $siswaLama = $this->db->table('siswa')->where('id', $id)->get()->getRow();
+        $siswaLama = $this->db->table('siswa')->where('id_siswa', $id)->get()->getRow();
 
         $foto = $this->request->getFile('foto');
-        $namaFoto = $siswaLama->foto; // Secara default, gunakan foto lama
+        $namaFoto = $siswaLama->foto_profil;
 
-        // Jika ada foto baru yang diupload
         if ($foto && $foto->isValid() && !$foto->hasMoved()) {
             $namaFoto = $foto->getRandomName();
             $foto->move('uploads/siswa', $namaFoto);
 
-            // Hapus foto lama dari server agar tidak jadi sampah
-            if (!empty($siswaLama->foto) && file_exists('uploads/siswa/' . $siswaLama->foto)) {
-                unlink('uploads/siswa/' . $siswaLama->foto);
+            if (!empty($siswaLama->foto_profil) && file_exists('uploads/siswa/' . $siswaLama->foto_profil)) {
+                unlink('uploads/siswa/' . $siswaLama->foto_profil);
             }
         }
 
-        $this->db->table('siswa')->where('id', $id)->update([
+        $this->db->table('siswa')->where('id_siswa', $id)->update([
             'nis'          => $this->request->getPost('nis'),
-            'nama_lengkap' => $this->request->getPost('nama_lengkap'),
-            'kelas'        => strtoupper($this->request->getPost('kelas')),
-            'foto'         => $namaFoto
+            'nama_siswa'   => $this->request->getPost('nama_siswa'),
+            'kelas_id'     => $this->request->getPost('kelas_id'),
+            'foto_profil'  => $namaFoto,
+            'updated_at'   => date('Y-m-d H:i:s')
         ]);
 
         return redirect()->to('/admin/siswa')->with('success', 'Data siswa berhasil diperbarui.');
@@ -111,13 +113,12 @@ class Siswa extends Controller
 
     public function delete(string $id)
     {
-        // Ambil data siswa untuk menghapus foto dari server
-        $siswa = $this->db->table('siswa')->where('id', $id)->get()->getRow();
+        $siswa = $this->db->table('siswa')->where('id_siswa', $id)->get()->getRow();
         if ($siswa) {
-            if (!empty($siswa->foto) && file_exists('uploads/siswa/' . $siswa->foto)) {
-                unlink('uploads/siswa/' . $siswa->foto);
+            if (!empty($siswa->foto_profil) && file_exists('uploads/siswa/' . $siswa->foto_profil)) {
+                unlink('uploads/siswa/' . $siswa->foto_profil);
             }
-            $this->db->table('siswa')->where('id', $id)->delete();
+            $this->db->table('siswa')->where('id_siswa', $id)->delete();
         }
 
         return redirect()->to('/admin/siswa')->with('success', 'Data siswa beserta foto berhasil dihapus.');
@@ -125,23 +126,18 @@ class Siswa extends Controller
 
     public function reset_device(string $id)
     {
-        $this->db->table('siswa')->where('id', $id)->update([
+        $this->db->table('siswa')->where('id_siswa', $id)->update([
             'device_id' => null,
-            'api_token' => null
+            'updated_at' => date('Y-m-d H:i:s')
         ]);
         return redirect()->to('/admin/siswa')->with('success', 'Perangkat berhasil di-reset.');
     }
 
     public function unblock(string $id)
     {
-        $this->db->table('siswa')->where('id', $id)->update([
-            'is_blocked'  => 0,
-            'fraud_count' => 0
-        ]);
-        return redirect()->to('/admin/siswa')->with('success', 'Akun siswa berhasil di-unblock.');
+        return redirect()->to('/admin/siswa')->with('error', 'Fitur Unblock membutuhkan penambahan kolom di database.');
     }
 
-    // ... (Fungsi download_template, export, dan import tetap sama, tidak perlu diubah) ...
     public function download_template()
     {
         $spreadsheet = new Spreadsheet();
@@ -150,7 +146,7 @@ class Siswa extends Controller
         $sheet->setCellValue('A1', 'TEMPLATE IMPORT DATA SISWA');
         $sheet->setCellValue('A3', 'NIS');
         $sheet->setCellValue('B3', 'NAMA LENGKAP');
-        $sheet->setCellValue('C3', 'KELAS');
+        $sheet->setCellValue('C3', 'ID KELAS (Lihat di menu Manajemen Kelas)');
 
         $writer = new Xlsx($spreadsheet);
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -162,14 +158,16 @@ class Siswa extends Controller
 
     public function export()
     {
-        $kelas = $this->request->getGet('kelas');
-        $builder = $this->db->table('siswa');
+        $kelas_id = $this->request->getGet('kelas');
+        $builder = $this->db->table('siswa')
+            ->select('siswa.*, kelas.nama_kelas')
+            ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
 
-        if (!empty($kelas)) {
-            $builder->where('kelas', $kelas);
+        if (!empty($kelas_id)) {
+            $builder->where('siswa.kelas_id', $kelas_id);
         }
 
-        $dataSiswa = $builder->orderBy('kelas', 'ASC')->orderBy('nama_lengkap', 'ASC')->get()->getResultArray();
+        $dataSiswa = $builder->orderBy('kelas.nama_kelas', 'ASC')->orderBy('siswa.nama_siswa', 'ASC')->get()->getResultArray();
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
@@ -183,8 +181,8 @@ class Siswa extends Controller
         foreach ($dataSiswa as $index => $siswa) {
             $sheet->setCellValue('A' . $row, $index + 1);
             $sheet->setCellValue('B' . $row, $siswa['nis']);
-            $sheet->setCellValue('C' . $row, $siswa['nama_lengkap']);
-            $sheet->setCellValue('D' . $row, $siswa['kelas']);
+            $sheet->setCellValue('C' . $row, $siswa['nama_siswa']);
+            $sheet->setCellValue('D' . $row, $siswa['nama_kelas']);
             $row++;
         }
 
@@ -215,9 +213,9 @@ class Siswa extends Controller
 
             $nis = isset($row[0]) ? trim($row[0]) : '';
             $nama = isset($row[1]) ? trim($row[1]) : '';
-            $kelas = isset($row[2]) ? strtoupper(trim($row[2])) : '';
+            $kelas_id = isset($row[2]) ? (int)trim($row[2]) : 0;
 
-            if (empty($nis) || empty($nama)) continue;
+            if (empty($nis) || empty($nama) || empty($kelas_id)) continue;
 
             $cek = $this->db->table('siswa')->where('nis', $nis)->countAllResults();
             if ($cek > 0) {
@@ -227,8 +225,9 @@ class Siswa extends Controller
 
             $this->db->table('siswa')->insert([
                 'nis'          => $nis,
-                'nama_lengkap' => $nama,
-                'kelas'        => $kelas,
+                'nama_siswa'   => $nama,
+                'kelas_id'     => $kelas_id,
+                'password'     => password_hash($nis, PASSWORD_BCRYPT),
                 'created_at'   => date('Y-m-d H:i:s')
             ]);
             $inserted++;

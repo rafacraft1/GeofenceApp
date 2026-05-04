@@ -8,10 +8,8 @@ class SiswaSeeder extends Seeder
 {
     public function run()
     {
-        // Memanggil Faker dengan format lokalisasi Indonesia
         $faker = \Faker\Factory::create('id_ID');
 
-        // Daftar kelas sesuai kebutuhan Anda
         $list_kelas = [
             'X TKJ A',
             'X TKJ B',
@@ -28,35 +26,45 @@ class SiswaSeeder extends Seeder
         ];
 
         $data_siswa = [];
-
-        // Kita mulai NIS dari 20260001 agar rapi dan unik
         $nis_awal = 20260001;
 
-        // Looping untuk setiap kelas
-        foreach ($list_kelas as $kelas) {
-            // Masing-masing kelas diisi 3 siswa
+        foreach ($list_kelas as $nama_kelas) {
+
+            $kelasRow = $this->db->table('kelas')->where('nama_kelas', $nama_kelas)->get()->getRowArray();
+
+            if (!$kelasRow) {
+                $this->db->table('kelas')->insert([
+                    'nama_kelas' => $nama_kelas,
+                    'created_at' => date('Y-m-d H:i:s')
+                ]);
+                $kelas_id = $this->db->insertID();
+            } else {
+                $kelas_id = $kelasRow['id_kelas'];
+            }
+
             for ($i = 1; $i <= 3; $i++) {
+                $nis = (string) $nis_awal++;
+
                 $data_siswa[] = [
-                    'nis'          => (string) $nis_awal++,
-                    // Menghasilkan nama acak (tanpa gelar seperti S.Pd)
-                    'nama_lengkap' => $faker->name,
-                    'kelas'        => $kelas,
-                    'foto'         => null,
+                    'nis'          => $nis,
+                    'nama_siswa'   => $faker->name,
+                    'kelas_id'     => $kelas_id,
+                    'password'     => password_hash($nis, PASSWORD_BCRYPT),
+                    'foto_profil'  => null,
                     'device_id'    => null,
                     'fraud_count'  => 0,
                     'is_blocked'   => 0,
                     'api_token'    => null,
-                    'fcm_token'    => null, // <-- TAMBAHAN BARU
-                    'last_login'   => null,
+                    'fcm_token'    => null, // SUDAH DIAKTIFKAN KEMBALI
+                    'last_login'   => null, // SUDAH DIAKTIFKAN KEMBALI
                     'created_at'   => date('Y-m-d H:i:s'),
                     'updated_at'   => date('Y-m-d H:i:s'),
                 ];
             }
         }
 
-        // Menyuntikkan seluruh data ke dalam tabel 'siswa' sekaligus (Insert Batch)
         $this->db->table('siswa')->insertBatch($data_siswa);
 
-        echo "Berhasil menambahkan 36 data dummy siswa ke dalam database!\n";
+        echo "Berhasil menyinkronkan data Kelas dan menambahkan 36 data dummy Siswa!\n";
     }
 }

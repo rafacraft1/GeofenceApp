@@ -3,6 +3,7 @@
 namespace App\Controllers\Web;
 
 use CodeIgniter\Controller;
+use CodeIgniter\Database\BaseConnection;
 
 class AuthWeb extends Controller
 {
@@ -17,17 +18,20 @@ class AuthWeb extends Controller
 
     public function login()
     {
+        /** @var BaseConnection $db */
         $db = \Config\Database::connect();
+
         $username = $this->request->getPost('username');
         $password = $this->request->getPost('password');
 
-        $user = $db->table('users')->where('username', $username)->get()->getRow();
+        // Menggunakan getRowArray() agar konsisten
+        $user = $db->table('users')->where('username', $username)->get()->getRowArray();
 
-        if ($user && password_verify($password, $user->password_hash)) {
+        if ($user && password_verify($password, $user['password_hash'])) {
             session()->set([
-                'user_id'      => $user->id,
-                'nama_lengkap' => $user->nama_lengkap,
-                'role'         => $user->role,
+                'user_id'      => $user['id_user'], // PERBAIKAN: Menggunakan id_user
+                'nama_lengkap' => $user['nama_lengkap'],
+                'role'         => $user['role'],
                 'logged_in'    => true
             ]);
             return redirect()->to('/admin/dashboard');

@@ -10,12 +10,11 @@ class PengumumanApi extends ResourceController
     {
         $db = \Config\Database::connect();
 
-        // Ambil 10 pengumuman terbaru
         $data = $db->table('pengumuman')
             ->orderBy('created_at', 'DESC')
             ->limit(10)
             ->get()
-            ->getResult();
+            ->getResultArray();
 
         return $this->respond([
             'status'  => 'success',

@@ -4,11 +4,13 @@ namespace App\Controllers\Web;
 
 use CodeIgniter\Controller;
 use CodeIgniter\I18n\Time;
+use CodeIgniter\Database\BaseConnection;
 
 class Dashboard extends Controller
 {
     public function index()
     {
+        /** @var BaseConnection $db */
         $db = \Config\Database::connect();
         $hari_ini = Time::now('Asia/Jakarta')->toDateString();
 
@@ -22,17 +24,19 @@ class Dashboard extends Controller
         ];
 
         // 2. Data Deteksi Manipulasi Hari Ini (Real-time DB)
+        // PERBAIKAN: Menggunakan jam_masuk, nama_siswa, dan foto_profil
         $data['list_manipulasi'] = $db->table('absensi')
-            ->select('absensi.waktu_masuk, absensi.status, absensi.is_fake_gps, siswa.nama_lengkap, siswa.kelas, siswa.nis, siswa.foto')
-            ->join('siswa', 'siswa.id = absensi.siswa_id')
+            ->select('absensi.jam_masuk, absensi.status, absensi.is_fake_gps, siswa.nama_siswa, kelas.nama_kelas as kelas, siswa.nis, siswa.foto_profil')
+            ->join('siswa', 'siswa.id_siswa = absensi.siswa_id')
+            ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left')
             ->where('absensi.tanggal', $hari_ini)
             ->groupStart()
             ->where('absensi.status', 'Manipulasi')
             ->orWhere('absensi.is_fake_gps', 1)
             ->groupEnd()
-            ->orderBy('absensi.waktu_masuk', 'DESC')
+            ->orderBy('absensi.jam_masuk', 'DESC')
             ->get()
-            ->getResult();
+            ->getResultArray();
 
         // 3. Data untuk Grafik (Tren 7 Hari Terakhir)
         $grafik_labels = [];
@@ -44,16 +48,14 @@ class Dashboard extends Controller
         for ($i = 6; $i >= 0; $i--) {
             $tanggal = Time::now('Asia/Jakarta')->subDays($i)->toDateString();
 
-            // Format label jadi "Tanggal Bulan" (contoh: 24 Apr)
             $grafik_labels[] = date('d M', strtotime($tanggal));
 
-            // Hitung total tiap status pada tanggal tersebut
             $grafik_hadir[]     = $db->table('absensi')->where('tanggal', $tanggal)->where('status', 'Hadir')->countAllResults();
             $grafik_terlambat[] = $db->table('absensi')->where('tanggal', $tanggal)->where('status', 'Terlambat')->countAllResults();
             $grafik_alpa[]      = $db->table('absensi')->where('tanggal', $tanggal)->where('status', 'Alpa')->countAllResults();
         }
 
-        // Lempar data ke view dalam format JSON agar bisa dibaca Javascript (Chart.js)
+        // Lempar data ke view dalam format JSON
         $data['chart_labels']    = json_encode($grafik_labels);
         $data['chart_hadir']     = json_encode($grafik_hadir);
         $data['chart_terlambat'] = json_encode($grafik_terlambat);

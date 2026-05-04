@@ -9,7 +9,7 @@
  * @var string $chart_hadir
  * @var string $chart_terlambat
  * @var string $chart_alpa
- * @var object{waktu_masuk: string, status: string, is_fake_gps: int, nama_lengkap: string, kelas: string, nis: string, foto: string|null}[] $list_manipulasi
+ * @var array $list_manipulasi
  */
 ?>
 <?= $this->extend('layout/admin') ?>
@@ -18,7 +18,7 @@
 
 <div class="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl shadow-lg p-6 md:p-8 mb-6 text-white relative overflow-hidden">
     <div class="relative z-10">
-        <h2 class="text-2xl md:text-3xl font-bold mb-2">Selamat Datang, <?= session()->get('nama_lengkap') ?? 'Admin' ?> 👋</h2>
+        <h2 class="text-2xl md:text-3xl font-bold mb-2">Selamat Datang, <?= esc((string) (session()->get('nama_lengkap') ?? 'Admin')) ?> 👋</h2>
         <p class="text-blue-100 text-sm md:text-base max-w-2xl">Pantau aktivitas absensi, tren kehadiran, dan anomali keamanan (Geofence) secara real-time untuk hari ini.</p>
     </div>
     <div class="absolute -right-10 -top-10 opacity-20">
@@ -38,7 +38,7 @@
         </div>
         <div>
             <p class="text-sm font-medium text-gray-500">Total Siswa Aktif</p>
-            <p class="text-2xl font-bold text-gray-800"><?= esc($total_siswa) ?></p>
+            <p class="text-2xl font-bold text-gray-800"><?= esc((string) $total_siswa) ?></p>
         </div>
     </div>
 
@@ -50,7 +50,7 @@
         </div>
         <div>
             <p class="text-sm font-medium text-gray-500">Hadir Hari Ini</p>
-            <p class="text-2xl font-bold text-gray-800"><?= esc($hadir_hari_ini) ?></p>
+            <p class="text-2xl font-bold text-gray-800"><?= esc((string) $hadir_hari_ini) ?></p>
         </div>
     </div>
 
@@ -62,7 +62,7 @@
         </div>
         <div>
             <p class="text-sm font-medium text-gray-500">Alpa / Tdk Hadir</p>
-            <p class="text-2xl font-bold text-gray-800"><?= esc($alpa_hari_ini) ?></p>
+            <p class="text-2xl font-bold text-gray-800"><?= esc((string) $alpa_hari_ini) ?></p>
         </div>
     </div>
 
@@ -74,7 +74,7 @@
         </div>
         <div>
             <p class="text-sm font-medium text-gray-500">Deteksi Manipulasi</p>
-            <p class="text-2xl font-bold text-gray-800"><?= esc($fraud_hari_ini) ?></p>
+            <p class="text-2xl font-bold text-gray-800"><?= esc((string) $fraud_hari_ini) ?></p>
         </div>
     </div>
 
@@ -118,26 +118,26 @@
                     <div class="flex items-start gap-3 p-3 bg-red-50/50 border border-red-100 rounded-xl">
                         <!-- Avatar Kecil -->
                         <div class="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-bold text-xs shadow-inner overflow-hidden shrink-0 border border-red-200">
-                            <?php if (!empty($m->foto)): ?>
-                                <img src="/uploads/siswa/<?= esc($m->foto) ?>" alt="Foto" class="w-full h-full object-cover">
+                            <?php if (!empty($m['foto_profil'])): ?>
+                                <img src="/uploads/siswa/<?= esc((string) $m['foto_profil']) ?>" alt="Foto" class="w-full h-full object-cover">
                             <?php else: ?>
-                                <?= esc(strtoupper(substr($m->nama_lengkap ?? '', 0, 1))) ?>
+                                <?= esc(strtoupper(substr((string) ($m['nama_siswa'] ?? ''), 0, 1))) ?>
                             <?php endif; ?>
                         </div>
 
                         <!-- Info Detail -->
                         <div class="flex-1">
-                            <h4 class="text-sm font-bold text-gray-800 leading-tight"><?= esc($m->nama_lengkap) ?></h4>
-                            <p class="text-[10px] text-gray-500 font-medium mb-1"><?= esc($m->kelas) ?> • <?= esc($m->nis) ?></p>
+                            <h4 class="text-sm font-bold text-gray-800 leading-tight"><?= esc((string) $m['nama_siswa']) ?></h4>
+                            <p class="text-[10px] text-gray-500 font-medium mb-1"><?= esc((string) ($m['kelas'] ?? '-')) ?> • <?= esc((string) $m['nis']) ?></p>
                             <div class="flex flex-wrap items-center gap-1.5 mt-1">
                                 <span class="bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
-                                    <?= $m->is_fake_gps ? 'FAKE GPS' : 'LUAR ZONA' ?>
+                                    <?= !empty($m['is_fake_gps']) ? 'FAKE GPS' : 'LUAR ZONA' ?>
                                 </span>
                                 <span class="text-[10px] text-gray-500 font-semibold flex items-center gap-1">
                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                     </svg>
-                                    <?= date('H:i', strtotime($m->waktu_masuk)) ?> WIB
+                                    <?= date('H:i', strtotime((string) $m['jam_masuk'])) ?> WIB
                                 </span>
                             </div>
                         </div>
@@ -150,7 +150,6 @@
 
 <?= $this->endSection() ?>
 
-
 <?= $this->section('scripts') ?>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -161,23 +160,23 @@
         new window.Chart(ctx, {
             type: 'bar',
             data: {
-                labels: <?= $chart_labels ?>, // Data dari Controller
+                labels: <?= $chart_labels ?>,
                 datasets: [{
                         label: 'Tepat Waktu',
                         data: <?= $chart_hadir ?>,
-                        backgroundColor: '#10B981', // Tailwind emerald-500
+                        backgroundColor: '#10B981',
                         borderRadius: 4
                     },
                     {
                         label: 'Terlambat',
                         data: <?= $chart_terlambat ?>,
-                        backgroundColor: '#F59E0B', // Tailwind amber-500
+                        backgroundColor: '#F59E0B',
                         borderRadius: 4
                     },
                     {
                         label: 'Alpa',
                         data: <?= $chart_alpa ?>,
-                        backgroundColor: '#EF4444', // Tailwind red-500
+                        backgroundColor: '#EF4444',
                         borderRadius: 4
                     }
                 ]
@@ -187,20 +186,20 @@
                 maintainAspectRatio: false,
                 scales: {
                     x: {
-                        stacked: true, // Menggabungkan bar secara vertikal
+                        stacked: true,
                         grid: {
                             display: false
-                        } // Hilangkan garis vertikal
+                        }
                     },
                     y: {
                         stacked: true,
                         beginAtZero: true,
                         ticks: {
                             precision: 0
-                        }, // Hindari angka desimal di sumbu Y
+                        },
                         grid: {
                             color: '#f3f4f6',
-                            borderDash: [5, 5] // Garis putus-putus
+                            borderDash: [5, 5]
                         }
                     }
                 },
@@ -215,7 +214,7 @@
                     tooltip: {
                         mode: 'index',
                         intersect: false,
-                        backgroundColor: 'rgba(17, 24, 39, 0.9)', // slate-900
+                        backgroundColor: 'rgba(17, 24, 39, 0.9)',
                         titleFont: {
                             size: 14
                         },

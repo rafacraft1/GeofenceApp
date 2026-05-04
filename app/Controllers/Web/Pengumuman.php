@@ -3,10 +3,12 @@
 namespace App\Controllers\Web;
 
 use CodeIgniter\Controller;
+use CodeIgniter\Database\BaseConnection;
 
 class Pengumuman extends Controller
 {
-    protected \CodeIgniter\Database\BaseConnection $db;
+    /** @var BaseConnection */
+    protected BaseConnection $db;
 
     public function __construct()
     {
@@ -15,8 +17,8 @@ class Pengumuman extends Controller
 
     public function index()
     {
-        // Ambil data pengumuman terbaru di atas
-        $pengumuman = $this->db->table('pengumuman')->orderBy('created_at', 'DESC')->get()->getResult();
+        // PERBAIKAN: Gunakan getResultArray()
+        $pengumuman = $this->db->table('pengumuman')->orderBy('created_at', 'DESC')->get()->getResultArray();
 
         $data = [
             'title'      => 'Broadcast Pengumuman',
@@ -40,7 +42,8 @@ class Pengumuman extends Controller
 
     public function delete(string $id)
     {
-        $this->db->table('pengumuman')->where('id', $id)->delete();
+        // PERBAIKAN: Gunakan id_pengumuman
+        $this->db->table('pengumuman')->where('id_pengumuman', $id)->delete();
         return redirect()->to('/admin/pengumuman')->with('success', 'Pengumuman berhasil ditarik/dihapus.');
     }
 }

@@ -2,7 +2,7 @@
 
 /**
  * Dideklarasikan untuk menghilangkan false-positive error Intelephense
- * @var object{latitude_sekolah: string|float, longitude_sekolah: string|float, radius_meter: int|string, firebase_url: string|null, jam_masuk: string, jam_pulang: string} $config
+ * @var array $config
  */
 ?>
 <?= $this->extend('layout/admin') ?>
@@ -28,39 +28,39 @@
         <p class="text-xs text-gray-500 mb-6">Tentukan lokasi sekolah, radius, waktu absensi, dan koneksi Firebase.</p>
 
         <form action="/admin/pengaturan/save" method="POST" id="formPengaturan" class="space-y-5 flex-1 flex flex-col">
-
+            <?= csrf_field() ?>
             <div class="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl">
                 <div>
                     <label class="text-[10px] font-bold text-gray-400 uppercase">Latitude</label>
-                    <input type="text" id="lat" name="latitude_sekolah" value="<?= esc($config->latitude_sekolah) ?>" class="w-full bg-transparent font-bold text-sm text-gray-800 outline-none" readonly>
+                    <input type="text" id="lat" name="latitude_sekolah" value="<?= esc((string) ($config['latitude_sekolah'] ?? '')) ?>" class="w-full bg-transparent font-bold text-sm text-gray-800 outline-none" readonly>
                 </div>
                 <div>
                     <label class="text-[10px] font-bold text-gray-400 uppercase">Longitude</label>
-                    <input type="text" id="long" name="longitude_sekolah" value="<?= esc($config->longitude_sekolah) ?>" class="w-full bg-transparent font-bold text-sm text-gray-800 outline-none" readonly>
+                    <input type="text" id="long" name="longitude_sekolah" value="<?= esc((string) ($config['longitude_sekolah'] ?? '')) ?>" class="w-full bg-transparent font-bold text-sm text-gray-800 outline-none" readonly>
                 </div>
             </div>
 
             <div>
                 <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Radius Diizinkan (Meter)</label>
                 <div class="flex items-center gap-3">
-                    <input type="range" id="radius-slider" min="10" max="500" step="5" value="<?= esc($config->radius_meter) ?>" class="flex-1 accent-blue-600 cursor-grab">
-                    <input type="number" id="radius" name="radius_meter" value="<?= esc($config->radius_meter) ?>" class="w-20 border border-gray-200 rounded-lg p-2 text-center text-sm font-bold text-blue-600 outline-none focus:border-blue-500 transition-colors">
+                    <input type="range" id="radius-slider" min="10" max="500" step="5" value="<?= esc((string) ($config['radius_meter'] ?? 50)) ?>" class="flex-1 accent-blue-600 cursor-grab">
+                    <input type="number" id="radius" name="radius_meter" value="<?= esc((string) ($config['radius_meter'] ?? 50)) ?>" class="w-20 border border-gray-200 rounded-lg p-2 text-center text-sm font-bold text-blue-600 outline-none focus:border-blue-500 transition-colors">
                 </div>
             </div>
 
             <div class="pt-4 border-t border-gray-100">
                 <label class="block text-xs font-bold text-orange-600 uppercase mb-2">Firebase Database URL</label>
-                <input type="url" name="firebase_url" value="<?= esc($config->firebase_url ?? '') ?>" placeholder="https://nama-project.asia-southeast1.firebasedatabase.app" required class="w-full border border-orange-200 rounded-xl p-3 text-[11px] font-mono outline-none focus:ring-2 focus:ring-orange-500 transition-all bg-orange-50/30">
+                <input type="url" name="firebase_url" value="<?= esc((string) ($config['firebase_url'] ?? '')) ?>" placeholder="https://nama-project.asia-southeast1.firebasedatabase.app" required class="w-full border border-orange-200 rounded-xl p-3 text-[11px] font-mono outline-none focus:ring-2 focus:ring-orange-500 transition-all bg-orange-50/30">
             </div>
 
             <div class="grid grid-cols-2 gap-5 pt-4 border-t border-gray-100">
                 <div>
                     <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Jam Masuk</label>
-                    <input type="time" name="jam_masuk" value="<?= esc($config->jam_masuk) ?>" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer">
+                    <input type="time" name="jam_masuk" value="<?= esc((string) ($config['jam_masuk'] ?? '07:00')) ?>" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Jam Pulang</label>
-                    <input type="time" name="jam_pulang" value="<?= esc($config->jam_pulang) ?>" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer">
+                    <input type="time" name="jam_pulang" value="<?= esc((string) ($config['jam_pulang'] ?? '15:00')) ?>" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer">
                 </div>
             </div>
 
@@ -70,6 +70,7 @@
         </form>
     </div>
 </div>
+<!-- PENUTUP SECTION CONTENT DITAMBAHKAN DI SINI -->
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
@@ -83,23 +84,20 @@
         let radiusInput = document.getElementById('radius');
         let radiusSlider = document.getElementById('radius-slider');
 
-        let center = [latInput.value, lngInput.value];
+        let center = [latInput.value || 0, lngInput.value || 0];
         let map = L.map('map', {
-            zoomControl: false // Kita matikan zoom bawaan agar bisa diatur posisinya
+            zoomControl: false
         }).setView(center, 18);
 
-        // Pindahkan tombol Zoom ke kanan bawah agar tidak tertimpa instruksi
         L.control.zoom({
             position: 'bottomright'
         }).addTo(map);
 
-        // Menampilkan Peta dari OpenStreetMap (Tema Bersih)
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; OpenStreetMap &copy; CARTO',
             maxZoom: 20
         }).addTo(map);
 
-        // DESAIN MARKER BARU YANG PROFESIONAL
         let schoolIcon = L.divIcon({
             html: `
                 <div class="relative flex flex-col items-center justify-end w-full h-full group">
@@ -120,24 +118,22 @@
             `,
             className: 'bg-transparent',
             iconSize: [56, 72],
-            iconAnchor: [28, 70] // Tepat menunjuk ke titik kordinat
+            iconAnchor: [28, 70]
         });
 
         let marker = L.marker(center, {
             icon: schoolIcon
         }).addTo(map);
 
-        // Desain Lingkaran Geofence Diperbarui
         let circle = L.circle(center, {
-            color: '#2563eb', // Border Biru
-            fillColor: '#60a5fa', // Fill Biru Muda
+            color: '#2563eb',
+            fillColor: '#60a5fa',
             fillOpacity: 0.15,
             weight: 2,
-            dashArray: '8, 6', // Membuat border putus-putus seperti area pindaian
+            dashArray: '8, 6',
             radius: radiusInput.value
         }).addTo(map);
 
-        // Fitur Click-to-Pick Kordinat
         map.on('click', function(e) {
             let lat = e.latlng.lat;
             let lng = e.latlng.lng;
@@ -147,14 +143,13 @@
             lngInput.value = lng.toFixed(8);
         });
 
-        // Sinkronisasi Slider Radius dan Input Number
         function updateRadius(val) {
             circle.setRadius(val);
             radiusInput.value = val;
             radiusSlider.value = val;
             map.fitBounds(circle.getBounds(), {
                 padding: [50, 50]
-            }); // Otomatis menyesuaikan layar jika radius membesar
+            });
         }
 
         radiusSlider.addEventListener('input', function(e) {
@@ -165,9 +160,11 @@
             updateRadius(e.target.value);
         });
 
-        $('#formPengaturan').on('submit', function() {
-            $(this).find('.btn-submit').addClass('btn-loading');
-        });
+        if (typeof $ !== 'undefined') {
+            $('#formPengaturan').on('submit', function() {
+                $(this).find('.btn-submit').addClass('btn-loading');
+            });
+        }
     });
 </script>
 <?= $this->endSection() ?>

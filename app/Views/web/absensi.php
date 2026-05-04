@@ -1,3 +1,13 @@
+<?php
+
+/**
+ * @var array $absensi
+ * @var array $siswa
+ * @var array $list_kelas
+ * @var string $tanggal
+ * @var string $kelas_aktif
+ */
+?>
 <?= $this->extend('layout/admin') ?>
 
 <?= $this->section('content') ?>
@@ -46,9 +56,21 @@
             </div>
 
             <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
-                <form action="/admin/absensi" method="GET" class="flex items-center gap-2 w-full sm:w-auto">
-                    <input type="date" name="tanggal" value="<?= esc($tanggal) ?>" class="border-gray-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-gray-700 font-medium w-full sm:w-40 transition-all cursor-pointer">
-                    <button type="submit" class="bg-slate-800 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-900 transition-all active:scale-95 shadow-md">Filter</button>
+                <form action="/admin/absensi" method="GET" class="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+                    <!-- Dropdown Filter Kelas -->
+                    <select name="kelas_id" class="border-gray-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-gray-700 w-full sm:w-40 transition-all cursor-pointer">
+                        <option value="">Semua Kelas</option>
+                        <?php if (!empty($list_kelas)): ?>
+                            <?php foreach ($list_kelas as $k): ?>
+                                <option value="<?= (string) $k['id_kelas'] ?>" <?= ((string) $kelas_aktif === (string) $k['id_kelas']) ? 'selected' : '' ?>>
+                                    <?= esc((string) $k['nama_kelas']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </select>
+
+                    <input type="date" name="tanggal" value="<?= esc((string) $tanggal) ?>" class="border-gray-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-gray-700 font-medium w-full sm:w-40 transition-all cursor-pointer">
+                    <button type="submit" class="w-full sm:w-auto bg-slate-800 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-900 transition-all active:scale-95 shadow-md">Terapkan</button>
                 </form>
 
                 <button onclick="toggleFormManual()" class="w-full sm:w-auto flex items-center justify-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-md active:scale-95 whitespace-nowrap transition-all">
@@ -68,20 +90,22 @@
                 Catat / Ralat Kehadiran Khusus (Sakit / Izin / Hadir Manual)
             </h4>
             <form action="/admin/absensi/input_manual" method="POST" id="formManualSubmit" class="grid grid-cols-1 md:grid-cols-12 gap-5 items-end">
-
+                <?= csrf_field() ?>
                 <div class="md:col-span-5 relative">
                     <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Pilih Siswa</label>
                     <select name="siswa_id" id="siswa_select" class="w-full" required>
                         <option value="">-- Cari Nama atau NIS --</option>
-                        <?php foreach ($siswa as $s): ?>
-                            <option value="<?= esc($s->id) ?>"><?= esc($s->nis) ?> - <?= esc($s->nama_lengkap) ?> (<?= esc($s->kelas) ?>)</option>
-                        <?php endforeach; ?>
+                        <?php if (!empty($siswa)): ?>
+                            <?php foreach ($siswa as $s): ?>
+                                <option value="<?= (string) $s['id_siswa'] ?>"><?= esc((string) $s['nis']) ?> - <?= esc((string) $s['nama_siswa']) ?> (<?= esc((string) ($s['nama_kelas'] ?? '-')) ?>)</option>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
                     </select>
                 </div>
 
                 <div class="md:col-span-2">
                     <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Tanggal</label>
-                    <input type="date" name="tanggal" value="<?= esc($tanggal) ?>" required class="w-full border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                    <input type="date" name="tanggal" value="<?= esc((string) $tanggal) ?>" required class="w-full border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all">
                 </div>
 
                 <div class="md:col-span-2">
@@ -113,13 +137,12 @@
                         <th class="px-6 py-4 text-center">Masuk</th>
                         <th class="px-6 py-4 text-center">Pulang</th>
                         <th class="px-6 py-4">Status</th>
-                        <th class="px-6 py-4">Keterangan</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     <?php if (empty($absensi)): ?>
                         <tr>
-                            <td colspan="5" class="px-6 py-20 text-center">
+                            <td colspan="4" class="px-6 py-20 text-center">
                                 <div class="flex flex-col items-center">
                                     <div class="bg-gray-50 p-4 rounded-full mb-4 text-gray-300">
                                         <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -127,7 +150,7 @@
                                         </svg>
                                     </div>
                                     <h4 class="text-gray-800 font-bold">Data Kosong</h4>
-                                    <p class="text-gray-500 text-sm max-w-xs mx-auto mt-1">Tidak ada catatan absensi untuk tanggal <?= esc(date('d M Y', strtotime($tanggal))) ?>.</p>
+                                    <p class="text-gray-500 text-sm max-w-xs mx-auto mt-1">Tidak ada catatan absensi untuk tanggal <?= esc(date('d M Y', strtotime((string) $tanggal))) ?>.</p>
                                 </div>
                             </td>
                         </tr>
@@ -136,22 +159,19 @@
                     <?php foreach ($absensi as $a): ?>
                         <tr class="hover:bg-gray-50 transition-colors">
                             <td class="px-6 py-4">
-                                <div class="font-bold text-gray-800 text-sm"><?= esc($a->nama_lengkap) ?></div>
-                                <div class="text-[10px] text-gray-400 font-bold uppercase tracking-tight mt-0.5"><?= esc($a->nis) ?> • <?= esc($a->kelas) ?></div>
+                                <div class="font-bold text-gray-800 text-sm"><?= esc((string) $a['nama_siswa']) ?></div>
+                                <div class="text-[10px] text-gray-400 font-bold uppercase tracking-tight mt-0.5"><?= esc((string) $a['nis']) ?> • <?= esc((string) ($a['nama_kelas'] ?? '-')) ?></div>
                             </td>
                             <td class="px-6 py-4 text-center">
-                                <?php if ($a->waktu_masuk): ?>
-                                    <span class="text-sm font-semibold text-slate-700"><?= esc(substr($a->waktu_masuk, 0, 5)) ?></span>
-                                    <?php if ($a->menit_telat > 0): ?>
-                                        <div class="text-[10px] text-red-500 font-black mt-0.5" title="Terlambat <?= esc($a->menit_telat) ?> Menit">+<?= esc($a->menit_telat) ?>m</div>
-                                    <?php endif; ?>
+                                <?php if (!empty($a['jam_masuk'])): ?>
+                                    <span class="text-sm font-semibold text-slate-700"><?= esc(substr((string) $a['jam_masuk'], 0, 5)) ?></span>
                                 <?php else: ?>
                                     <span class="text-gray-300">-</span>
                                 <?php endif; ?>
                             </td>
                             <td class="px-6 py-4 text-center">
-                                <?php if ($a->waktu_pulang): ?>
-                                    <span class="text-sm font-semibold text-slate-700"><?= esc(substr($a->waktu_pulang, 0, 5)) ?></span>
+                                <?php if (!empty($a['jam_pulang'])): ?>
+                                    <span class="text-sm font-semibold text-slate-700"><?= esc(substr((string) $a['jam_pulang'], 0, 5)) ?></span>
                                 <?php else: ?>
                                     <span class="text-gray-300">-</span>
                                 <?php endif; ?>
@@ -159,25 +179,11 @@
                             <td class="px-6 py-4">
                                 <?php
                                 $color = 'bg-gray-100 text-gray-600 border-gray-200';
-                                if ($a->status == 'Hadir') $color = 'bg-emerald-50 text-emerald-600 border-emerald-200';
-                                else if ($a->status == 'Terlambat') $color = 'bg-amber-50 text-amber-600 border-amber-200';
-                                else if ($a->status == 'Alpa') $color = 'bg-red-50 text-red-600 border-red-200';
-                                else if ($a->status == 'Manipulasi') $color = 'bg-rose-600 text-white border-rose-700';
-                                else if (in_array($a->status, ['Sakit', 'Izin'])) $color = 'bg-blue-50 text-blue-600 border-blue-200';
+                                if ($a['status'] == 'Hadir') $color = 'bg-emerald-50 text-emerald-600 border-emerald-200';
+                                else if ($a['status'] == 'Alpa') $color = 'bg-red-50 text-red-600 border-red-200';
+                                else if (in_array($a['status'], ['Sakit', 'Izin'])) $color = 'bg-blue-50 text-blue-600 border-blue-200';
                                 ?>
-                                <span class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border <?= $color ?>"><?= esc(strtoupper($a->status)) ?></span>
-                            </td>
-                            <td class="px-6 py-4">
-                                <?php if ($a->is_fake_gps): ?>
-                                    <span class="text-xs font-bold text-red-600 flex items-center gap-1" title="Sistem mendeteksi penggunaan aplikasi Fake GPS">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                                        </svg>
-                                        Terdeteksi Fake GPS
-                                    </span>
-                                <?php else: ?>
-                                    <span class="text-xs text-gray-500 italic"><?= esc($a->keterangan ?? '-') ?></span>
-                                <?php endif; ?>
+                                <span class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border <?= $color ?>"><?= esc(strtoupper((string) $a['status'])) ?></span>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -195,16 +201,18 @@
         document.getElementById('form-manual').classList.toggle('hidden');
     }
 
-    $(document).ready(function() {
-        $('#siswa_select').select2({
-            placeholder: "-- Ketik Nama atau NIS --",
-            allowClear: true,
-            width: '100%'
-        });
+    if (typeof $ !== 'undefined') {
+        $(document).ready(function() {
+            $('#siswa_select').select2({
+                placeholder: "-- Ketik Nama atau NIS --",
+                allowClear: true,
+                width: '100%'
+            });
 
-        $('#formManualSubmit').on('submit', function() {
-            $(this).find('.btn-submit').addClass('btn-loading');
+            $('#formManualSubmit').on('submit', function() {
+                $(this).find('.btn-submit').addClass('btn-loading');
+            });
         });
-    });
+    }
 </script>
 <?= $this->endSection() ?>
