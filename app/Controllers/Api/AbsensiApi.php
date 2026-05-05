@@ -27,6 +27,22 @@ class AbsensiApi extends ResourceController
         return $this->db->table('siswa')->where('api_token', $token)->get()->getRowArray();
     }
 
+    // === PERBAIKAN: Menambahkan type-hint 'string' pada parameter dan ': array' pada nilai kembalian ===
+    private function getJadwalHariIni(string $tanggalSekarang, string $kodeHari): array
+    {
+        $libur = $this->db->table('hari_libur')->where('tanggal', $tanggalSekarang)->get()->getRowArray();
+        if ($libur) {
+            return ['is_libur' => true, 'keterangan' => $libur['keterangan'], 'jam_masuk' => null, 'jam_pulang' => null];
+        }
+
+        $jadwal = $this->db->table('jadwal_absen')->where('kode_hari', $kodeHari)->get()->getRowArray();
+        if ($jadwal && $jadwal['is_libur'] == 1) {
+            return ['is_libur' => true, 'keterangan' => 'Libur (' . $jadwal['nama_hari'] . ')', 'jam_masuk' => null, 'jam_pulang' => null];
+        }
+
+        return ['is_libur' => false, 'jam_masuk' => $jadwal['jam_masuk'], 'jam_pulang' => $jadwal['jam_pulang']];
+    }
+
     public function masuk()
     {
         $siswa = $this->getSiswaAuth();
@@ -51,25 +67,34 @@ class AbsensiApi extends ResourceController
             return $this->failForbidden("Fake GPS Terdeteksi! Percobaan Anda tersisa $sisa kali lagi sebelum diblokir.");
         }
 
-        $sekarang       = Time::now('Asia/Jakarta');
-        $tanggal_ini    = $sekarang->toDateString();
-        $pengaturan     = $this->db->table('pengaturan')->where('id_pengaturan', 1)->get()->getRowArray();
+        $timezone    = env('app.appTimezone', 'Asia/Jakarta');
+        $sekarang    = Time::now($timezone);
+        $tanggal_ini = $sekarang->toDateString();
+        $kode_hari   = $sekarang->format('N');
 
-        $jam_masuk_pukul  = Time::parse($tanggal_ini . ' ' . $pengaturan['jam_masuk'], 'Asia/Jakarta');
-        $jam_pulang_pukul = Time::parse($tanggal_ini . ' ' . $pengaturan['jam_pulang'], 'Asia/Jakarta');
+        $jadwalHariIni = $this->getJadwalHariIni($tanggal_ini, $kode_hari);
+
+        if ($jadwalHariIni['is_libur']) {
+            return $this->failForbidden('Presensi ditolak. Hari ini adalah hari libur: ' . $jadwalHariIni['keterangan']);
+        }
+
+        $jam_masuk_pukul  = Time::parse($tanggal_ini . ' ' . $jadwalHariIni['jam_masuk'], $timezone);
+        $jam_pulang_pukul = Time::parse($tanggal_ini . ' ' . $jadwalHariIni['jam_pulang'], $timezone);
+
         $buka_masuk  = $jam_masuk_pukul->subMinutes(45);
         $tutup_masuk = $jam_pulang_pukul->subMinutes(60);
 
         if ($sekarang->isBefore($buka_masuk)) return $this->failForbidden('Presensi masuk belum dibuka. Dibuka pukul ' . $buka_masuk->format('H:i'));
         if ($sekarang->isAfter($tutup_masuk)) return $this->failForbidden('Batas waktu presensi masuk sudah lewat.');
 
+        $pengaturan = $this->db->table('pengaturan')->where('id_pengaturan', 1)->get()->getRowArray();
         $jarak = \hitung_jarak_haversine($lat, $lon, $pengaturan['latitude_sekolah'], $pengaturan['longitude_sekolah']);
+
         if ($jarak > $pengaturan['radius_meter']) return $this->fail('Anda berada ' . \round($jarak) . 'm dari sekolah. Radius maksimal: ' . $pengaturan['radius_meter'] . 'm.');
 
         $cek = $this->db->table('absensi')->where(['siswa_id' => $siswa['id_siswa'], 'tanggal' => $tanggal_ini])->get()->getRowArray();
         if ($cek) return $this->failResourceExists('Anda sudah melakukan presensi masuk hari ini.');
 
-        // Simpan File Fisik
         $decodedFoto = \base64_decode($foto);
         $fileName = 'masuk_' . $siswa['id_siswa'] . '_' . \time() . '.jpg';
         \file_put_contents(FCPATH . 'uploads/absensi/' . $fileName, $decodedFoto);
@@ -86,7 +111,7 @@ class AbsensiApi extends ResourceController
             'tanggal'     => $tanggal_ini,
             'jam_masuk'   => $sekarang->toTimeString(),
             'status'      => $status,
-            'foto_masuk'  => $fileName, // MENYIMPAN NAMA FOTO KE DB
+            'foto_masuk'  => $fileName,
             'is_fake_gps' => $is_mock ? 1 : 0,
             'menit_telat' => \abs($menit_telat),
             'lat_masuk'   => $lat,
@@ -118,21 +143,28 @@ class AbsensiApi extends ResourceController
             return $this->failForbidden("Fake GPS Terdeteksi!");
         }
 
-        $sekarang    = Time::now('Asia/Jakarta');
+        $timezone    = env('app.appTimezone', 'Asia/Jakarta');
+        $sekarang    = Time::now($timezone);
         $tanggal_ini = $sekarang->toDateString();
+        $kode_hari   = $sekarang->format('N');
+
+        $jadwalHariIni = $this->getJadwalHariIni($tanggal_ini, $kode_hari);
+
+        if ($jadwalHariIni['is_libur']) {
+            return $this->failForbidden('Presensi ditolak. Hari ini adalah hari libur: ' . $jadwalHariIni['keterangan']);
+        }
 
         $absen = $this->db->table('absensi')->where(['siswa_id' => $siswa['id_siswa'], 'tanggal' => $tanggal_ini])->get()->getRowArray();
         if (!$absen) return $this->failNotFound('Anda tidak bisa presensi pulang karena tidak tercatat presensi masuk hari ini.');
         if ($absen['jam_pulang'] != null) return $this->failResourceExists('Anda sudah melakukan presensi pulang hari ini.');
 
-        // Simpan File Fisik
         $decodedFoto = \base64_decode($foto);
         $fileName = 'pulang_' . $siswa['id_siswa'] . '_' . \time() . '.jpg';
         \file_put_contents(FCPATH . 'uploads/absensi/' . $fileName, $decodedFoto);
 
         $this->db->table('absensi')->where('id_absensi', $absen['id_absensi'])->update([
             'jam_pulang'  => $sekarang->toTimeString(),
-            'foto_pulang' => $fileName, // MENYIMPAN NAMA FOTO KE DB
+            'foto_pulang' => $fileName,
             'lat_pulang'  => $lat,
             'long_pulang' => $lon,
             'is_fake_gps' => $is_mock ? 1 : $absen['is_fake_gps'],

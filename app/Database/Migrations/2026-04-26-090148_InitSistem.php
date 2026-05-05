@@ -53,30 +53,28 @@ class InitSistem extends Migration
         $this->forge->addKey('id_user', true);
         $this->forge->createTable('users');
 
-        // 4. Tabel Pengaturan
+        // 4. Tabel Pengaturan (TIDAK ADA LAGI JAM MASUK & PULANG)
         $this->forge->addField([
             'id_pengaturan'     => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
             'latitude_sekolah'  => ['type' => 'VARCHAR', 'constraint' => '100'],
             'longitude_sekolah' => ['type' => 'VARCHAR', 'constraint' => '100'],
             'radius_meter'      => ['type' => 'INT', 'constraint' => 11],
             'firebase_url'      => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
-            'jam_masuk'         => ['type' => 'TIME'],
-            'jam_pulang'        => ['type' => 'TIME'],
             'updated_at'        => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id_pengaturan', true);
         $this->forge->createTable('pengaturan');
 
-        // 5. Tabel Absensi (DITAMBAHKAN KOLOM FOTO)
+        // 5. Tabel Absensi 
         $this->forge->addField([
             'id_absensi'  => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
             'siswa_id'    => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true],
             'tanggal'     => ['type' => 'DATE'],
             'jam_masuk'   => ['type' => 'TIME', 'null' => true],
             'jam_pulang'  => ['type' => 'TIME', 'null' => true],
-            'status'      => ['type' => 'ENUM', 'constraint' => ['Hadir', 'Sakit', 'Izin', 'Alpa', 'Terlambat', 'Manipulasi'], 'default' => 'Hadir'],
-            'foto_masuk'  => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true], // TAMBAHAN BARU
-            'foto_pulang' => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true], // TAMBAHAN BARU
+            'status'      => ['type' => 'ENUM', 'constraint' => ['Hadir', 'Sakit', 'Izin', 'Alpa', 'Terlambat', 'Manipulasi', 'Libur'], 'default' => 'Hadir'],
+            'foto_masuk'  => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
+            'foto_pulang' => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
             'lat_masuk'   => ['type' => 'VARCHAR', 'constraint' => '100', 'null' => true],
             'long_masuk'  => ['type' => 'VARCHAR', 'constraint' => '100', 'null' => true],
             'lat_pulang'  => ['type' => 'VARCHAR', 'constraint' => '100', 'null' => true],
@@ -103,10 +101,38 @@ class InitSistem extends Migration
         ]);
         $this->forge->addKey('id_pengumuman', true);
         $this->forge->createTable('pengumuman');
+
+        // ========================================================
+        // TABEL BARU UNTUK MANAJEMEN WAKTU DINAMIS
+        // ========================================================
+
+        // 7. Tabel Jadwal Absen (Senin - Minggu)
+        $this->forge->addField([
+            'id_jadwal'  => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
+            'kode_hari'  => ['type' => 'INT', 'constraint' => 1], // 1=Senin, 2=Selasa, ... 7=Minggu (Sesuai format PHP date('N'))
+            'nama_hari'  => ['type' => 'VARCHAR', 'constraint' => '20'],
+            'jam_masuk'  => ['type' => 'TIME', 'null' => true],
+            'jam_pulang' => ['type' => 'TIME', 'null' => true],
+            'is_libur'   => ['type' => 'TINYINT', 'constraint' => 1, 'default' => 0], // 1 = Libur, 0 = Masuk
+        ]);
+        $this->forge->addKey('id_jadwal', true);
+        $this->forge->createTable('jadwal_absen');
+
+        // 8. Tabel Hari Libur Nasional / Kalender Akademik
+        $this->forge->addField([
+            'id_libur'   => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
+            'tanggal'    => ['type' => 'DATE'], // Format: YYYY-MM-DD
+            'keterangan' => ['type' => 'VARCHAR', 'constraint' => '255'],
+            'created_at' => ['type' => 'DATETIME', 'null' => true],
+        ]);
+        $this->forge->addKey('id_libur', true);
+        $this->forge->createTable('hari_libur');
     }
 
     public function down()
     {
+        $this->forge->dropTable('hari_libur', true);
+        $this->forge->dropTable('jadwal_absen', true);
         $this->forge->dropTable('pengumuman', true);
         $this->forge->dropTable('absensi', true);
         $this->forge->dropTable('pengaturan', true);

@@ -17,21 +17,47 @@ class InitDataSeeder extends Seeder
             'created_at'    => date('Y-m-d H:i:s')
         ]);
 
-        // 2. Data Pengaturan Default
+        // 2. Data Pengaturan Default (Tanpa jam_masuk & jam_pulang karena pindah ke jadwal_absen)
         $this->db->table('pengaturan')->insert([
             'latitude_sekolah'  => '-6.20000000',
             'longitude_sekolah' => '106.81666600',
             'radius_meter'      => 50,
             'firebase_url'      => null,
-            'jam_masuk'         => '06:30:00',
-            'jam_pulang'        => '14:00:00',
             'updated_at'        => date('Y-m-d H:i:s')
         ]);
 
-        // 3. Data Kelas Dummy (Penting untuk menguji fitur kelas yang baru kita buat)
+        // 3. Data Kelas Dummy
         $this->db->table('kelas')->insertBatch([
             ['nama_kelas' => 'XII RPL 1', 'wali_kelas' => 'Budi Santoso, S.Kom', 'created_at' => date('Y-m-d H:i:s')],
             ['nama_kelas' => 'XII RPL 2', 'wali_kelas' => 'Siti Aminah, M.Pd', 'created_at' => date('Y-m-d H:i:s')],
         ]);
+
+        // ========================================================
+        // TABEL BARU MANAJEMEN WAKTU & LIBUR
+        // ========================================================
+
+        // 4. Data Jadwal Absen (Senin - Minggu)
+        $data_jadwal = [
+            ['kode_hari' => 1, 'nama_hari' => 'Senin',  'jam_masuk' => '06:30:00', 'jam_pulang' => '14:00:00', 'is_libur' => 0],
+            ['kode_hari' => 2, 'nama_hari' => 'Selasa', 'jam_masuk' => '06:30:00', 'jam_pulang' => '14:00:00', 'is_libur' => 0],
+            ['kode_hari' => 3, 'nama_hari' => 'Rabu',   'jam_masuk' => '06:30:00', 'jam_pulang' => '14:00:00', 'is_libur' => 0],
+            ['kode_hari' => 4, 'nama_hari' => 'Kamis',  'jam_masuk' => '06:30:00', 'jam_pulang' => '14:00:00', 'is_libur' => 0],
+            ['kode_hari' => 5, 'nama_hari' => 'Jumat',  'jam_masuk' => '06:30:00', 'jam_pulang' => '11:30:00', 'is_libur' => 0], // Jumat Pulang Cepat
+            ['kode_hari' => 6, 'nama_hari' => 'Sabtu',  'jam_masuk' => null,       'jam_pulang' => null,       'is_libur' => 1], // Libur
+            ['kode_hari' => 7, 'nama_hari' => 'Minggu', 'jam_masuk' => null,       'jam_pulang' => null,       'is_libur' => 1], // Libur
+        ];
+
+        $this->db->table('jadwal_absen')->truncate();
+        $this->db->table('jadwal_absen')->insertBatch($data_jadwal);
+
+        // 5. Data Dummy Hari Libur Nasional 
+        $this->db->table('hari_libur')->truncate();
+        $this->db->table('hari_libur')->insert([
+            'tanggal'    => '2026-08-17',
+            'keterangan' => 'HUT Kemerdekaan RI ke-81',
+            'created_at' => date('Y-m-d H:i:s')
+        ]);
+
+        echo "Berhasil menyinkronkan InitDataSeeder beserta Jadwal!\n";
     }
 }

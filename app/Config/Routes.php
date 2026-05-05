@@ -23,6 +23,8 @@ $routes->group('admin', ['filter' => 'webAuth', 'namespace' => 'App\Controllers\
     $routes->get('dashboard', 'Dashboard::index');
     $routes->get('pengaturan', 'Pengaturan::index');
     $routes->post('pengaturan/save', 'Pengaturan::save');
+    $routes->get('jadwal', 'Jadwal::index');
+    $routes->post('jadwal/update', 'Jadwal::update');
 
     // Manajemen Kelas
     $routes->get('kelas', 'Kelas::index');
@@ -40,6 +42,10 @@ $routes->group('admin', ['filter' => 'webAuth', 'namespace' => 'App\Controllers\
     $routes->get('siswa/download_template', 'Siswa::download_template');
     $routes->post('siswa/import', 'Siswa::import');
     $routes->get('siswa/export', 'Siswa::export');
+
+    $routes->get('libur', 'Libur::index');
+    $routes->post('libur/store', 'Libur::store');
+    $routes->get('libur/delete/(:num)', 'Libur::delete/$1');
 
     // Absensi & Tracking
     $routes->get('absensi', 'Absensi::index');

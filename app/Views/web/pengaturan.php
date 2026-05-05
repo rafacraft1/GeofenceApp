@@ -25,9 +25,9 @@
 
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
         <h3 class="text-lg font-bold text-gray-800 mb-2">Konfigurasi Sistem</h3>
-        <p class="text-xs text-gray-500 mb-6">Tentukan lokasi sekolah, radius, waktu absensi, dan koneksi Firebase.</p>
+        <p class="text-xs text-gray-500 mb-6">Tentukan lokasi sekolah, radius, dan koneksi Firebase.</p>
 
-        <form action="/admin/pengaturan/save" method="POST" id="formPengaturan" class="space-y-5 flex-1 flex flex-col">
+        <form action="<?= base_url('admin/pengaturan/save') ?>" method="POST" id="formPengaturan" class="space-y-5 flex-1 flex flex-col">
             <?= csrf_field() ?>
             <div class="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl">
                 <div>
@@ -53,24 +53,12 @@
                 <input type="url" name="firebase_url" value="<?= esc((string) ($config['firebase_url'] ?? '')) ?>" placeholder="https://nama-project.asia-southeast1.firebasedatabase.app" required class="w-full border border-orange-200 rounded-xl p-3 text-[11px] font-mono outline-none focus:ring-2 focus:ring-orange-500 transition-all bg-orange-50/30">
             </div>
 
-            <div class="grid grid-cols-2 gap-5 pt-4 border-t border-gray-100">
-                <div>
-                    <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Jam Masuk</label>
-                    <input type="time" name="jam_masuk" value="<?= esc((string) ($config['jam_masuk'] ?? '07:00')) ?>" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Jam Pulang</label>
-                    <input type="time" name="jam_pulang" value="<?= esc((string) ($config['jam_pulang'] ?? '15:00')) ?>" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer">
-                </div>
-            </div>
-
             <div class="pt-4 mt-auto">
                 <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 active:scale-95 transition-all btn-submit">Simpan Pengaturan</button>
             </div>
         </form>
     </div>
 </div>
-<!-- PENUTUP SECTION CONTENT DITAMBAHKAN DI SINI -->
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
