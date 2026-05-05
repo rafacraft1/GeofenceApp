@@ -15,7 +15,7 @@ class AbsensiApi extends ResourceController
     public function __construct()
     {
         $this->db = \Config\Database::connect();
-        helper(['geo', 'security']); // Pastikan helper geo dan security buatan Anda aman
+        helper(['geo', 'security']);
     }
 
     private function getSiswaAuth()
@@ -86,6 +86,7 @@ class AbsensiApi extends ResourceController
             'tanggal'     => $tanggal_ini,
             'jam_masuk'   => $sekarang->toTimeString(),
             'status'      => $status,
+            'foto_masuk'  => $fileName, // MENYIMPAN NAMA FOTO KE DB
             'is_fake_gps' => $is_mock ? 1 : 0,
             'menit_telat' => \abs($menit_telat),
             'lat_masuk'   => $lat,
@@ -131,6 +132,7 @@ class AbsensiApi extends ResourceController
 
         $this->db->table('absensi')->where('id_absensi', $absen['id_absensi'])->update([
             'jam_pulang'  => $sekarang->toTimeString(),
+            'foto_pulang' => $fileName, // MENYIMPAN NAMA FOTO KE DB
             'lat_pulang'  => $lat,
             'long_pulang' => $lon,
             'is_fake_gps' => $is_mock ? 1 : $absen['is_fake_gps'],

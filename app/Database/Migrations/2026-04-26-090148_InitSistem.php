@@ -19,7 +19,7 @@ class InitSistem extends Migration
         $this->forge->addKey('id_kelas', true);
         $this->forge->createTable('kelas');
 
-        // 2. Tabel Siswa (Ditambah fcm_token dan last_login)
+        // 2. Tabel Siswa
         $this->forge->addField([
             'id_siswa'    => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
             'kelas_id'    => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true],
@@ -29,8 +29,8 @@ class InitSistem extends Migration
             'foto_profil' => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
             'device_id'   => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
             'api_token'   => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
-            'fcm_token'   => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true], // TAMBAHAN
-            'last_login'  => ['type' => 'DATETIME', 'null' => true], // TAMBAHAN
+            'fcm_token'   => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
+            'last_login'  => ['type' => 'DATETIME', 'null' => true],
             'is_blocked'  => ['type' => 'TINYINT', 'constraint' => 1, 'default' => 0],
             'fraud_count' => ['type' => 'INT', 'constraint' => 11, 'default' => 0],
             'created_at'  => ['type' => 'DATETIME', 'null' => true],
@@ -67,23 +67,25 @@ class InitSistem extends Migration
         $this->forge->addKey('id_pengaturan', true);
         $this->forge->createTable('pengaturan');
 
-        // 5. Tabel Absensi 
+        // 5. Tabel Absensi (DITAMBAHKAN KOLOM FOTO)
         $this->forge->addField([
-            'id_absensi' => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
-            'siswa_id'   => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true],
-            'tanggal'    => ['type' => 'DATE'],
-            'jam_masuk'  => ['type' => 'TIME', 'null' => true],
-            'jam_pulang' => ['type' => 'TIME', 'null' => true],
-            'status'     => ['type' => 'ENUM', 'constraint' => ['Hadir', 'Sakit', 'Izin', 'Alpa', 'Terlambat', 'Manipulasi'], 'default' => 'Hadir'],
-            'lat_masuk'  => ['type' => 'VARCHAR', 'constraint' => '100', 'null' => true],
-            'long_masuk' => ['type' => 'VARCHAR', 'constraint' => '100', 'null' => true],
-            'lat_pulang' => ['type' => 'VARCHAR', 'constraint' => '100', 'null' => true],
+            'id_absensi'  => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
+            'siswa_id'    => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true],
+            'tanggal'     => ['type' => 'DATE'],
+            'jam_masuk'   => ['type' => 'TIME', 'null' => true],
+            'jam_pulang'  => ['type' => 'TIME', 'null' => true],
+            'status'      => ['type' => 'ENUM', 'constraint' => ['Hadir', 'Sakit', 'Izin', 'Alpa', 'Terlambat', 'Manipulasi'], 'default' => 'Hadir'],
+            'foto_masuk'  => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true], // TAMBAHAN BARU
+            'foto_pulang' => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true], // TAMBAHAN BARU
+            'lat_masuk'   => ['type' => 'VARCHAR', 'constraint' => '100', 'null' => true],
+            'long_masuk'  => ['type' => 'VARCHAR', 'constraint' => '100', 'null' => true],
+            'lat_pulang'  => ['type' => 'VARCHAR', 'constraint' => '100', 'null' => true],
             'long_pulang' => ['type' => 'VARCHAR', 'constraint' => '100', 'null' => true],
             'is_fake_gps' => ['type' => 'TINYINT', 'constraint' => 1, 'default' => 0],
             'menit_telat' => ['type' => 'INT', 'constraint' => 11, 'default' => 0],
-            'keterangan' => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
-            'created_at' => ['type' => 'DATETIME', 'null' => true],
-            'updated_at' => ['type' => 'DATETIME', 'null' => true],
+            'keterangan'  => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
+            'created_at'  => ['type' => 'DATETIME', 'null' => true],
+            'updated_at'  => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id_absensi', true);
         $this->forge->addForeignKey('siswa_id', 'siswa', 'id_siswa', 'CASCADE', 'CASCADE');
