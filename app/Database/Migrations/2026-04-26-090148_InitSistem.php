@@ -8,6 +8,33 @@ class InitSistem extends Migration
 {
     public function up()
     {
+        // ========================================================
+        // 0. Tabel Master Roles (Hak Akses RBAC Dinamis)
+        // ========================================================
+        $this->forge->addField([
+            'id_role' => [
+                'type'           => 'INT',
+                'constraint'     => 11,
+                'unsigned'       => true,
+                'auto_increment' => true,
+            ],
+            'nama_role' => [
+                'type'       => 'VARCHAR',
+                'constraint' => '50',
+                'unique'     => true,
+            ],
+            'created_at' => [
+                'type' => 'DATETIME',
+                'null' => true,
+            ],
+            'updated_at' => [
+                'type' => 'DATETIME',
+                'null' => true,
+            ],
+        ]);
+        $this->forge->addKey('id_role', true);
+        $this->forge->createTable('roles');
+
         // 1. Tabel Kelas
         $this->forge->addField([
             'id_kelas'   => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
@@ -40,17 +67,18 @@ class InitSistem extends Migration
         $this->forge->addForeignKey('kelas_id', 'kelas', 'id_kelas', 'CASCADE', 'RESTRICT');
         $this->forge->createTable('siswa');
 
-        // 3. Tabel Users
+        // 3. Tabel Users (Revisi RBAC Dinamis)
         $this->forge->addField([
             'id_user'       => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
             'nama_lengkap'  => ['type' => 'VARCHAR', 'constraint' => '100'],
             'username'      => ['type' => 'VARCHAR', 'constraint' => '50', 'unique' => true],
             'password_hash' => ['type' => 'VARCHAR', 'constraint' => '255'],
-            'role'          => ['type' => 'VARCHAR', 'constraint' => '50'],
+            'role_id'       => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true], // Menggantikan kolom role VARCHAR
             'created_at'    => ['type' => 'DATETIME', 'null' => true],
             'updated_at'    => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id_user', true);
+        $this->forge->addForeignKey('role_id', 'roles', 'id_role', 'CASCADE', 'RESTRICT');
         $this->forge->createTable('users');
 
         // 4. Tabel Pengaturan (TIDAK ADA LAGI JAM MASUK & PULANG)
@@ -136,7 +164,11 @@ class InitSistem extends Migration
         $this->forge->dropTable('pengumuman', true);
         $this->forge->dropTable('absensi', true);
         $this->forge->dropTable('pengaturan', true);
+
+        // Penyesuaian urutan Drop untuk RBAC
         $this->forge->dropTable('users', true);
+        $this->forge->dropTable('roles', true);
+
         $this->forge->dropTable('siswa', true);
         $this->forge->dropTable('kelas', true);
     }
