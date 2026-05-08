@@ -137,3 +137,5 @@ public/uploads/siswa/*
 # KECUALI file .gitkeep (agar struktur folder tetap terbawa ke server)
 !public/uploads/absensi/.gitkeep
 !public/uploads/siswa/.gitkeep
+
+node_modules/
