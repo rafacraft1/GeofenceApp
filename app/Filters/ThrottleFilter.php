@@ -13,13 +13,20 @@ class ThrottleFilter implements FilterInterface
     {
         $throttler = Services::throttler();
 
-        // Batasi 60 request per menit (MINUTE) berdasarkan IP Address
-        if ($throttler->check($request->getIPAddress(), 60, MINUTE) === false) {
+        // Ambil token dari header jika ada
+        $header = $request->getHeaderLine('Authorization');
+        $token  = str_replace('Bearer ', '', $header);
+
+        // Jika user sudah login, limitasi berdasarkan token (akun). Jika belum, berdasarkan IP.
+        $throttleKey = !empty($token) ? md5($token) : $request->getIPAddress();
+
+        // Limitasi: 60 request per menit untuk satu entitas (Akun/IP tunggal)
+        if ($throttler->check($throttleKey, 60, MINUTE) === false) {
             return Services::response()
                 ->setStatusCode(429)
                 ->setJSON([
                     'status'  => 'error',
-                    'message' => 'Too Many Requests'
+                    'message' => 'Terlalu banyak request. Silakan tunggu beberapa saat.'
                 ]);
         }
     }

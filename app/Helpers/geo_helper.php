@@ -1,9 +1,9 @@
 <?php
 
 if (!function_exists('hitung_jarak_haversine')) {
-    function hitung_jarak_haversine($lat1, $lon1, $lat2, $lon2)
+    function hitung_jarak_haversine(float $lat1, float $lon1, float $lat2, float $lon2): float
     {
-        $earth_radius = 6371000; // Radius bumi dalam meter
+        $earth_radius = 6371000.0; // Radius bumi dalam meter
 
         $dLat = deg2rad($lat2 - $lat1);
         $dLon = deg2rad($lon2 - $lon1);

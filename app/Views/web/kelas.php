@@ -12,17 +12,9 @@
         <h1 class="text-2xl font-bold text-gray-800">Manajemen Kelas</h1>
     </div>
 
-    <?php if (session()->getFlashdata('success')) : ?>
-        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4" role="alert">
-            <span class="block sm:inline"><?= session()->getFlashdata('success') ?></span>
-        </div>
-    <?php endif; ?>
-
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <!-- Kolom Form Tambah Kelas -->
         <div class="bg-white rounded-lg shadow-md p-6 h-fit">
             <h2 class="text-lg font-semibold mb-4 text-gray-700">Tambah Kelas Baru</h2>
-            <!-- REVISI: ubah action ke admin/kelas/store -->
             <form action="<?= base_url('admin/kelas/store') ?>" method="POST">
                 <?= csrf_field() ?>
                 <div class="mb-4">
@@ -39,7 +31,6 @@
             </form>
         </div>
 
-        <!-- Kolom Tabel Daftar Kelas -->
         <div class="md:col-span-2 bg-white rounded-lg shadow-md overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="min-w-full bg-white">
@@ -66,10 +57,9 @@
                                 </td>
                                 <td class="py-3 px-6 text-center">
                                     <div class="flex item-center justify-center space-x-2">
-                                        <!-- REVISI: ubah action ke admin/kelas/delete -->
-                                        <form action="<?= base_url('admin/kelas/delete/' . $k['id_kelas']) ?>" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus kelas ini?');">
+                                        <form action="<?= base_url('admin/kelas/delete/' . $k['id_kelas']) ?>" method="POST" class="inline">
                                             <?= csrf_field() ?>
-                                            <button type="submit" class="text-red-500 hover:text-red-700 transform hover:scale-110">
+                                            <button type="button" class="btn-confirm text-red-500 hover:text-red-700 transform hover:scale-110" data-text="Menghapus kelas ini juga akan menghapus data siswa di dalamnya. Yakin?" data-btn="Ya, Hapus">
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                 </svg>

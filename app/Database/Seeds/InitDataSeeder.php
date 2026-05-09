@@ -8,16 +8,25 @@ class InitDataSeeder extends Seeder
 {
     public function run()
     {
-        // 1. Akun Superadmin
+        // 0. PERBAIKAN BUG: Insert Master Role terlebih dahulu
+        $this->db->table('roles')->insert([
+            'nama_role'  => 'Superadmin',
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s')
+        ]);
+        $role_id = $this->db->insertID();
+
+        // 1. Akun Superadmin (Menggunakan role_id hasil insert)
         $this->db->table('users')->insert([
             'username'      => 'admin',
             'password_hash' => password_hash('admin123', PASSWORD_BCRYPT),
             'nama_lengkap'  => 'Administrator Sistem',
-            'role'          => 'Superadmin',
-            'created_at'    => date('Y-m-d H:i:s')
+            'role_id'       => $role_id, // <- Diperbaiki dari 'role' => 'Superadmin'
+            'created_at'    => date('Y-m-d H:i:s'),
+            'updated_at'    => date('Y-m-d H:i:s')
         ]);
 
-        // 2. Data Pengaturan Default (Tanpa jam_masuk & jam_pulang karena pindah ke jadwal_absen)
+        // 2. Data Pengaturan Default
         $this->db->table('pengaturan')->insert([
             'latitude_sekolah'  => '-6.20000000',
             'longitude_sekolah' => '106.81666600',
@@ -32,19 +41,15 @@ class InitDataSeeder extends Seeder
             ['nama_kelas' => 'XII RPL 2', 'wali_kelas' => 'Siti Aminah, M.Pd', 'created_at' => date('Y-m-d H:i:s')],
         ]);
 
-        // ========================================================
-        // TABEL BARU MANAJEMEN WAKTU & LIBUR
-        // ========================================================
-
         // 4. Data Jadwal Absen (Senin - Minggu)
         $data_jadwal = [
             ['kode_hari' => 1, 'nama_hari' => 'Senin',  'jam_masuk' => '06:30:00', 'jam_pulang' => '14:00:00', 'is_libur' => 0],
             ['kode_hari' => 2, 'nama_hari' => 'Selasa', 'jam_masuk' => '06:30:00', 'jam_pulang' => '14:00:00', 'is_libur' => 0],
             ['kode_hari' => 3, 'nama_hari' => 'Rabu',   'jam_masuk' => '06:30:00', 'jam_pulang' => '14:00:00', 'is_libur' => 0],
             ['kode_hari' => 4, 'nama_hari' => 'Kamis',  'jam_masuk' => '06:30:00', 'jam_pulang' => '14:00:00', 'is_libur' => 0],
-            ['kode_hari' => 5, 'nama_hari' => 'Jumat',  'jam_masuk' => '06:30:00', 'jam_pulang' => '11:30:00', 'is_libur' => 0], // Jumat Pulang Cepat
-            ['kode_hari' => 6, 'nama_hari' => 'Sabtu',  'jam_masuk' => null,       'jam_pulang' => null,       'is_libur' => 1], // Libur
-            ['kode_hari' => 7, 'nama_hari' => 'Minggu', 'jam_masuk' => null,       'jam_pulang' => null,       'is_libur' => 1], // Libur
+            ['kode_hari' => 5, 'nama_hari' => 'Jumat',  'jam_masuk' => '06:30:00', 'jam_pulang' => '11:30:00', 'is_libur' => 0],
+            ['kode_hari' => 6, 'nama_hari' => 'Sabtu',  'jam_masuk' => null,       'jam_pulang' => null,       'is_libur' => 1],
+            ['kode_hari' => 7, 'nama_hari' => 'Minggu', 'jam_masuk' => null,       'jam_pulang' => null,       'is_libur' => 1],
         ];
 
         $this->db->table('jadwal_absen')->truncate();

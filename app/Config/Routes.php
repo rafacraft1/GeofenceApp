@@ -5,7 +5,6 @@ use CodeIgniter\Router\RouteCollection;
 /**
  * @var RouteCollection $routes
  */
-// $routes->get('/', 'Home::index');
 
 // ========================================================================
 // 1. JALUR WEB ADMIN
@@ -45,7 +44,8 @@ $routes->group('admin', ['filter' => 'webAuth', 'namespace' => 'App\Controllers\
 
     $routes->get('libur', 'Libur::index');
     $routes->post('libur/store', 'Libur::store');
-    $routes->get('libur/delete/(:num)', 'Libur::delete/$1');
+    // PERBAIKAN KEAMANAN: Method GET diganti menjadi POST untuk delete (Mencegah CSRF)
+    $routes->post('libur/delete/(:num)', 'Libur::delete/$1');
 
     // Absensi & Tracking
     $routes->get('absensi', 'Absensi::index');
@@ -54,13 +54,13 @@ $routes->group('admin', ['filter' => 'webAuth', 'namespace' => 'App\Controllers\
     $routes->get('tracking/siswa/(:num)', 'Tracking::index/$1');
     $routes->get('tracking/get_location/(:num)', 'Tracking::get_location/$1');
 
-    // === TAMBAHAN BARU: Route Ping FCM ke Android ===
-    $routes->post('tracking/ping_siswa/(:num)', '\App\Controllers\Api\TrackingApi::ping_siswa/$1');
-
     // Broadcast Pengumuman
     $routes->get('pengumuman', 'Pengumuman::index');
     $routes->post('pengumuman/store', 'Pengumuman::store');
     $routes->post('pengumuman/delete/(:num)', 'Pengumuman::delete/$1');
+
+    // API Ping diletakkan paling bawah agar rapi
+    $routes->post('tracking/ping_siswa/(:num)', '\App\Controllers\Api\TrackingApi::ping_siswa/$1');
 });
 
 // ========================================================================

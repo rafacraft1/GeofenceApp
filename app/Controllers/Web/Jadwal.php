@@ -18,7 +18,6 @@ class Jadwal extends BaseController
     {
         $data = [
             'title'  => 'Manajemen Jadwal Harian',
-            // Ambil semua hari, urutkan dari Senin (1) sampai Minggu (7)
             'daftar_jadwal' => $this->jadwalModel->orderBy('kode_hari', 'ASC')->findAll()
         ];
 
@@ -27,15 +26,13 @@ class Jadwal extends BaseController
 
     public function update()
     {
-        // Menangkap array data dari form
         $dataJadwal = $this->request->getPost('jadwal');
 
         if ($dataJadwal && is_array($dataJadwal)) {
-            foreach ($dataJadwal as $id => $data) {
-                // Jika checkbox libur dicentang, is_libur = 1, sisanya 0
-                $isLibur = isset($data['is_libur']) ? 1 : 0;
+            $this->jadwalModel->db->transStart(); // Mulai transaksi
 
-                // Jika libur, jam bisa dikosongkan (null)
+            foreach ($dataJadwal as $id => $data) {
+                $isLibur = isset($data['is_libur']) ? 1 : 0;
                 $jamMasuk = empty($data['jam_masuk']) ? null : $data['jam_masuk'];
                 $jamPulang = empty($data['jam_pulang']) ? null : $data['jam_pulang'];
 
@@ -45,9 +42,16 @@ class Jadwal extends BaseController
                     'is_libur'   => $isLibur
                 ]);
             }
+
+            $this->jadwalModel->db->transComplete(); // Selesaikan transaksi
+
+            if ($this->jadwalModel->db->transStatus() === false) {
+                return redirect()->back()->with('error', 'Gagal memperbarui jadwal ke database.');
+            }
+
             return redirect()->back()->with('success', 'Jadwal Mingguan berhasil diperbarui!');
         }
 
-        return redirect()->back()->with('error', 'Gagal memperbarui jadwal.');
+        return redirect()->back()->with('error', 'Data jadwal tidak ditemukan.');
     }
 }

@@ -9,7 +9,6 @@ class AuthWeb extends Controller
 {
     public function index()
     {
-        // Jika sudah login, langsung ke dashboard
         if (session()->get('logged_in')) {
             return redirect()->to('/admin/dashboard');
         }
@@ -24,14 +23,19 @@ class AuthWeb extends Controller
         $username = $this->request->getPost('username');
         $password = $this->request->getPost('password');
 
-        // Menggunakan getRowArray() agar konsisten
-        $user = $db->table('users')->where('username', $username)->get()->getRowArray();
+        // Mengambil data user lengkap dengan nama role-nya menggunakan JOIN
+        $user = $db->table('users')
+            ->select('users.*, roles.nama_role')
+            ->join('roles', 'roles.id_role = users.role_id')
+            ->where('username', $username)
+            ->get()
+            ->getRowArray();
 
         if ($user && password_verify($password, $user['password_hash'])) {
             session()->set([
-                'user_id'      => $user['id_user'], // PERBAIKAN: Menggunakan id_user
+                'user_id'      => $user['id_user'],
                 'nama_lengkap' => $user['nama_lengkap'],
-                'role'         => $user['role'],
+                'role'         => $user['nama_role'], // Menggunakan nama_role dari tabel roles
                 'logged_in'    => true
             ]);
             return redirect()->to('/admin/dashboard');

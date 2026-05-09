@@ -12,8 +12,20 @@ class SiswaModel extends Model
     protected $returnType       = 'array';
     protected $protectFields    = true;
 
-    // Pastikan kelas_id masuk ke dalam allowedFields
-    protected $allowedFields    = ['kelas_id', 'nis', 'nama_siswa', 'password', 'foto_profil', 'device_id'];
+    // Memastikan seluruh kolom yang bisa diupdate terdaftar di sini
+    protected $allowedFields    = [
+        'kelas_id',
+        'nis',
+        'nama_siswa',
+        'password',
+        'foto_profil',
+        'device_id',
+        'api_token',
+        'fcm_token',
+        'last_login',
+        'is_blocked',
+        'fraud_count'
+    ];
 
     protected $useTimestamps    = true;
     protected $createdField     = 'created_at';

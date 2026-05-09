@@ -18,12 +18,17 @@ class WaktuApi extends ResourceController
 
         $db = \Config\Database::connect();
 
-        $pengaturan = $db->table('pengaturan')->where('id_pengaturan', 1)->get()->getRowArray();
+        // Optimasi: Hanya seleksi kolom yang dikirim ke Android
+        $pengaturan = $db->table('pengaturan')
+            ->select('latitude_sekolah, longitude_sekolah, radius_meter')
+            ->where('id_pengaturan', 1)
+            ->get()
+            ->getRowArray();
 
         $isLibur = false;
         $namaLibur = '';
-        $jamMasuk = '00:00:00';
-        $jamPulang = '00:00:00';
+        $jamMasuk = null;
+        $jamPulang = null;
 
         $cekLibur = $db->table('hari_libur')->where('tanggal', $tanggalSekarang)->get()->getRowArray();
 
@@ -44,6 +49,7 @@ class WaktuApi extends ResourceController
             }
         }
 
+        // PERBAIKAN: Implementasi (float) dan (int) casting agar aplikasi Android tidak mengalami exception saat parsing kordinat
         return $this->respond([
             'status'      => 'success',
             'waktu'       => $sekarang->toDateTimeString(),
@@ -51,9 +57,9 @@ class WaktuApi extends ResourceController
             'nama_libur'  => $namaLibur,
             'jam_masuk'   => $jamMasuk,
             'jam_pulang'  => $jamPulang,
-            'lat_sekolah' => $pengaturan ? $pengaturan['latitude_sekolah'] : 0,
-            'lon_sekolah' => $pengaturan ? $pengaturan['longitude_sekolah'] : 0,
-            'radius'      => $pengaturan ? $pengaturan['radius_meter'] : 50,
+            'lat_sekolah' => $pengaturan ? (float) $pengaturan['latitude_sekolah'] : 0.0,
+            'lon_sekolah' => $pengaturan ? (float) $pengaturan['longitude_sekolah'] : 0.0,
+            'radius'      => $pengaturan ? (int) $pengaturan['radius_meter'] : 50,
         ], 200);
     }
 }

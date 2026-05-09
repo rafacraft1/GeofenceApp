@@ -8,29 +8,12 @@ class InitSistem extends Migration
 {
     public function up()
     {
-        // ========================================================
-        // 0. Tabel Master Roles (Hak Akses RBAC Dinamis)
-        // ========================================================
+        // 0. Tabel Master Roles
         $this->forge->addField([
-            'id_role' => [
-                'type'           => 'INT',
-                'constraint'     => 11,
-                'unsigned'       => true,
-                'auto_increment' => true,
-            ],
-            'nama_role' => [
-                'type'       => 'VARCHAR',
-                'constraint' => '50',
-                'unique'     => true,
-            ],
-            'created_at' => [
-                'type' => 'DATETIME',
-                'null' => true,
-            ],
-            'updated_at' => [
-                'type' => 'DATETIME',
-                'null' => true,
-            ],
+            'id_role'    => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
+            'nama_role'  => ['type' => 'VARCHAR', 'constraint' => '50', 'unique' => true],
+            'created_at' => ['type' => 'DATETIME', 'null' => true],
+            'updated_at' => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id_role', true);
         $this->forge->createTable('roles');
@@ -64,24 +47,27 @@ class InitSistem extends Migration
             'updated_at'  => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id_siswa', true);
+        $this->forge->addKey('api_token');
+        $this->forge->addKey('kelas_id');
         $this->forge->addForeignKey('kelas_id', 'kelas', 'id_kelas', 'CASCADE', 'RESTRICT');
         $this->forge->createTable('siswa');
 
-        // 3. Tabel Users (Revisi RBAC Dinamis)
+        // 3. Tabel Users 
         $this->forge->addField([
             'id_user'       => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
             'nama_lengkap'  => ['type' => 'VARCHAR', 'constraint' => '100'],
             'username'      => ['type' => 'VARCHAR', 'constraint' => '50', 'unique' => true],
             'password_hash' => ['type' => 'VARCHAR', 'constraint' => '255'],
-            'role_id'       => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true], // Menggantikan kolom role VARCHAR
+            'role_id'       => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true],
             'created_at'    => ['type' => 'DATETIME', 'null' => true],
             'updated_at'    => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id_user', true);
+        $this->forge->addKey('role_id');
         $this->forge->addForeignKey('role_id', 'roles', 'id_role', 'CASCADE', 'RESTRICT');
         $this->forge->createTable('users');
 
-        // 4. Tabel Pengaturan (TIDAK ADA LAGI JAM MASUK & PULANG)
+        // 4. Tabel Pengaturan 
         $this->forge->addField([
             'id_pengaturan'     => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
             'latitude_sekolah'  => ['type' => 'VARCHAR', 'constraint' => '100'],
@@ -114,6 +100,8 @@ class InitSistem extends Migration
             'updated_at'  => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id_absensi', true);
+        $this->forge->addKey('siswa_id');
+        $this->forge->addKey('tanggal');
         $this->forge->addForeignKey('siswa_id', 'siswa', 'id_siswa', 'CASCADE', 'CASCADE');
         $this->forge->createTable('absensi');
 
@@ -130,46 +118,81 @@ class InitSistem extends Migration
         $this->forge->addKey('id_pengumuman', true);
         $this->forge->createTable('pengumuman');
 
-        // ========================================================
-        // TABEL BARU UNTUK MANAJEMEN WAKTU DINAMIS
-        // ========================================================
-
-        // 7. Tabel Jadwal Absen (Senin - Minggu)
+        // 7. Tabel Jadwal Absen
         $this->forge->addField([
             'id_jadwal'  => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
-            'kode_hari'  => ['type' => 'INT', 'constraint' => 1], // 1=Senin, 2=Selasa, ... 7=Minggu (Sesuai format PHP date('N'))
+            'kode_hari'  => ['type' => 'INT', 'constraint' => 1],
             'nama_hari'  => ['type' => 'VARCHAR', 'constraint' => '20'],
             'jam_masuk'  => ['type' => 'TIME', 'null' => true],
             'jam_pulang' => ['type' => 'TIME', 'null' => true],
-            'is_libur'   => ['type' => 'TINYINT', 'constraint' => 1, 'default' => 0], // 1 = Libur, 0 = Masuk
+            'is_libur'   => ['type' => 'TINYINT', 'constraint' => 1, 'default' => 0],
         ]);
         $this->forge->addKey('id_jadwal', true);
+        $this->forge->addKey('kode_hari');
         $this->forge->createTable('jadwal_absen');
 
-        // 8. Tabel Hari Libur Nasional / Kalender Akademik
+        // 8. Tabel Hari Libur
         $this->forge->addField([
             'id_libur'   => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
-            'tanggal'    => ['type' => 'DATE'], // Format: YYYY-MM-DD
+            'tanggal'    => ['type' => 'DATE'],
             'keterangan' => ['type' => 'VARCHAR', 'constraint' => '255'],
             'created_at' => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id_libur', true);
+        $this->forge->addKey('tanggal');
         $this->forge->createTable('hari_libur');
+
+        // 9. Tabel Pengajuan Izin (Baru)
+        $this->forge->addField([
+            'id_izin'         => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
+            'siswa_id'        => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true],
+            'tanggal_mulai'   => ['type' => 'DATE'],
+            'tanggal_selesai' => ['type' => 'DATE'],
+            'jenis'           => ['type' => 'ENUM', 'constraint' => ['Sakit', 'Izin'], 'default' => 'Sakit'],
+            'alasan'          => ['type' => 'TEXT'],
+            'bukti_foto'      => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
+            'status'          => ['type' => 'ENUM', 'constraint' => ['Pending', 'Approved', 'Rejected'], 'default' => 'Pending'],
+            'created_at'      => ['type' => 'DATETIME', 'null' => true],
+            'updated_at'      => ['type' => 'DATETIME', 'null' => true],
+        ]);
+        $this->forge->addKey('id_izin', true);
+        $this->forge->addKey('siswa_id');
+        $this->forge->addForeignKey('siswa_id', 'siswa', 'id_siswa', 'CASCADE', 'CASCADE');
+        $this->forge->createTable('pengajuan_izin');
+
+        // 10. Tabel Log Fraud / Pelanggaran (Baru)
+        $this->forge->addField([
+            'id_log'      => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
+            'siswa_id'    => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true],
+            'tipe_fraud'  => ['type' => 'VARCHAR', 'constraint' => '50'],
+            'lat_fraud'   => ['type' => 'VARCHAR', 'constraint' => '100', 'null' => true],
+            'long_fraud'  => ['type' => 'VARCHAR', 'constraint' => '100', 'null' => true],
+            'user_agent'  => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
+            'created_at'  => ['type' => 'DATETIME', 'null' => true],
+        ]);
+        $this->forge->addKey('id_log', true);
+        $this->forge->addKey('siswa_id');
+        $this->forge->addForeignKey('siswa_id', 'siswa', 'id_siswa', 'CASCADE', 'CASCADE');
+        $this->forge->createTable('log_fraud');
     }
 
     public function down()
     {
+        // Bypass Intelephense error dengan Raw Query
+        $this->db->query('SET FOREIGN_KEY_CHECKS=0');
+
+        $this->forge->dropTable('log_fraud', true);
+        $this->forge->dropTable('pengajuan_izin', true);
         $this->forge->dropTable('hari_libur', true);
         $this->forge->dropTable('jadwal_absen', true);
         $this->forge->dropTable('pengumuman', true);
         $this->forge->dropTable('absensi', true);
         $this->forge->dropTable('pengaturan', true);
-
-        // Penyesuaian urutan Drop untuk RBAC
         $this->forge->dropTable('users', true);
         $this->forge->dropTable('roles', true);
-
         $this->forge->dropTable('siswa', true);
         $this->forge->dropTable('kelas', true);
+
+        $this->db->query('SET FOREIGN_KEY_CHECKS=1');
     }
 }

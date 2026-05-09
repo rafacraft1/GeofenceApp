@@ -20,7 +20,6 @@ class Siswa extends Controller
     {
         $kelas_filter = $this->request->getGet('kelas');
 
-        // PERBAIKAN 1: Gunakan getResultArray()
         $list_kelas = $this->db->table('kelas')
             ->orderBy('nama_kelas', 'ASC')
             ->get()
@@ -41,7 +40,6 @@ class Siswa extends Controller
         $total_data = $builder->countAllResults(false);
         $offset = ($page - 1) * $perPage;
 
-        // PERBAIKAN 2: Gunakan getResultArray()
         $siswa = $builder->orderBy('kelas.nama_kelas', 'ASC')
             ->orderBy('siswa.nama_siswa', 'ASC')
             ->get($perPage, $offset)->getResultArray();
@@ -133,9 +131,16 @@ class Siswa extends Controller
         return redirect()->to('/admin/siswa')->with('success', 'Perangkat berhasil di-reset.');
     }
 
+    // PERBAIKAN: Mengaktifkan fungsionalitas Unblock (reset is_blocked dan fraud_count)
     public function unblock(string $id)
     {
-        return redirect()->to('/admin/siswa')->with('error', 'Fitur Unblock membutuhkan penambahan kolom di database.');
+        $this->db->table('siswa')->where('id_siswa', $id)->update([
+            'is_blocked'  => 0,
+            'fraud_count' => 0,
+            'updated_at'  => date('Y-m-d H:i:s')
+        ]);
+
+        return redirect()->to('/admin/siswa')->with('success', 'Akun siswa berhasil di-unblock dan fraud count di-reset.');
     }
 
     public function download_template()

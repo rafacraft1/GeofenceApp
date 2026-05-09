@@ -7,7 +7,6 @@ use CodeIgniter\Database\BaseConnection;
 
 class Pengaturan extends Controller
 {
-    /** @var BaseConnection */
     protected BaseConnection $db;
 
     public function __construct()
@@ -33,11 +32,11 @@ class Pengaturan extends Controller
             'latitude_sekolah'  => 'required',
             'longitude_sekolah' => 'required',
             'radius_meter'      => 'required|numeric',
-            'firebase_url'      => 'required|valid_url',
+            'firebase_url'      => 'permit_empty|valid_url', // Diubah menjadi opsional agar fleksibel
         ];
 
         if (!$this->validate($rules)) {
-            return redirect()->back()->withInput()->with('error', 'Pastikan semua data terisi dengan benar.');
+            return redirect()->back()->withInput()->with('error', 'Data tidak valid: ' . $this->validator->listErrors());
         }
 
         $this->db->table('pengaturan')->where('id_pengaturan', 1)->update([

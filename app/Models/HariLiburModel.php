@@ -11,8 +11,8 @@ class HariLiburModel extends Model
     protected $useAutoIncrement = true;
     protected $returnType       = 'array';
 
-    // Kolom yang diizinkan untuk diisi secara manual
-    protected $allowedFields    = ['tanggal', 'keterangan', 'created_at'];
+    // PERBAIKAN: created_at dihapus dari allowedFields karena sudah ditangani otomatis oleh CI4
+    protected $allowedFields    = ['tanggal', 'keterangan'];
 
     // Mengaktifkan fitur auto timestamp untuk created_at
     protected $useTimestamps    = true;

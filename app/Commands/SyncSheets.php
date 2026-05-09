@@ -34,17 +34,19 @@ class SyncSheets extends BaseCommand
             $client->addScope(\Google\Service\Sheets::SPREADSHEETS);
             $service = new \Google\Service\Sheets($client);
 
-            // Ambil Data dari DB
             $db = \Config\Database::connect();
+
+            // PERBAIKAN: Penyesuaian nama kolom dan foreign key dengan skema database terbaru
             $data_absen = $db->table('absensi')
-                ->select('siswa.nis, siswa.nama_lengkap, absensi.status, absensi.waktu_masuk')
-                ->join('siswa', 'siswa.id = absensi.siswa_id')
+                ->select('siswa.nis, siswa.nama_siswa, absensi.status, absensi.jam_masuk')
+                ->join('siswa', 'siswa.id_siswa = absensi.siswa_id')
                 ->where('absensi.tanggal', $hari_ini)
                 ->get()->getResultArray();
 
             $values = [];
             foreach ($data_absen as $row) {
-                $values[] = [$hari_ini, $row['nis'], $row['nama_lengkap'], $row['status'], $row['waktu_masuk']];
+                // PERBAIKAN: Sesuaikan dengan key array yang baru
+                $values[] = [$hari_ini, $row['nis'], $row['nama_siswa'], $row['status'], $row['jam_masuk']];
             }
 
             // Eksekusi Push ke Sheets (Ganti 'YOUR_SHEET_ID' nanti)

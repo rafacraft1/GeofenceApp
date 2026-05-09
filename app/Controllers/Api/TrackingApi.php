@@ -19,7 +19,6 @@ class TrackingApi extends ResourceController
 
         $db = \Config\Database::connect();
 
-        // Join ke tabel kelas agar nama kelas bisa terkirim ke Firebase Map
         $siswa = $db->table('siswa')
             ->select('siswa.*, kelas.nama_kelas')
             ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left')
@@ -40,24 +39,23 @@ class TrackingApi extends ResourceController
         $lon   = (float) $rawLon;
         $waktu = Time::now('Asia/Jakarta')->toDateTimeString();
 
-        // 1. Simpan Riwayat (Tabel ini harus ada di database Anda)
-        $db->table('riwayat_lokasi')->insert([
-            'siswa_id'    => $siswa['id_siswa'],
-            'latitude'    => $lat,
-            'longitude'   => $lon,
-            'waktu_rekam' => $waktu
-        ]);
+        // PERBAIKAN: Blok insert riwayat_lokasi Dihapus (Mencegah Fatal Error dan Database Bloat)
 
-        // 2. Tembak ke Firebase
         $config = $db->table('pengaturan')->where('id_pengaturan', 1)->get()->getRowArray();
 
         if (!$config || empty($config['firebase_url'])) {
-            return $this->respondCreated(['status' => 200, 'message' => 'Tersimpan lokal. Firebase belum disetting.']);
+            return $this->respondCreated(['status' => 200, 'message' => 'Pelacakan lokal diabaikan. Firebase belum disetting.']);
+        }
+
+        // PERBAIKAN: Cek apakah file credential JSON benar-benar ada untuk mencegah 500 Server Error
+        $credentialPath = APPPATH . 'Config/firebase_credentials.json';
+        if (!file_exists($credentialPath)) {
+            return $this->respondCreated(['status' => 200, 'message' => 'Credential Firebase tidak ditemukan, tracking dibypass.']);
         }
 
         try {
             $factory = (new Factory)
-                ->withServiceAccount(APPPATH . 'Config/firebase_credentials.json')
+                ->withServiceAccount($credentialPath)
                 ->withDatabaseUri($config['firebase_url']);
 
             $database = $factory->createDatabase();
@@ -71,7 +69,7 @@ class TrackingApi extends ResourceController
             ]);
         } catch (\Exception $e) {
             log_message('error', 'Firebase Error: ' . $e->getMessage());
-            return $this->respondCreated(['status' => 200, 'message' => 'Tersimpan lokal. Gagal sinkronisasi Firebase.']);
+            return $this->respondCreated(['status' => 200, 'message' => 'Gagal sinkronisasi Firebase. (Bypass)']);
         }
 
         return $this->respondCreated(['status' => 200, 'message' => 'Lokasi berhasil diperbarui dan disinkronkan ke Firebase.']);
@@ -87,8 +85,13 @@ class TrackingApi extends ResourceController
         if (!$siswa) return $this->failNotFound('Data siswa tidak ditemukan.');
         if (empty($siswa['fcm_token'])) return $this->fail('Siswa ini belum memiliki FCM Token (Belum login di aplikasi terbaru).');
 
+        $credentialPath = APPPATH . 'Config/firebase_credentials.json';
+        if (!file_exists($credentialPath)) {
+            return $this->fail('File kredensial Firebase belum dikonfigurasi di server.');
+        }
+
         try {
-            $factory = (new Factory)->withServiceAccount(APPPATH . 'Config/firebase_credentials.json');
+            $factory = (new Factory)->withServiceAccount($credentialPath);
             $messaging = $factory->createMessaging();
 
             $message = \Kreait\Firebase\Messaging\CloudMessage::fromArray([

@@ -13,7 +13,6 @@
 <?= $this->section('content') ?>
 <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[80vh]">
 
-    <!-- Sidebar Pemilihan Siswa -->
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col h-full overflow-hidden">
         <div class="p-4 border-b bg-gray-50">
             <div class="flex justify-between items-start">
@@ -24,7 +23,6 @@
                 <span id="counter-badge" class="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded-lg">0/4</span>
             </div>
 
-            <!-- FORM FILTER KELAS -->
             <form action="/admin/tracking/siswa/0" method="GET" class="mt-3">
                 <select name="kelas_id" onchange="this.form.submit()" class="w-full border-gray-200 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white transition-all cursor-pointer">
                     <option value="">-- Semua Kelas --</option>
@@ -66,10 +64,8 @@
         </div>
     </div>
 
-    <!-- Area Peta Radar -->
     <div class="lg:col-span-3 bg-white rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden h-full">
 
-        <!-- Peringatan Firebase Belum Disetting -->
         <?php if (empty($config) || empty($config['firebase_url'])): ?>
             <div class="absolute inset-0 z-[500] bg-white/80 backdrop-blur-sm flex items-center justify-center">
                 <div class="bg-white p-6 rounded-2xl shadow-xl border border-red-100 text-center max-w-sm">
@@ -84,7 +80,6 @@
             </div>
         <?php endif; ?>
 
-        <!-- Indikator Firebase Aktif -->
         <div class="absolute top-4 right-4 z-[400] flex items-center gap-2 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-md border border-gray-100 transition-colors duration-300">
             <div id="status-dot" class="w-2.5 h-2.5 bg-gray-300 rounded-full"></div>
             <span id="status-text" class="text-xs font-bold text-gray-700 uppercase tracking-wide">Menyambungkan...</span>
@@ -103,6 +98,10 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
+    // PERBAIKAN: Penyisipan Global CSRF CodeIgniter 4 untuk AJAX request
+    const csrfHeader = '<?= csrf_header() ?>';
+    const csrfToken = '<?= csrf_hash() ?>';
+
     const statusDot = document.getElementById('status-dot');
     const statusText = document.getElementById('status-text');
 
@@ -272,11 +271,13 @@
         statusText.className = "text-[11px] text-center mt-2 font-bold text-orange-500";
         statusText.innerText = "Mengirim sinyal pengetuk ke HP siswa...";
 
+        // PERBAIKAN: Penambahan header CSRF pada saat melakukan POST Request via Fetch AJAX
         let requests = selectedIds.map(id => {
             return fetch(`/admin/tracking/ping_siswa/${id}`, {
                 method: 'POST',
                 headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
+                    'X-Requested-With': 'XMLHttpRequest',
+                    [csrfHeader]: csrfToken
                 }
             });
         });

@@ -22,8 +22,8 @@ class ApiAuthFilter implements FilterInterface
 
         $db = \Config\Database::connect();
 
-        // --- PERBAIKAN: CEK BERDASARKAN api_token, BUKAN device_id ---
-        $siswa = $db->table('siswa')->where('api_token', $token)->get()->getRow();
+        // Optimasi: Hanya mengambil field yang dibutuhkan untuk validasi filter
+        $siswa = $db->table('siswa')->select('id_siswa, is_blocked')->where('api_token', $token)->get()->getRow();
 
         if (!$siswa) {
             return Services::response()
@@ -38,8 +38,5 @@ class ApiAuthFilter implements FilterInterface
         }
     }
 
-    public function after(RequestInterface $request, ResponseInterface $response, $arguments = null)
-    {
-        // Kosongkan saja untuk proses after
-    }
+    public function after(RequestInterface $request, ResponseInterface $response, $arguments = null) {}
 }

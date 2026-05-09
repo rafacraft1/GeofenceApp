@@ -77,72 +77,44 @@
 </style>
 
 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
-
     <div class="p-5 border-b flex flex-col md:flex-row justify-between items-center gap-4 bg-white">
         <div>
             <h3 class="text-lg font-bold text-gray-800">Daftar Siswa</h3>
             <p class="text-sm text-gray-500">Kelola data siswa, foto, dan pantau perangkat.</p>
         </div>
-
         <div class="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
             <form action="/admin/siswa" method="GET" class="flex-1 md:w-48">
                 <select name="kelas" onchange="this.form.submit()" class="w-full border-gray-200 rounded-xl p-2.5 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 min-w-[120px] cursor-pointer">
                     <option value="">Semua Kelas</option>
                     <?php if (!empty($list_kelas)) : ?>
                         <?php foreach ($list_kelas as $k): ?>
-                            <option value="<?= (string) $k['id_kelas'] ?>" <?= ((string) $kelas_aktif === (string) $k['id_kelas']) ? 'selected' : '' ?>>
-                                <?= esc((string) $k['nama_kelas']) ?>
-                            </option>
+                            <option value="<?= (string) $k['id_kelas'] ?>" <?= ((string) $kelas_aktif === (string) $k['id_kelas']) ? 'selected' : '' ?>><?= esc((string) $k['nama_kelas']) ?></option>
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </select>
             </form>
-
-            <a href="/admin/siswa/export?kelas=<?= esc((string) ($kelas_aktif ?? '')) ?>" class="flex items-center justify-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700 shadow-md transition-all active:scale-95 whitespace-nowrap">
-                Export
-            </a>
-
-            <button onclick="openImportModal()" class="flex items-center justify-center gap-2 bg-slate-100 text-slate-700 px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-200 shadow-sm transition-all active:scale-95 whitespace-nowrap">
-                Import
-            </button>
-
-            <button onclick="toggleFormTambah()" class="flex items-center justify-center gap-1 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-md whitespace-nowrap active:scale-95 transition-all">
-                + Tambah
-            </button>
+            <a href="/admin/siswa/export?kelas=<?= esc((string) ($kelas_aktif ?? '')) ?>" class="flex items-center justify-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700 shadow-md transition-all active:scale-95 whitespace-nowrap">Export</a>
+            <button onclick="openImportModal()" class="flex items-center justify-center gap-2 bg-slate-100 text-slate-700 px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-200 shadow-sm transition-all active:scale-95 whitespace-nowrap">Import</button>
+            <button onclick="toggleFormTambah()" class="flex items-center justify-center gap-1 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-md whitespace-nowrap active:scale-95 transition-all">+ Tambah</button>
         </div>
     </div>
 
-    <!-- FORM TAMBAH -->
     <div id="form-tambah" class="bg-blue-50/50 p-6 border-b hidden transition-all">
         <form action="/admin/siswa/store" method="POST" enctype="multipart/form-data" id="formSiswa" class="grid grid-cols-1 md:grid-cols-4 gap-5 items-end">
             <?= csrf_field() ?>
-            <div>
-                <label class="block text-xs font-bold text-gray-600 uppercase mb-2">NIS</label>
-                <input type="text" name="nis" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="Contoh: 2026001">
-            </div>
-            <div>
-                <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Nama Lengkap</label>
-                <input type="text" name="nama_siswa" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="Nama siswa">
-            </div>
+            <div><label class="block text-xs font-bold text-gray-600 uppercase mb-2">NIS</label><input type="text" name="nis" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="Contoh: 2026001"></div>
+            <div><label class="block text-xs font-bold text-gray-600 uppercase mb-2">Nama Lengkap</label><input type="text" name="nama_siswa" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="Nama siswa"></div>
             <div>
                 <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Pilih Kelas</label>
                 <select name="kelas_id" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-white cursor-pointer">
                     <option value="" disabled selected>-- Pilih Kelas --</option>
                     <?php if (!empty($list_kelas)) : ?>
-                        <?php foreach ($list_kelas as $k): ?>
-                            <option value="<?= (string) $k['id_kelas'] ?>"><?= esc((string) $k['nama_kelas']) ?></option>
-                        <?php endforeach; ?>
+                        <?php foreach ($list_kelas as $k): ?><option value="<?= (string) $k['id_kelas'] ?>"><?= esc((string) $k['nama_kelas']) ?></option><?php endforeach; ?>
                     <?php endif; ?>
                 </select>
             </div>
-            <div>
-                <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Foto (Opsional)</label>
-                <input type="file" name="foto" accept="image/*" class="w-full border-gray-200 rounded-xl p-2 bg-white text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-            </div>
-            <div class="md:col-span-4 flex justify-end gap-3 pt-2">
-                <button type="button" onclick="toggleFormTambah()" class="text-sm font-semibold text-gray-500 px-4 py-2">Batal</button>
-                <button type="submit" class="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold shadow hover:bg-blue-700 btn-submit transition-all">Simpan Data</button>
-            </div>
+            <div><label class="block text-xs font-bold text-gray-600 uppercase mb-2">Foto (Opsional)</label><input type="file" name="foto" accept="image/*" class="w-full border-gray-200 rounded-xl p-2 bg-white text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"></div>
+            <div class="md:col-span-4 flex justify-end gap-3 pt-2"><button type="button" onclick="toggleFormTambah()" class="text-sm font-semibold text-gray-500 px-4 py-2">Batal</button><button type="submit" class="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold shadow hover:bg-blue-700 btn-submit transition-all">Simpan Data</button></div>
         </form>
     </div>
 
@@ -162,7 +134,6 @@
                         <tr class="hover:bg-gray-50/50 transition-colors group">
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-3">
-                                    <!-- AVATAR FOTO -->
                                     <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs shadow-inner overflow-hidden border border-gray-200 shrink-0">
                                         <?php if (!empty($s['foto_profil'])): ?>
                                             <img src="/uploads/siswa/<?= esc((string) $s['foto_profil']) ?>" alt="Foto" class="w-full h-full object-cover">
@@ -172,17 +143,14 @@
                                     </div>
                                     <div>
                                         <div class="text-sm font-bold text-gray-800"><?= esc((string) $s['nama_siswa']) ?></div>
-                                        <div class="text-[11px] text-gray-500 font-medium bg-gray-100 px-2 py-0.5 rounded inline-block mt-1">
-                                            <?= esc((string) $s['nis']) ?> • <?= esc((string) ($s['nama_kelas'] ?? 'Belum ada kelas')) ?>
-                                        </div>
+                                        <div class="text-[11px] text-gray-500 font-medium bg-gray-100 px-2 py-0.5 rounded inline-block mt-1"><?= esc((string) $s['nis']) ?> • <?= esc((string) ($s['nama_kelas'] ?? 'Belum ada kelas')) ?></div>
                                     </div>
                                 </div>
                             </td>
                             <td class="px-6 py-4">
                                 <?php if (!empty($s['device_id'])): ?>
                                     <div class="flex items-center gap-1.5 text-emerald-600 bg-emerald-50 px-2 py-1.5 rounded-lg text-[10px] font-bold w-fit border border-emerald-100">
-                                        <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-                                        TERIKAT
+                                        <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>TERIKAT
                                     </div>
                                 <?php else: ?>
                                     <div class="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1.5 rounded-lg w-fit border border-gray-200">BELUM TERIKAT</div>
@@ -190,9 +158,7 @@
                             </td>
                             <td class="px-6 py-4 text-center">
                                 <div class="flex flex-col items-center">
-                                    <span class="text-[10px] font-bold <?= (!empty($s['is_blocked'])) ? 'text-red-500' : 'text-gray-600' ?>">
-                                        <?= esc((string) ($s['fraud_count'] ?? 0)) ?>/3 Fraud
-                                    </span>
+                                    <span class="text-[10px] font-bold <?= (!empty($s['is_blocked'])) ? 'text-red-500' : 'text-gray-600' ?>"><?= esc((string) ($s['fraud_count'] ?? 0)) ?>/3 Fraud</span>
                                     <div class="w-16 h-1 bg-gray-100 rounded-full mt-1 overflow-hidden">
                                         <div class="h-full <?= (!empty($s['is_blocked'])) ? 'bg-red-500' : 'bg-blue-500' ?>" style="width: <?= (((int)($s['fraud_count'] ?? 0)) / 3) * 100 ?>%"></div>
                                     </div>
@@ -215,7 +181,7 @@
                                     <?php if (!empty($s['device_id'])): ?>
                                         <form action="/admin/siswa/reset_device/<?= esc((string) $s['id_siswa']) ?>" method="POST" class="inline">
                                             <?= csrf_field() ?>
-                                            <button type="submit" class="btn-confirm p-2 text-amber-600 bg-amber-50 hover:bg-amber-100 border border-amber-100 rounded-lg transition-colors" onclick="return confirm('Akses HP akan direset. Yakin?');" title="Reset Device">
+                                            <button type="submit" class="btn-confirm p-2 text-amber-600 bg-amber-50 hover:bg-amber-100 border border-amber-100 rounded-lg transition-colors" data-text="Akses HP akan direset. Yakin?" data-btn="Ya, Reset HP" title="Reset Device">
                                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
                                                 </svg>
@@ -226,7 +192,7 @@
                                     <?php if (!empty($s['is_blocked'])): ?>
                                         <form action="/admin/siswa/unblock/<?= esc((string) $s['id_siswa']) ?>" method="POST" class="inline">
                                             <?= csrf_field() ?>
-                                            <button type="submit" class="btn-confirm p-2 text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 rounded-lg transition-colors" onclick="return confirm('Buka blokir akun siswa?');" title="Unblock">
+                                            <button type="submit" class="btn-confirm p-2 text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 rounded-lg transition-colors" data-text="Buka blokir akun siswa ini?" data-btn="Ya, Buka Blokir" title="Unblock">
                                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
                                                 </svg>
@@ -234,10 +200,9 @@
                                         </form>
                                     <?php endif; ?>
 
-                                    <!-- TOMBOL HAPUS -->
                                     <form action="/admin/siswa/delete/<?= esc((string) $s['id_siswa']) ?>" method="POST" class="inline">
                                         <?= csrf_field() ?>
-                                        <button type="submit" class="btn-confirm p-2 text-slate-600 bg-slate-50 hover:bg-red-100 hover:text-red-600 border border-slate-200 rounded-lg transition-colors" onclick="return confirm('Data siswa beserta foto akan dihapus permanen. Lanjutkan?');" title="Hapus Siswa">
+                                        <button type="submit" class="btn-confirm p-2 text-slate-600 bg-slate-50 hover:bg-red-100 hover:text-red-600 border border-slate-200 rounded-lg transition-colors" data-text="Data siswa beserta foto akan dihapus permanen. Lanjutkan?" data-btn="Ya, Hapus Permanen" title="Hapus Siswa">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                                             </svg>
@@ -264,13 +229,10 @@
             ?>
             Menampilkan <span class="font-bold text-gray-800"><?= (string) $start ?></span> - <span class="font-bold text-gray-800"><?= (string) $end ?></span> dari <span class="font-bold text-gray-800"><?= esc((string) ($total_data ?? 0)) ?></span> siswa
         </div>
-        <div class="pagination-wrapper">
-            <?= $pager_links ?? '' ?>
-        </div>
+        <div class="pagination-wrapper"><?= $pager_links ?? '' ?></div>
     </div>
 </div>
 
-<!-- MODAL EDIT -->
 <div id="modal-edit" class="fixed inset-0 z-[60] hidden items-center justify-center p-4">
     <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="closeEditModal()"></div>
     <div class="bg-white rounded-3xl shadow-2xl z-10 w-full max-w-lg p-8">
@@ -282,37 +244,20 @@
         </div>
         <form id="form-edit-action" method="POST" enctype="multipart/form-data" class="space-y-5">
             <?= csrf_field() ?>
-            <div>
-                <label class="block text-xs font-bold text-gray-600 uppercase mb-2">NIS</label>
-                <input type="text" id="edit-nis" name="nis" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all">
-            </div>
-            <div>
-                <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Nama Lengkap</label>
-                <input type="text" id="edit-nama" name="nama_siswa" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all">
-            </div>
+            <div><label class="block text-xs font-bold text-gray-600 uppercase mb-2">NIS</label><input type="text" id="edit-nis" name="nis" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all"></div>
+            <div><label class="block text-xs font-bold text-gray-600 uppercase mb-2">Nama Lengkap</label><input type="text" id="edit-nama" name="nama_siswa" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all"></div>
             <div>
                 <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Kelas</label>
                 <select id="edit-kelas" name="kelas_id" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-gray-50 cursor-pointer">
-                    <?php if (!empty($list_kelas)) : ?>
-                        <?php foreach ($list_kelas as $k): ?>
-                            <option value="<?= (string) $k['id_kelas'] ?>"><?= esc((string) $k['nama_kelas']) ?></option>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
+                    <?php if (!empty($list_kelas)) : ?><?php foreach ($list_kelas as $k): ?><option value="<?= (string) $k['id_kelas'] ?>"><?= esc((string) $k['nama_kelas']) ?></option><?php endforeach; ?><?php endif; ?>
                 </select>
             </div>
-            <div>
-                <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Ganti Foto (Kosongkan jika tidak mengubah)</label>
-                <input type="file" name="foto" accept="image/*" class="w-full border-gray-200 rounded-xl p-2 bg-gray-50 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200">
-            </div>
-            <div class="flex justify-end gap-3 pt-4">
-                <button type="button" onclick="closeEditModal()" class="px-5 py-2.5 text-sm font-semibold text-gray-400">Batal</button>
-                <button type="submit" class="bg-blue-600 text-white px-8 py-2.5 rounded-xl text-sm font-semibold shadow-lg hover:bg-blue-700 btn-submit transition-all">Simpan Perubahan</button>
-            </div>
+            <div><label class="block text-xs font-bold text-gray-600 uppercase mb-2">Ganti Foto (Kosongkan jika tidak mengubah)</label><input type="file" name="foto" accept="image/*" class="w-full border-gray-200 rounded-xl p-2 bg-gray-50 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200"></div>
+            <div class="flex justify-end gap-3 pt-4"><button type="button" onclick="closeEditModal()" class="px-5 py-2.5 text-sm font-semibold text-gray-400">Batal</button><button type="submit" class="bg-blue-600 text-white px-8 py-2.5 rounded-xl text-sm font-semibold shadow-lg hover:bg-blue-700 btn-submit transition-all">Simpan Perubahan</button></div>
         </form>
     </div>
 </div>
 
-<!-- MODAL IMPORT -->
 <div id="modal-import" class="fixed inset-0 z-[60] hidden items-center justify-center p-4">
     <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="closeImportModal()"></div>
     <div class="bg-white rounded-3xl shadow-2xl z-10 w-full max-w-md p-8">
@@ -359,7 +304,6 @@
         document.getElementById('edit-nama').value = data.nama_siswa;
         document.getElementById('edit-kelas').value = data.kelas_id;
         document.querySelector('input[name="foto"]').value = "";
-
         document.getElementById('form-edit-action').action = '/admin/siswa/update/' + data.id_siswa;
         document.getElementById('modal-edit').classList.replace('hidden', 'flex');
         document.body.classList.add('modal-active');

@@ -11,6 +11,6 @@ class JadwalAbsenModel extends Model
     protected $useAutoIncrement = true;
     protected $returnType       = 'array';
 
-    // Hanya kolom ini yang boleh diubah Admin (kode_hari dan nama_hari tetap statis)
-    protected $allowedFields    = ['jam_masuk', 'jam_pulang', 'is_libur'];
+    // PERBAIKAN: Menambahkan kode_hari dan nama_hari sebagai standar jaring pengaman model
+    protected $allowedFields    = ['kode_hari', 'nama_hari', 'jam_masuk', 'jam_pulang', 'is_libur'];
 }

@@ -9,7 +9,6 @@
 <?= $this->section('content') ?>
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-    <!-- Kolom Kiri: Form Buat Pengumuman -->
     <div class="lg:col-span-1">
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sticky top-6">
             <h3 class="text-lg font-bold text-gray-800 mb-2">Buat Broadcast Baru</h3>
@@ -45,7 +44,6 @@
         </div>
     </div>
 
-    <!-- Kolom Kanan: Riwayat Pengumuman -->
     <div class="lg:col-span-2 space-y-4">
         <h3 class="text-lg font-bold text-gray-800 mb-4 px-1">Riwayat Broadcast</h3>
 
@@ -89,10 +87,9 @@
                         <p class="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap"><?= esc((string) $p['isi']) ?></p>
                     </div>
 
-                    <!-- Tombol Hapus (Muncul saat di-hover) -->
                     <form action="/admin/pengumuman/delete/<?= esc((string) $p['id_pengumuman']) ?>" method="POST" class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
                         <?= csrf_field() ?>
-                        <button type="submit" class="btn-confirm p-2 bg-white text-gray-400 hover:text-red-500 hover:bg-red-50 border border-gray-200 rounded-lg shadow-sm" onclick="return confirm('Tarik pengumuman ini?');" title="Tarik / Hapus">
+                        <button type="button" class="btn-confirm p-2 bg-white text-gray-400 hover:text-red-500 hover:bg-red-50 border border-gray-200 rounded-lg shadow-sm" data-text="Tarik pengumuman ini agar tidak terlihat lagi oleh siswa?" data-btn="Ya, Tarik" title="Tarik / Hapus">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                             </svg>
@@ -103,7 +100,6 @@
         <?php endif; ?>
     </div>
 </div>
-<!-- PENUTUP SECTION CONTENT DITAMBAHKAN DI SINI -->
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
