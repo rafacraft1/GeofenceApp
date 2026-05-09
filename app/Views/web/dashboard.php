@@ -1,6 +1,8 @@
 <?php
 
 /**
+ * Petunjuk untuk Intelephense agar tidak error P1008 & P1006
+ * @var string $title
  * @var int $total_siswa
  * @var int $hadir_hari_ini
  * @var int $alpa_hari_ini
@@ -9,6 +11,8 @@
  * @var string $chart_hadir
  * @var string $chart_terlambat
  * @var string $chart_alpa
+ * @var string $chart_distribution
+ * @var array<int, array<string, mixed>> $top_classes
  * @var array<int, array<string, mixed>> $list_manipulasi
  */
 ?>
@@ -16,129 +20,117 @@
 
 <?= $this->section('content') ?>
 
-<div class="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl shadow-lg p-6 md:p-8 mb-6 text-white relative overflow-hidden">
+<div class="bg-gradient-to-r from-indigo-600 to-blue-700 rounded-2xl shadow-lg p-6 mb-6 text-white relative overflow-hidden">
     <div class="relative z-10">
-        <h2 class="text-2xl md:text-3xl font-bold mb-2">Selamat Datang, <?= esc((string) (session()->get('nama_lengkap') ?? 'Admin')) ?> 👋</h2>
-        <p class="text-blue-100 text-sm md:text-base max-w-2xl">Pantau aktivitas absensi, tren kehadiran, dan anomali keamanan (Geofence) secara real-time untuk hari ini.</p>
+        <h2 class="text-2xl font-bold">Analytics Command Center</h2>
+        <p class="text-indigo-100 text-sm mt-1">Pantau kehadiran siswa dan efektivitas Geofencing secara real-time.</p>
     </div>
-    <div class="absolute -right-10 -top-10 opacity-20">
-        <svg class="w-64 h-64" fill="currentColor" viewBox="0 0 24 24">
+    <div class="absolute -right-10 -top-10 opacity-10">
+        <svg class="w-48 h-48" fill="currentColor" viewBox="0 0 24 24">
             <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
         </svg>
     </div>
 </div>
 
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex items-center hover:shadow-md transition-shadow">
-        <div class="p-3 rounded-full bg-blue-50 text-blue-600 mr-4">
-            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-            </svg>
-        </div>
-        <div>
-            <p class="text-sm font-medium text-gray-500">Total Siswa Aktif</p>
-            <p class="text-2xl font-bold text-gray-800"><?= esc((string) $total_siswa) ?></p>
-        </div>
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
+        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Siswa Terdaftar</p>
+        <p class="text-2xl font-black text-gray-800"><?= number_format($total_siswa) ?></p>
     </div>
 
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex items-center hover:shadow-md transition-shadow">
-        <div class="p-3 rounded-full bg-emerald-50 text-emerald-600 mr-4">
-            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-        </div>
-        <div>
-            <p class="text-sm font-medium text-gray-500">Hadir Hari Ini</p>
-            <p class="text-2xl font-bold text-gray-800"><?= esc((string) $hadir_hari_ini) ?></p>
+    <?php
+    // Logic internal view untuk persentase
+    $persenHadir = ($total_siswa > 0) ? round(($hadir_hari_ini / $total_siswa) * 100) : 0;
+    ?>
+
+    <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
+        <p class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Tingkat Kehadiran</p>
+        <div class="flex items-end gap-2">
+            <p class="text-2xl font-black text-gray-800"><?= (int) $persenHadir ?>%</p>
+            <p class="text-[10px] text-gray-400 mb-1">(<?= (int) $hadir_hari_ini ?> Siswa)</p>
         </div>
     </div>
-
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex items-center hover:shadow-md transition-shadow">
-        <div class="p-3 rounded-full bg-gray-50 text-gray-600 mr-4">
-            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-        </div>
-        <div>
-            <p class="text-sm font-medium text-gray-500">Alpa / Tdk Hadir</p>
-            <p class="text-2xl font-bold text-gray-800"><?= esc((string) $alpa_hari_ini) ?></p>
-        </div>
+    <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
+        <p class="text-[10px] font-bold text-amber-500 uppercase tracking-widest">Absen (Alpa)</p>
+        <p class="text-2xl font-black text-gray-800"><?= (int) $alpa_hari_ini ?></p>
     </div>
-
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex items-center hover:shadow-md transition-shadow">
-        <div class="p-3 rounded-full bg-red-50 text-red-600 mr-4">
-            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-            </svg>
-        </div>
-        <div>
-            <p class="text-sm font-medium text-gray-500">Deteksi Manipulasi</p>
-            <p class="text-2xl font-bold text-gray-800"><?= esc((string) $fraud_hari_ini) ?></p>
-        </div>
+    <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm border-l-4 border-l-red-500">
+        <p class="text-[10px] font-bold text-red-500 uppercase tracking-widest">Anomali Geofence</p>
+        <p class="text-2xl font-black text-gray-800"><?= (int) $fraud_hari_ini ?></p>
     </div>
-
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
     <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-bold text-gray-800">Tren Kehadiran & Pelanggaran</h3>
-            <span class="text-xs font-medium bg-blue-100 text-blue-700 px-2 py-1 rounded">7 Hari Terakhir</span>
-        </div>
+        <h3 class="text-xs font-bold text-gray-700 mb-6 uppercase tracking-wider">Tren Kehadiran & Pelanggaran (7 Hari)</h3>
+        <div class="flex-1 min-h-[250px]"><canvas id="attendanceChart"></canvas></div>
+    </div>
 
-        <div class="relative flex-1 min-h-[300px] w-full">
-            <canvas id="attendanceChart"></canvas>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col items-center">
+        <h3 class="text-xs font-bold text-gray-700 mb-6 uppercase tracking-wider w-full text-left">Proporsi Kehadiran</h3>
+        <div class="w-full h-48"><canvas id="distributionChart"></canvas></div>
+        <div class="mt-6 grid grid-cols-2 gap-x-4 gap-y-2 w-full text-[9px] font-bold text-gray-500">
+            <div class="flex items-center gap-2"><span class="w-2 h-2 bg-emerald-500 rounded-full"></span> HADIR</div>
+            <div class="flex items-center gap-2"><span class="w-2 h-2 bg-amber-400 rounded-full"></span> TERLAMBAT</div>
+            <div class="flex items-center gap-2"><span class="w-2 h-2 bg-blue-400 rounded-full"></span> IZIN/SAKIT</div>
+            <div class="flex items-center gap-2"><span class="w-2 h-2 bg-red-500 rounded-full"></span> ALPA</div>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 h-fit">
+        <h3 class="text-xs font-bold text-gray-700 mb-6 uppercase tracking-wider">Performa Kelas Terbaik</h3>
+        <div class="space-y-5">
+            <?php foreach ($top_classes as $index => $tc): ?>
+                <div class="flex items-center justify-between group">
+                    <div class="flex items-center gap-3">
+                        <span class="w-6 h-6 flex items-center justify-center rounded-lg bg-blue-50 text-blue-600 text-[10px] font-black"><?= $index + 1 ?></span>
+                        <span class="text-sm font-bold text-gray-700 group-hover:text-blue-600 transition-colors"><?= esc((string) $tc['nama_kelas']) ?></span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xs font-black text-emerald-600"><?= (int) $tc['total_hadir'] ?></span>
+                        <p class="text-[8px] text-gray-400 uppercase font-bold">Hadir</p>
+                    </div>
+                </div>
+            <?php endforeach; ?>
         </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col h-[400px]">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-bold text-gray-800">Anomali Hari Ini</h3>
-            <span class="text-xs bg-red-100 text-red-700 px-2 py-1 rounded font-bold animate-pulse">Live Alert</span>
-        </div>
+    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h3 class="text-xs font-bold text-gray-700 mb-4 uppercase tracking-wider">Visualisasi Pelanggaran Lokasi</h3>
+        <div id="mapFraud" class="h-64 rounded-xl border border-gray-100 shadow-sm mb-6 z-10"></div>
 
-        <div class="flex-1 overflow-y-auto pr-2 space-y-3">
-            <?php if (empty($list_manipulasi)): ?>
-                <div class="h-full flex flex-col items-center justify-center text-center opacity-70">
-                    <div class="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-3">
-                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-                        </svg>
-                    </div>
-                    <p class="text-sm font-bold text-gray-700">Aman Terkendali</p>
-                    <p class="text-xs text-gray-500 mt-1">Tidak ada deteksi manipulasi lokasi hari ini.</p>
-                </div>
-            <?php else: ?>
-                <?php foreach ($list_manipulasi as $m): ?>
-                    <div class="flex items-start gap-3 p-3 bg-red-50/50 border border-red-100 rounded-xl">
-                        <div class="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-bold text-xs shadow-inner overflow-hidden shrink-0 border border-red-200">
-                            <?php if (!empty($m['foto_profil'])): ?>
-                                <img src="/uploads/siswa/<?= esc((string) $m['foto_profil']) ?>" alt="Foto" class="w-full h-full object-cover">
-                            <?php else: ?>
-                                <?= esc(strtoupper(substr((string) ($m['nama_siswa'] ?? ''), 0, 1))) ?>
-                            <?php endif; ?>
-                        </div>
-
-                        <div class="flex-1">
-                            <h4 class="text-sm font-bold text-gray-800 leading-tight"><?= esc((string) $m['nama_siswa']) ?></h4>
-                            <p class="text-[10px] text-gray-500 font-medium mb-1"><?= esc((string) ($m['kelas'] ?? '-')) ?> • <?= esc((string) $m['nis']) ?></p>
-                            <div class="flex flex-wrap items-center gap-1.5 mt-1">
-                                <span class="bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
-                                    <?= !empty($m['is_fake_gps']) ? 'FAKE GPS' : 'LUAR ZONA' ?>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead class="text-[10px] text-gray-400 uppercase border-b border-gray-50">
+                    <tr>
+                        <th class="pb-3">Siswa</th>
+                        <th class="pb-3">Kelas</th>
+                        <th class="pb-3 text-center">Tipe Anomali</th>
+                        <th class="pb-3 text-right">Jam</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    <?php if (empty($list_manipulasi)): ?>
+                        <tr>
+                            <td colspan="4" class="py-10 text-center text-gray-400 italic text-xs">Aman terkendali. Tidak ada anomali terdeteksi.</td>
+                        </tr>
+                    <?php endif; ?>
+                    <?php foreach ($list_manipulasi as $m): ?>
+                        <tr class="hover:bg-red-50/30 transition-colors">
+                            <td class="py-3 font-bold text-gray-800"><?= esc((string) $m['nama_siswa']) ?></td>
+                            <td class="py-3 text-gray-500 text-xs font-medium"><?= esc((string) $m['kelas']) ?></td>
+                            <td class="py-3 text-center">
+                                <span class="bg-red-100 text-red-600 text-[9px] font-black px-2 py-0.5 rounded shadow-sm border border-red-200">
+                                    <?= $m['is_fake_gps'] ? '🚨 FAKE GPS' : '⚠️ MANIPULASI' ?>
                                 </span>
-                                <span class="text-[10px] text-gray-500 font-semibold flex items-center gap-1">
-                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                    <?= date('H:i', strtotime((string) $m['jam_masuk'])) ?> WIB
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-            <?php endif; ?>
+                            </td>
+                            <td class="py-3 text-right text-gray-400 font-mono text-xs"><?= date('H:i', strtotime((string)$m['jam_masuk'])) ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
@@ -147,38 +139,70 @@
 
 <?= $this->section('scripts') ?>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <script>
     document.addEventListener("DOMContentLoaded", function() {
-        const ctx = document.getElementById('attendanceChart').getContext('2d');
+        // 1. Inisialisasi Peta (Leaflet)
+        // Menggunakan window.L agar tidak dianggap class PHP oleh resolver
+        const map = window.L.map('mapFraud').setView([-6.20000000, 106.81666600], 13);
+        window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-        // Menerima data JSON mentah dari PHP
-        const chartLabels = <?= $chart_labels ?>;
-        const chartHadir = <?= $chart_hadir ?>;
-        const chartTerlambat = <?= $chart_terlambat ?>;
-        const chartAlpa = <?= $chart_alpa ?>;
+        const listManipulasi = <?= json_encode($list_manipulasi) ?>;
+        const markers = [];
 
-        new window.Chart(ctx, {
+        listManipulasi.forEach(m => {
+            if (m.lat_masuk && m.long_masuk) {
+                const markerColor = m.is_fake_gps == 1 ? '#EF4444' : '#F59E0B';
+                const marker = window.L.circleMarker([m.lat_masuk, m.long_masuk], {
+                    radius: 8,
+                    fillColor: markerColor,
+                    color: "#fff",
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.9
+                }).addTo(map);
+
+                marker.bindPopup(`
+                <div class="text-[10px]">
+                    <p class="font-black text-gray-800">${m.nama_siswa}</p>
+                    <p class="text-gray-500 mb-1">${m.kelas}</p>
+                    <span class="bg-red-50 text-red-600 font-bold px-1 rounded border border-red-100">
+                        ${m.is_fake_gps == 1 ? 'Fake GPS' : 'Luar Zona'}
+                    </span>
+                </div>
+            `);
+                markers.push([m.lat_masuk, m.long_masuk]);
+            }
+        });
+
+        if (markers.length > 0) {
+            map.fitBounds(window.L.latLngBounds(markers), {
+                padding: [30, 30]
+            });
+        }
+
+        // 2. Bar Chart Trend
+        // Langsung gunakan new window.Chart untuk menghindari peringatan 'Class not imported'
+        new window.Chart(document.getElementById('attendanceChart'), {
             type: 'bar',
             data: {
-                labels: chartLabels,
+                labels: <?= $chart_labels ?>,
                 datasets: [{
-                        label: 'Tepat Waktu',
-                        data: chartHadir,
+                        label: 'Hadir',
+                        data: <?= $chart_hadir ?>,
                         backgroundColor: '#10B981',
-                        borderRadius: 4
+                        borderRadius: 5
                     },
                     {
                         label: 'Terlambat',
-                        data: chartTerlambat,
-                        backgroundColor: '#F59E0B',
-                        borderRadius: 4
+                        data: <?= $chart_terlambat ?>,
+                        backgroundColor: '#FBBF24',
+                        borderRadius: 5
                     },
                     {
                         label: 'Alpa',
-                        data: chartAlpa,
+                        data: <?= $chart_alpa ?>,
                         backgroundColor: '#EF4444',
-                        borderRadius: 4
+                        borderRadius: 5
                     }
                 ]
             },
@@ -186,49 +210,35 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: {
-                    x: {
-                        stacked: true,
-                        grid: {
-                            display: false
-                        }
-                    },
                     y: {
-                        stacked: true,
-                        beginAtZero: true,
-                        ticks: {
-                            precision: 0
-                        },
-                        grid: {
-                            color: '#f3f4f6',
-                            borderDash: [5, 5]
-                        }
+                        stacked: true
+                    },
+                    x: {
+                        stacked: true
                     }
-                },
+                }
+            }
+        });
+
+        // 3. Doughnut Chart Distribusi
+        new window.Chart(document.getElementById('distributionChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Hadir', 'Terlambat', 'Sakit', 'Izin', 'Alpa'],
+                datasets: [{
+                    data: <?= $chart_distribution ?>,
+                    backgroundColor: ['#10B981', '#FBBF24', '#60A5FA', '#818CF8', '#EF4444'],
+                    borderWidth: 0,
+                    cutout: '75%'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
                 plugins: {
                     legend: {
-                        position: 'top',
-                        labels: {
-                            usePointStyle: true,
-                            boxWidth: 8
-                        }
-                    },
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false,
-                        backgroundColor: 'rgba(17, 24, 39, 0.9)',
-                        titleFont: {
-                            size: 14
-                        },
-                        bodyFont: {
-                            size: 13
-                        },
-                        padding: 10
+                        display: false
                     }
-                },
-                interaction: {
-                    mode: 'nearest',
-                    axis: 'x',
-                    intersect: false
                 }
             }
         });

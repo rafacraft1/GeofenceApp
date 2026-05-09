@@ -11,29 +11,41 @@ class Dashboard extends BaseController
     {
         $hariIni = Time::now('Asia/Jakarta')->toDateString();
 
+        // 1. Mengambil Statistik Utama Hari Ini
         $data = [
-            'title'          => 'Dashboard',
+            'title'          => 'Dashboard Analytics',
             'total_siswa'    => $this->db->table('siswa')->countAllResults(),
             'hadir_hari_ini' => $this->db->table('absensi')->where('tanggal', $hariIni)->whereIn('status', ['Hadir', 'Terlambat'])->countAllResults(),
             'alpa_hari_ini'  => $this->db->table('absensi')->where('tanggal', $hariIni)->where('status', 'Alpa')->countAllResults(),
             'fraud_hari_ini' => $this->db->table('absensi')->where('tanggal', $hariIni)->groupStart()->where('status', 'Manipulasi')->orWhere('is_fake_gps', 1)->groupEnd()->countAllResults(),
         ];
 
-        // Key array view tetap dipertahankan snake_case agar tidak merusak View dashboard.php
-        $data['list_manipulasi'] = $this->db->table('absensi')
-            ->select('absensi.jam_masuk, absensi.status, absensi.is_fake_gps, siswa.nama_siswa, kelas.nama_kelas as kelas, siswa.nis, siswa.foto_profil')
-            ->join('siswa', 'siswa.id_siswa = absensi.siswa_id')
-            ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left')
-            ->where('absensi.tanggal', $hariIni)
-            ->groupStart()
-            ->where('absensi.status', 'Manipulasi')
-            ->orWhere('absensi.is_fake_gps', 1)
-            ->groupEnd()
-            ->orderBy('absensi.jam_masuk', 'DESC')
-            ->get()
-            ->getResultArray();
+        // 2. Data Distribusi Status untuk Doughnut Chart
+        $distribusi = $this->db->table('absensi')
+            ->select('status, COUNT(*) as total')
+            ->where('tanggal', $hariIni)
+            ->groupBy('status')
+            ->get()->getResultArray();
 
-        // PERBAIKAN: Optimasi Query Grafik & Variabel camelCase
+        $statusMap = ['Hadir' => 0, 'Terlambat' => 0, 'Sakit' => 0, 'Izin' => 0, 'Alpa' => 0];
+        foreach ($distribusi as $row) {
+            if (isset($statusMap[$row['status']])) $statusMap[$row['status']] = (int) $row['total'];
+        }
+        $data['chart_distribution'] = json_encode(array_values($statusMap));
+
+        // 3. Leaderboard: Top 5 Kelas dengan Kehadiran Tertinggi
+        $data['top_classes'] = $this->db->table('absensi')
+            ->select('kelas.nama_kelas, COUNT(absensi.id_absensi) as total_hadir')
+            ->join('siswa', 'siswa.id_siswa = absensi.siswa_id')
+            ->join('kelas', 'kelas.id_kelas = siswa.kelas_id')
+            ->where('absensi.tanggal', $hariIni)
+            ->whereIn('absensi.status', ['Hadir', 'Terlambat'])
+            ->groupBy('kelas.id_kelas')
+            ->orderBy('total_hadir', 'DESC')
+            ->limit(5)
+            ->get()->getResultArray();
+
+        // 4. Data Tren Kehadiran 7 Hari Terakhir (Stacked Bar Chart)
         $grafikLabels = [];
         $grafikHadir = array_fill(0, 7, 0);
         $grafikTerlambat = array_fill(0, 7, 0);
@@ -41,24 +53,20 @@ class Dashboard extends BaseController
         $dates = [];
 
         for ($i = 6; $i >= 0; $i--) {
-            $tanggal = Time::now('Asia/Jakarta')->subDays($i)->toDateString();
-            $dates[] = $tanggal;
-            $grafikLabels[] = date('d M', strtotime($tanggal));
+            $tgl = Time::now('Asia/Jakarta')->subDays($i)->toDateString();
+            $dates[] = $tgl;
+            $grafikLabels[] = date('d M', strtotime($tgl));
         }
 
-        $startDate = $dates[0];
-        $endDate   = $dates[6];
-
-        $rekapGrafik = $this->db->table('absensi')
+        $rekapTrend = $this->db->table('absensi')
             ->select('tanggal, status, COUNT(*) as total')
-            ->where('tanggal >=', $startDate)
-            ->where('tanggal <=', $endDate)
+            ->where('tanggal >=', $dates[0])
+            ->where('tanggal <=', $dates[6])
             ->whereIn('status', ['Hadir', 'Terlambat', 'Alpa'])
             ->groupBy('tanggal, status')
-            ->get()
-            ->getResultArray();
+            ->get()->getResultArray();
 
-        foreach ($rekapGrafik as $row) {
+        foreach ($rekapTrend as $row) {
             $idx = array_search($row['tanggal'], $dates);
             if ($idx !== false) {
                 if ($row['status'] == 'Hadir') $grafikHadir[$idx] = (int) $row['total'];
@@ -71,6 +79,19 @@ class Dashboard extends BaseController
         $data['chart_hadir']     = json_encode($grafikHadir);
         $data['chart_terlambat'] = json_encode($grafikTerlambat);
         $data['chart_alpa']      = json_encode($grafikAlpa);
+
+        // 5. Data Anomali/Fraud untuk Tabel & Map (Termasuk Koordinat)
+        $data['list_manipulasi'] = $this->db->table('absensi')
+            ->select('absensi.jam_masuk, absensi.status, absensi.is_fake_gps, absensi.lat_masuk, absensi.long_masuk, siswa.nama_siswa, kelas.nama_kelas as kelas, siswa.nis, siswa.foto_profil')
+            ->join('siswa', 'siswa.id_siswa = absensi.siswa_id')
+            ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left')
+            ->where('absensi.tanggal', $hariIni)
+            ->groupStart()
+            ->where('absensi.status', 'Manipulasi')
+            ->orWhere('absensi.is_fake_gps', 1)
+            ->groupEnd()
+            ->orderBy('absensi.jam_masuk', 'DESC')
+            ->get()->getResultArray();
 
         return view('web/dashboard', $data);
     }
