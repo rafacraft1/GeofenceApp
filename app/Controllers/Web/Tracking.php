@@ -2,34 +2,33 @@
 
 namespace App\Controllers\Web;
 
-use CodeIgniter\Controller;
+use App\Controllers\BaseController;
 
-class Tracking extends Controller
+class Tracking extends BaseController
 {
-    public function index(string $target_id = null)
+    // Menggunakan strict type-hinting dengan union type string|null untuk parameter
+    public function index(string|null $targetId = null)
     {
-        $db = \Config\Database::connect();
+        // $this->db sudah diinisialisasi di BaseController, tidak perlu \Config\Database::connect()
 
-        $kelas_filter = $this->request->getGet('kelas_id');
+        $kelasFilter = $this->request->getGet('kelas_id');
 
         // Ambil konfigurasi (Koordinat Sekolah & URL Firebase)
-        // Disini ID-nya menggunakan primary key id_pengaturan sesuai migrasi terbaru
-        $config = $db->table('pengaturan')->where('id_pengaturan', 1)->get()->getRowArray();
+        $config = $this->db->table('pengaturan')->where('id_pengaturan', 1)->get()->getRowArray();
 
         // Ambil Daftar Kelas (Untuk Dropdown Filter)
-        $list_kelas = $db->table('kelas')->orderBy('nama_kelas', 'ASC')->get()->getResultArray();
+        $listKelas = $this->db->table('kelas')->orderBy('nama_kelas', 'ASC')->get()->getResultArray();
 
         // Ambil seluruh data siswa untuk Sidebar (Join dengan kelas)
-        $builder = $db->table('siswa')
+        $builder = $this->db->table('siswa')
             ->select('siswa.id_siswa, siswa.nis, siswa.nama_siswa, kelas.nama_kelas')
             ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
 
-        // Jika admin memfilter kelas di halaman tracking
-        if (!empty($kelas_filter)) {
-            $builder->where('siswa.kelas_id', $kelas_filter);
+        if (!empty($kelasFilter)) {
+            $builder->where('siswa.kelas_id', $kelasFilter);
         }
 
-        $list_siswa = $builder->orderBy('kelas.nama_kelas', 'ASC')
+        $listSiswa = $builder->orderBy('kelas.nama_kelas', 'ASC')
             ->orderBy('siswa.nama_siswa', 'ASC')
             ->get()
             ->getResultArray();
@@ -37,10 +36,10 @@ class Tracking extends Controller
         $data = [
             'title'       => 'Radar Live Tracking',
             'config'      => $config,
-            'list_siswa'  => $list_siswa,
-            'list_kelas'  => $list_kelas,
-            'kelas_aktif' => $kelas_filter,
-            'target_id'   => $target_id
+            'list_siswa'  => $listSiswa,
+            'list_kelas'  => $listKelas,
+            'kelas_aktif' => $kelasFilter,
+            'target_id'   => $targetId
         ];
 
         return view('web/tracking', $data);

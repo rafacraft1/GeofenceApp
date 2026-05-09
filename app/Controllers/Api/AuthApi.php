@@ -7,57 +7,64 @@ use CodeIgniter\RESTful\ResourceController;
 class AuthApi extends ResourceController
 {
     protected $format = 'json';
+    protected \CodeIgniter\Database\BaseConnection $db;
+
+    public function __construct()
+    {
+        $this->db = \Config\Database::connect();
+    }
 
     public function login()
     {
-        $nis       = $this->request->getPost('nis');
-        $device_id = $this->request->getPost('device_id');
-        $fcmToken  = $this->request->getPost('fcm_token');
+        $nis      = $this->request->getPost('nis');
+        $password = (string) $this->request->getPost('password');
+        $deviceId = $this->request->getPost('device_id');
 
-        if (!$nis || !$device_id) {
-            return $this->failValidationErrors('NIS dan Device ID wajib diisi.');
+        if (!$nis || !$password) {
+            return $this->failValidationErrors('NIS dan Password wajib diisi.');
         }
 
-        $db = \Config\Database::connect();
+        $siswa = $this->db->table('siswa')->where('nis', $nis)->get()->getRowArray();
 
-        $siswa = $db->table('siswa')
-            ->select('siswa.*, kelas.nama_kelas')
-            ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left')
-            ->where('nis', $nis)
-            ->get()
-            ->getRowArray();
-
-        if (!$siswa) return $this->failNotFound('Siswa tidak ditemukan.');
-        if ($siswa['is_blocked'] == 1) return $this->failForbidden('Akun terblokir. Hubungi Admin.');
-
-        // PERBAIKAN: Array data disiapkan untuk 1 kali eksekusi UPDATE
-        $api_token = bin2hex(random_bytes(32));
-        $updateData = [
-            'api_token'  => $api_token,
-            'fcm_token'  => $fcmToken,
-            'last_login' => date('Y-m-d H:i:s')
-        ];
-
-        // Logika Device Binding digabungkan ke dalam array updateData
-        if (empty($siswa['device_id'])) {
-            $updateData['device_id'] = $device_id;
-        } elseif ($siswa['device_id'] !== $device_id) {
-            return $this->failUnauthorized('Perangkat tidak dikenali. Gunakan HP yang terdaftar.');
+        if (!$siswa) {
+            return $this->failNotFound('Akun dengan NIS tersebut tidak ditemukan.');
         }
 
-        // Eksekusi cukup 1x saja (Lebih cepat dan tidak membebani I/O Database)
-        $db->table('siswa')->where('id_siswa', $siswa['id_siswa'])->update($updateData);
+        if ($siswa['is_blocked'] == 1) {
+            return $this->failUnauthorized('Akun Anda telah diblokir. Silakan hubungi Admin.');
+        }
 
-        return $this->respond([
-            'status'  => 'success',
-            'message' => 'Login berhasil',
-            'data'    => [
-                'siswa_id'     => $siswa['id_siswa'],
-                'nama_lengkap' => $siswa['nama_siswa'],
-                'kelas'        => $siswa['nama_kelas'] ?? '-',
-                'foto'         => !empty($siswa['foto_profil']) ? base_url('uploads/siswa/' . $siswa['foto_profil']) : '',
-                'token'        => $api_token
-            ]
-        ]);
+        if (password_verify($password, $siswa['password'])) {
+
+            // Logika Pengikatan Perangkat (Device Binding)
+            if (!empty($siswa['device_id']) && $siswa['device_id'] !== $deviceId) {
+                return $this->failUnauthorized('Akun ini sudah terikat dengan perangkat HP lain.');
+            }
+
+            // Generate Token API baru
+            $token = bin2hex(random_bytes(32));
+
+            $this->db->table('siswa')->where('id_siswa', $siswa['id_siswa'])->update([
+                'api_token'  => $token,
+                'device_id'  => $deviceId,
+                'last_login' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s')
+            ]);
+
+            return $this->respond([
+                'status'  => 200,
+                'message' => 'Login berhasil.',
+                'token'   => $token,
+                'data'    => [
+                    'id_siswa'    => $siswa['id_siswa'],
+                    'nis'         => $siswa['nis'],
+                    'nama_siswa'  => $siswa['nama_siswa'],
+                    'kelas_id'    => $siswa['kelas_id'],
+                    'foto_profil' => $siswa['foto_profil']
+                ]
+            ]);
+        }
+
+        return $this->failUnauthorized('Password yang Anda masukkan salah.');
     }
 }

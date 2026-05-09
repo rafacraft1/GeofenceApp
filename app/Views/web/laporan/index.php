@@ -1,10 +1,10 @@
 <?php
 
 /**
- * @var array<int, array<string, string|null>> $list_kelas
+ * @var array<int, array<string, mixed>> $listKelas
  * @var string $bulan
  * @var string $tahun
- * @var string $kelas_id
+ * @var string $kelasId
  * @var array<int, array<string, mixed>> $rekapData
  */
 ?>
@@ -24,8 +24,8 @@
             <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Pilih Kelas</label>
             <select name="kelas" class="w-full border-gray-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-gray-50 cursor-pointer">
                 <option value="">-- Semua Kelas --</option>
-                <?php foreach ($list_kelas as $k): ?>
-                    <option value="<?= (string) $k['id_kelas'] ?>" <?= ($kelas_id === (string) $k['id_kelas']) ? 'selected' : '' ?>>
+                <?php foreach ($listKelas as $k): ?>
+                    <option value="<?= esc((string) $k['id_kelas']) ?>" <?= ($kelasId === (string) $k['id_kelas']) ? 'selected' : '' ?>>
                         <?= esc((string) $k['nama_kelas']) ?>
                     </option>
                 <?php endforeach; ?>
@@ -36,7 +36,7 @@
             <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Bulan</label>
             <select name="bulan" class="w-full border-gray-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-gray-50 cursor-pointer">
                 <?php
-                $nama_bulan = [
+                $namaBulan = [
                     '01' => 'Januari',
                     '02' => 'Februari',
                     '03' => 'Maret',
@@ -50,8 +50,10 @@
                     '11' => 'November',
                     '12' => 'Desember'
                 ];
-                foreach ($nama_bulan as $num => $name): ?>
-                    <option value="<?= (string) $num ?>" <?= ($bulan === (string) $num) ? 'selected' : '' ?>><?= (string) $name ?></option>
+                foreach ($namaBulan as $num => $name): ?>
+                    <option value="<?= esc((string) $num) ?>" <?= ($bulan === (string) $num) ? 'selected' : '' ?>>
+                        <?= esc((string) $name) ?>
+                    </option>
                 <?php endforeach; ?>
             </select>
         </div>
@@ -62,7 +64,9 @@
                 <?php
                 $tahunSekarang = (int) date('Y');
                 for ($i = $tahunSekarang; $i >= $tahunSekarang - 3; $i--): ?>
-                    <option value="<?= (string) $i ?>" <?= ($tahun === (string) $i) ? 'selected' : '' ?>><?= (string) $i ?></option>
+                    <option value="<?= esc((string) $i) ?>" <?= ($tahun === (string) $i) ? 'selected' : '' ?>>
+                        <?= esc((string) $i) ?>
+                    </option>
                 <?php endfor; ?>
             </select>
         </div>
@@ -71,7 +75,7 @@
             <button type="submit" class="flex-1 md:flex-none bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-md hover:bg-blue-700 transition-all h-[42px] flex items-center justify-center">
                 Tampilkan
             </button>
-            <a href="<?= base_url('admin/laporan/export?kelas=' . $kelas_id . '&bulan=' . $bulan . '&tahun=' . $tahun) ?>" class="flex-1 md:flex-none bg-emerald-600 text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-md hover:bg-emerald-700 transition-all h-[42px] flex items-center justify-center gap-2">
+            <a href="<?= base_url('admin/laporan/export?kelas=' . $kelasId . '&bulan=' . $bulan . '&tahun=' . $tahun) ?>" class="flex-1 md:flex-none bg-emerald-600 text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-md hover:bg-emerald-700 transition-all h-[42px] flex items-center justify-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                 </svg>
@@ -104,7 +108,7 @@
                             <td class="px-6 py-4">
                                 <div class="text-sm font-bold text-gray-800"><?= esc((string) $row['nama_siswa']) ?></div>
                                 <div class="text-[11px] text-gray-500 font-medium mt-1">
-                                    <?= esc((string) $row['nis']) ?> • <?= esc((string) $row['nama_kelas']) ?>
+                                    <?= esc((string) $row['nis']) ?> • <?= esc((string) ($row['nama_kelas'] ?? '-')) ?>
                                 </div>
                             </td>
                             <td class="px-4 py-4 text-center">

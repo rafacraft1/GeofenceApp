@@ -8,38 +8,32 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class Laporan extends BaseController
 {
-    /**
-     * Fungsi Private untuk mengambil dan merangkum data (Mencegah N+1 Query Problem)
-     */
-    private function getRekapData(string $bulan, string $tahun, string $kelas_id): array
+    private function getRekapData(string $bulan, string $tahun, string $kelasId): array
     {
-        // 1. Ambil daftar siswa (difilter berdasarkan kelas jika ada)
         $builderSiswa = $this->db->table('siswa')
             ->select('siswa.id_siswa, siswa.nis, siswa.nama_siswa, kelas.nama_kelas')
             ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
 
-        if (!empty($kelas_id)) {
-            $builderSiswa->where('siswa.kelas_id', $kelas_id);
+        if (!empty($kelasId)) {
+            $builderSiswa->where('siswa.kelas_id', $kelasId);
         }
 
         $listSiswa = $builderSiswa->orderBy('kelas.nama_kelas', 'ASC')
             ->orderBy('siswa.nama_siswa', 'ASC')
             ->get()->getResultArray();
 
-        // 2. Ambil data agregat absensi pada bulan & tahun terpilih
         $builderAbsen = $this->db->table('absensi')
             ->select('siswa_id, status, COUNT(id_absensi) as total')
             ->where('MONTH(tanggal)', $bulan)
             ->where('YEAR(tanggal)', $tahun);
 
-        if (!empty($kelas_id)) {
+        if (!empty($kelasId)) {
             $builderAbsen->join('siswa', 'siswa.id_siswa = absensi.siswa_id')
-                ->where('siswa.kelas_id', $kelas_id);
+                ->where('siswa.kelas_id', $kelasId);
         }
 
         $dataAbsen = $builderAbsen->groupBy('siswa_id, status')->get()->getResultArray();
 
-        // 3. Mapping data absensi ke masing-masing siswa (Proses O(N) yang sangat cepat)
         $rekap = [];
         foreach ($listSiswa as $s) {
             $rekap[$s['id_siswa']] = [
@@ -67,20 +61,20 @@ class Laporan extends BaseController
 
     public function index()
     {
-        $bulan    = (string) ($this->request->getGet('bulan') ?? date('m'));
-        $tahun    = (string) ($this->request->getGet('tahun') ?? date('Y'));
-        $kelas_id = (string) ($this->request->getGet('kelas') ?? '');
+        $bulan   = (string) ($this->request->getGet('bulan') ?? date('m'));
+        $tahun   = (string) ($this->request->getGet('tahun') ?? date('Y'));
+        $kelasId = (string) ($this->request->getGet('kelas') ?? '');
 
-        $list_kelas = $this->db->table('kelas')->orderBy('nama_kelas', 'ASC')->get()->getResultArray();
+        $listKelas = $this->db->table('kelas')->orderBy('nama_kelas', 'ASC')->get()->getResultArray();
 
-        $rekapData = $this->getRekapData($bulan, $tahun, $kelas_id);
+        $rekapData = $this->getRekapData($bulan, $tahun, $kelasId);
 
         $data = [
             'title'      => 'Rekapitulasi Kehadiran',
-            'list_kelas' => $list_kelas,
+            'listKelas'  => $listKelas, // PERBAIKAN: disinkronkan menjadi camelCase
             'bulan'      => $bulan,
             'tahun'      => $tahun,
-            'kelas_id'   => $kelas_id,
+            'kelasId'    => $kelasId,   // PERBAIKAN: disinkronkan menjadi camelCase
             'rekapData'  => $rekapData
         ];
 
@@ -89,19 +83,19 @@ class Laporan extends BaseController
 
     public function export()
     {
-        $bulan    = (string) $this->request->getGet('bulan');
-        $tahun    = (string) $this->request->getGet('tahun');
-        $kelas_id = (string) $this->request->getGet('kelas');
+        $bulan   = (string) $this->request->getGet('bulan');
+        $tahun   = (string) $this->request->getGet('tahun');
+        $kelasId = (string) $this->request->getGet('kelas');
 
         if (empty($bulan) || empty($tahun)) {
             return redirect()->back()->with('error', 'Parameter bulan dan tahun tidak valid.');
         }
 
-        $rekapData = $this->getRekapData($bulan, $tahun, $kelas_id);
+        $rekapData = $this->getRekapData($bulan, $tahun, $kelasId);
 
         $namaKelasStr = 'Semua_Kelas';
-        if (!empty($kelas_id)) {
-            $kelasInfo = $this->db->table('kelas')->where('id_kelas', $kelas_id)->get()->getRowArray();
+        if (!empty($kelasId)) {
+            $kelasInfo = $this->db->table('kelas')->where('id_kelas', $kelasId)->get()->getRowArray();
             if ($kelasInfo) $namaKelasStr = str_replace(' ', '_', (string) $kelasInfo['nama_kelas']);
         }
 

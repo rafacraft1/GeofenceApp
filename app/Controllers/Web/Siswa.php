@@ -18,9 +18,9 @@ class Siswa extends Controller
 
     public function index()
     {
-        $kelas_filter = $this->request->getGet('kelas');
+        $kelasFilter = $this->request->getGet('kelas');
 
-        $list_kelas = $this->db->table('kelas')
+        $listKelas = $this->db->table('kelas')
             ->orderBy('nama_kelas', 'ASC')
             ->get()
             ->getResultArray();
@@ -33,11 +33,11 @@ class Siswa extends Controller
             ->select('siswa.*, kelas.nama_kelas')
             ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
 
-        if (!empty($kelas_filter)) {
-            $builder->where('siswa.kelas_id', $kelas_filter);
+        if (!empty($kelasFilter)) {
+            $builder->where('siswa.kelas_id', $kelasFilter);
         }
 
-        $total_data = $builder->countAllResults(false);
+        $totalData = $builder->countAllResults(false);
         $offset = ($page - 1) * $perPage;
 
         $siswa = $builder->orderBy('kelas.nama_kelas', 'ASC')
@@ -47,12 +47,12 @@ class Siswa extends Controller
         $data = [
             'title'       => 'Daftar Siswa',
             'siswa'       => $siswa,
-            'list_kelas'  => $list_kelas,
-            'kelas_aktif' => $kelas_filter,
-            'pager_links' => $pager->makeLinks($page, $perPage, $total_data, 'default_full'),
+            'list_kelas'  => $listKelas, // key tetap snake_case agar sinkron dengan View
+            'kelas_aktif' => $kelasFilter,
+            'pager_links' => $pager->makeLinks($page, $perPage, $totalData, 'default_full'),
             'page'        => $page,
             'perPage'     => $perPage,
-            'total_data'  => $total_data
+            'total_data'  => $totalData
         ];
 
         return view('web/siswa', $data);
@@ -122,10 +122,11 @@ class Siswa extends Controller
         return redirect()->to('/admin/siswa')->with('success', 'Data siswa beserta foto berhasil dihapus.');
     }
 
-    public function reset_device(string $id)
+    // Refactored to camelCase
+    public function resetDevice(string $id)
     {
         $this->db->table('siswa')->where('id_siswa', $id)->update([
-            'device_id' => null,
+            'device_id'  => null,
             'updated_at' => date('Y-m-d H:i:s')
         ]);
         return redirect()->to('/admin/siswa')->with('success', 'Perangkat berhasil di-reset.');
@@ -142,7 +143,8 @@ class Siswa extends Controller
         return redirect()->to('/admin/siswa')->with('success', 'Akun siswa berhasil di-unblock dan fraud count di-reset.');
     }
 
-    public function download_template()
+    // Refactored to camelCase
+    public function downloadTemplate()
     {
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
@@ -162,13 +164,13 @@ class Siswa extends Controller
 
     public function export()
     {
-        $kelas_id = $this->request->getGet('kelas');
+        $kelasId = $this->request->getGet('kelas');
         $builder = $this->db->table('siswa')
             ->select('siswa.*, kelas.nama_kelas')
             ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
 
-        if (!empty($kelas_id)) {
-            $builder->where('siswa.kelas_id', $kelas_id);
+        if (!empty($kelasId)) {
+            $builder->where('siswa.kelas_id', $kelasId);
         }
 
         $dataSiswa = $builder->orderBy('kelas.nama_kelas', 'ASC')->orderBy('siswa.nama_siswa', 'ASC')->get()->getResultArray();
@@ -217,9 +219,9 @@ class Siswa extends Controller
 
             $nis = isset($row[0]) ? trim($row[0]) : '';
             $nama = isset($row[1]) ? trim($row[1]) : '';
-            $kelas_id = isset($row[2]) ? (int)trim($row[2]) : 0;
+            $kelasId = isset($row[2]) ? (int)trim($row[2]) : 0;
 
-            if (empty($nis) || empty($nama) || empty($kelas_id)) continue;
+            if (empty($nis) || empty($nama) || empty($kelasId)) continue;
 
             $cek = $this->db->table('siswa')->where('nis', $nis)->countAllResults();
             if ($cek > 0) {
@@ -230,7 +232,7 @@ class Siswa extends Controller
             $this->db->table('siswa')->insert([
                 'nis'          => $nis,
                 'nama_siswa'   => $nama,
-                'kelas_id'     => $kelas_id,
+                'kelas_id'     => $kelasId,
                 'password'     => password_hash($nis, PASSWORD_BCRYPT),
                 'created_at'   => date('Y-m-d H:i:s')
             ]);
@@ -240,38 +242,34 @@ class Siswa extends Controller
         return redirect()->to('/admin/siswa')->with('success', "Berhasil import $inserted data baru. $skipped data dilewati (NIS duplikat).");
     }
 
-    // FASE 3: Fungsi Detail Profil 360
-    public function detail(string $id_siswa)
+    public function detail(string $idSiswa)
     {
         $siswa = $this->db->table('siswa')
             ->select('siswa.*, kelas.nama_kelas')
             ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left')
-            ->where('id_siswa', $id_siswa)
+            ->where('id_siswa', $idSiswa)
             ->get()->getRowArray();
 
         if (!$siswa) {
             return redirect()->to('/admin/siswa')->with('error', 'Data siswa tidak ditemukan.');
         }
 
-        // Ambil riwayat absen 10 hari terakhir
         $absensi = $this->db->table('absensi')
-            ->where('siswa_id', $id_siswa)
+            ->where('siswa_id', $idSiswa)
             ->orderBy('tanggal', 'DESC')
             ->limit(10)
             ->get()->getResultArray();
 
-        // Ambil riwayat fraud
         $logFraud = $this->db->table('log_fraud')
-            ->where('siswa_id', $id_siswa)
+            ->where('siswa_id', $idSiswa)
             ->orderBy('created_at', 'DESC')
             ->get()->getResultArray();
 
-        // Statistik Total
-        $statHadir = $this->db->table('absensi')->where(['siswa_id' => $id_siswa, 'status' => 'Hadir'])->countAllResults();
-        $statTelat = $this->db->table('absensi')->where(['siswa_id' => $id_siswa, 'status' => 'Terlambat'])->countAllResults();
-        $statSakit = $this->db->table('absensi')->where(['siswa_id' => $id_siswa, 'status' => 'Sakit'])->countAllResults();
-        $statIzin  = $this->db->table('absensi')->where(['siswa_id' => $id_siswa, 'status' => 'Izin'])->countAllResults();
-        $statAlpa  = $this->db->table('absensi')->where(['siswa_id' => $id_siswa, 'status' => 'Alpa'])->countAllResults();
+        $statHadir = $this->db->table('absensi')->where(['siswa_id' => $idSiswa, 'status' => 'Hadir'])->countAllResults();
+        $statTelat = $this->db->table('absensi')->where(['siswa_id' => $idSiswa, 'status' => 'Terlambat'])->countAllResults();
+        $statSakit = $this->db->table('absensi')->where(['siswa_id' => $idSiswa, 'status' => 'Sakit'])->countAllResults();
+        $statIzin  = $this->db->table('absensi')->where(['siswa_id' => $idSiswa, 'status' => 'Izin'])->countAllResults();
+        $statAlpa  = $this->db->table('absensi')->where(['siswa_id' => $idSiswa, 'status' => 'Alpa'])->countAllResults();
 
         $data = [
             'title'    => 'Profil 360: ' . $siswa['nama_siswa'],

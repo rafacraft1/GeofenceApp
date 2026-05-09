@@ -14,23 +14,37 @@ class FcmApi extends ResourceController
         $this->db = \Config\Database::connect();
     }
 
-    public function updateToken()
+    private function getSiswaAuth()
     {
         $authHeader = $this->request->getHeaderLine('Authorization');
-        $token = str_replace('Bearer ', '', $authHeader);
+        $token = \str_replace('Bearer ', '', $authHeader);
 
-        $fcmToken = $this->request->getPost('fcm_token');
+        if (empty($token)) return null;
 
-        if (!$fcmToken) return $this->fail('FCM Token wajib dikirim.');
+        return $this->db->table('siswa')->where('api_token', $token)->get()->getRowArray();
+    }
 
-        $siswa = $this->db->table('siswa')->where('api_token', $token)->get()->getRowArray();
-        if (!$siswa) return $this->failUnauthorized('Sesi tidak valid.');
+    public function updateToken()
+    {
+        $siswa = $this->getSiswaAuth();
+        if (!$siswa) {
+            return $this->failUnauthorized('Sesi tidak valid atau telah kedaluwarsa.');
+        }
+
+        $fcmToken = (string) $this->request->getPost('fcm_token');
+
+        if (empty($fcmToken)) {
+            return $this->failValidationErrors('FCM Token wajib dikirim.');
+        }
 
         $this->db->table('siswa')->where('id_siswa', $siswa['id_siswa'])->update([
-            'fcm_token' => $fcmToken,
+            'fcm_token'  => $fcmToken,
             'updated_at' => date('Y-m-d H:i:s')
         ]);
 
-        return $this->respond(['status' => 200, 'message' => 'Token FCM berhasil diperbarui.']);
+        return $this->respond([
+            'status'  => 200,
+            'message' => 'Token FCM berhasil diperbarui.'
+        ]);
     }
 }

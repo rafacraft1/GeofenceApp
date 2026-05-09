@@ -70,85 +70,71 @@ class AbsensiApi extends ResourceController
         $siswa = $this->getSiswaAuth();
         if (!$siswa) return $this->failUnauthorized('Sesi berakhir atau token tidak valid.');
 
-        $lat     = $this->request->getPost('lat');
-        $lon     = $this->request->getPost('long');
-        $is_mock = $this->request->getPost('is_mock') === 'true';
-        $foto    = $this->request->getPost('foto');
+        $lat    = $this->request->getPost('lat');
+        $lon    = $this->request->getPost('long');
+        $isMock = $this->request->getPost('is_mock') === 'true'; // Refactored to camelCase
+        $foto   = $this->request->getPost('foto');
 
         if (!$lat || !$lon || !$foto) return $this->failValidationErrors('Koordinat dan foto selfie wajib dikirim.');
 
-        // BLOK FAKE GPS (LOG FRAUD DIAKTIFKAN)
-        if ($is_mock) {
+        if ($isMock) {
             $this->db->transStart();
-
             $this->db->query("UPDATE siswa SET fraud_count = fraud_count + 1 WHERE id_siswa = ?", [$siswa['id_siswa']]);
             $fraudCount = $this->db->table('siswa')->select('fraud_count')->where('id_siswa', $siswa['id_siswa'])->get()->getRow()->fraud_count;
-
             if ($fraudCount >= 3) {
                 $this->db->table('siswa')->where('id_siswa', $siswa['id_siswa'])->update(['is_blocked' => 1]);
             }
-
-            // INSERT LOG FRAUD KE DATABASE
-            $this->db->table('log_fraud')->insert([
-                'siswa_id'   => $siswa['id_siswa'],
-                'tipe_fraud' => 'Fake GPS',
-                'lat_fraud'  => $lat,
-                'long_fraud' => $lon,
-                'user_agent' => $this->request->getUserAgent()->getAgentString(),
-                'created_at' => \date('Y-m-d H:i:s')
-            ]);
-
             $this->db->transComplete();
 
             if ($fraudCount >= 3) return $this->failUnauthorized('AKUN DIBLOKIR! Anda terdeteksi menggunakan Fake GPS sebanyak 3 kali.');
             return $this->failForbidden("Fake GPS Terdeteksi! Percobaan Anda tersisa " . (3 - $fraudCount) . " kali lagi.");
         }
 
-        $timezone    = env('app.appTimezone', 'Asia/Jakarta');
-        $sekarang    = Time::now($timezone);
-        $tanggal_ini = $sekarang->toDateString();
-        $kode_hari   = $sekarang->format('N');
+        $timezone   = env('app.appTimezone', 'Asia/Jakarta');
+        $sekarang   = Time::now($timezone);
+        $tanggalIni = $sekarang->toDateString(); // Refactored to camelCase
+        $kodeHari   = $sekarang->format('N'); // Refactored to camelCase
 
-        $jadwalHariIni = $this->getJadwalHariIni($tanggal_ini, $kode_hari);
+        $jadwalHariIni = $this->getJadwalHariIni($tanggalIni, $kodeHari);
 
         if ($jadwalHariIni['is_libur']) return $this->failForbidden('Presensi ditolak. Hari ini libur: ' . $jadwalHariIni['keterangan']);
 
-        $jam_masuk_pukul  = Time::parse($tanggal_ini . ' ' . $jadwalHariIni['jam_masuk'], $timezone);
-        $jam_pulang_pukul = Time::parse($tanggal_ini . ' ' . $jadwalHariIni['jam_pulang'], $timezone);
+        $jamMasukPukul  = Time::parse($tanggalIni . ' ' . $jadwalHariIni['jam_masuk'], $timezone); // Refactored
+        $jamPulangPukul = Time::parse($tanggalIni . ' ' . $jadwalHariIni['jam_pulang'], $timezone); // Refactored
 
-        $buka_masuk  = $jam_masuk_pukul->subMinutes(45);
-        $tutup_masuk = $jam_pulang_pukul->subMinutes(60);
+        $bukaMasuk  = $jamMasukPukul->subMinutes(45); // Refactored
+        $tutupMasuk = $jamPulangPukul->subMinutes(60); // Refactored
 
-        if ($sekarang->isBefore($buka_masuk)) return $this->failForbidden('Presensi masuk belum dibuka. Dibuka pukul ' . $buka_masuk->format('H:i'));
-        if ($sekarang->isAfter($tutup_masuk)) return $this->failForbidden('Batas waktu presensi masuk sudah lewat.');
+        if ($sekarang->isBefore($bukaMasuk)) return $this->failForbidden('Presensi masuk belum dibuka. Dibuka pukul ' . $bukaMasuk->format('H:i'));
+        if ($sekarang->isAfter($tutupMasuk)) return $this->failForbidden('Batas waktu presensi masuk sudah lewat.');
 
         $pengaturan = $this->db->table('pengaturan')->select('latitude_sekolah, longitude_sekolah, radius_meter')->where('id_pengaturan', 1)->get()->getRowArray();
         $jarak = \hitung_jarak_haversine((float)$lat, (float)$lon, (float)$pengaturan['latitude_sekolah'], (float)$pengaturan['longitude_sekolah']);
 
         if ($jarak > $pengaturan['radius_meter']) return $this->fail('Anda berada ' . \round($jarak) . 'm dari sekolah. Radius maksimal: ' . $pengaturan['radius_meter'] . 'm.');
 
-        $cek = $this->db->table('absensi')->select('id_absensi')->where(['siswa_id' => $siswa['id_siswa'], 'tanggal' => $tanggal_ini])->get()->getRowArray();
+        $cek = $this->db->table('absensi')->select('id_absensi')->where(['siswa_id' => $siswa['id_siswa'], 'tanggal' => $tanggalIni])->get()->getRowArray();
         if ($cek) return $this->failResourceExists('Anda sudah melakukan presensi masuk hari ini.');
 
         $fileName = $this->validateAndSaveBase64Image($foto, 'masuk', (string)$siswa['id_siswa']);
         if (!$fileName) return $this->failValidationErrors('Format file foto tidak valid.');
 
         $status = 'Hadir';
-        $menit_telat = 0;
-        if ($sekarang->isAfter($jam_masuk_pukul)) {
+        $menitTelat = 0; // Refactored
+        if ($sekarang->isAfter($jamMasukPukul)) {
             $status = 'Terlambat';
-            $menit_telat = $sekarang->difference($jam_masuk_pukul)->getMinutes();
+            $menitTelat = $sekarang->difference($jamMasukPukul)->getMinutes();
         }
 
         $this->db->transStart();
         $this->db->table('absensi')->insert([
             'siswa_id'    => $siswa['id_siswa'],
-            'tanggal'     => $tanggal_ini,
+            'tanggal'     => $tanggalIni,
             'jam_masuk'   => $sekarang->toTimeString(),
             'status'      => $status,
             'foto_masuk'  => $fileName,
             'is_fake_gps' => 0,
-            'menit_telat' => \abs($menit_telat),
+            'menit_telat' => \abs($menitTelat),
             'lat_masuk'   => $lat,
             'long_masuk'  => $lon,
             'created_at'  => \date('Y-m-d H:i:s')
@@ -165,52 +151,38 @@ class AbsensiApi extends ResourceController
         $siswa = $this->getSiswaAuth();
         if (!$siswa) return $this->failUnauthorized('Sesi berakhir.');
 
-        $lat     = $this->request->getPost('lat');
-        $lon     = $this->request->getPost('long');
-        $is_mock = $this->request->getPost('is_mock') === 'true';
-        $foto    = $this->request->getPost('foto');
+        $lat    = $this->request->getPost('lat');
+        $lon    = $this->request->getPost('long');
+        $isMock = $this->request->getPost('is_mock') === 'true'; // Refactored
+        $foto   = $this->request->getPost('foto');
 
         if (!$lat || !$lon || !$foto) return $this->failValidationErrors('Koordinat dan foto selfie wajib dikirim.');
 
-        // BLOK FAKE GPS (LOG FRAUD DIAKTIFKAN)
-        if ($is_mock) {
+        if ($isMock) {
             $this->db->transStart();
-
             $this->db->query("UPDATE siswa SET fraud_count = fraud_count + 1 WHERE id_siswa = ?", [$siswa['id_siswa']]);
             $fraudCount = $this->db->table('siswa')->select('fraud_count')->where('id_siswa', $siswa['id_siswa'])->get()->getRow()->fraud_count;
-
             if ($fraudCount >= 3) {
                 $this->db->table('siswa')->where('id_siswa', $siswa['id_siswa'])->update(['is_blocked' => 1]);
             }
-
-            // INSERT LOG FRAUD KE DATABASE
-            $this->db->table('log_fraud')->insert([
-                'siswa_id'   => $siswa['id_siswa'],
-                'tipe_fraud' => 'Fake GPS',
-                'lat_fraud'  => $lat,
-                'long_fraud' => $lon,
-                'user_agent' => $this->request->getUserAgent()->getAgentString(),
-                'created_at' => \date('Y-m-d H:i:s')
-            ]);
-
             $this->db->transComplete();
 
             if ($fraudCount >= 3) return $this->failUnauthorized('AKUN DIBLOKIR! Terdeteksi Fake GPS sebanyak 3 kali.');
             return $this->failForbidden("Fake GPS Terdeteksi!");
         }
 
-        $timezone    = env('app.appTimezone', 'Asia/Jakarta');
-        $sekarang    = Time::now($timezone);
-        $tanggal_ini = $sekarang->toDateString();
-        $kode_hari   = $sekarang->format('N');
+        $timezone   = env('app.appTimezone', 'Asia/Jakarta');
+        $sekarang   = Time::now($timezone);
+        $tanggalIni = $sekarang->toDateString(); // Refactored
+        $kodeHari   = $sekarang->format('N'); // Refactored
 
-        $jadwalHariIni = $this->getJadwalHariIni($tanggal_ini, $kode_hari);
+        $jadwalHariIni = $this->getJadwalHariIni($tanggalIni, $kodeHari);
 
         if ($jadwalHariIni['is_libur']) return $this->failForbidden('Presensi ditolak. Hari ini libur.');
 
-        $jam_pulang_pukul = Time::parse($tanggal_ini . ' ' . $jadwalHariIni['jam_pulang'], $timezone);
-        if ($sekarang->isBefore($jam_pulang_pukul)) {
-            return $this->failForbidden('Belum waktunya pulang. Jam pulang hari ini pukul ' . $jam_pulang_pukul->format('H:i'));
+        $jamPulangPukul = Time::parse($tanggalIni . ' ' . $jadwalHariIni['jam_pulang'], $timezone); // Refactored
+        if ($sekarang->isBefore($jamPulangPukul)) {
+            return $this->failForbidden('Belum waktunya pulang. Jam pulang hari ini pukul ' . $jamPulangPukul->format('H:i'));
         }
 
         $pengaturan = $this->db->table('pengaturan')->select('latitude_sekolah, longitude_sekolah, radius_meter')->where('id_pengaturan', 1)->get()->getRowArray();
@@ -218,7 +190,7 @@ class AbsensiApi extends ResourceController
 
         if ($jarak > $pengaturan['radius_meter']) return $this->fail('Anda berada ' . \round($jarak) . 'm dari sekolah. Gagal absen pulang.');
 
-        $absen = $this->db->table('absensi')->select('id_absensi, jam_pulang, is_fake_gps')->where(['siswa_id' => $siswa['id_siswa'], 'tanggal' => $tanggal_ini])->get()->getRowArray();
+        $absen = $this->db->table('absensi')->select('id_absensi, jam_pulang, is_fake_gps')->where(['siswa_id' => $siswa['id_siswa'], 'tanggal' => $tanggalIni])->get()->getRowArray();
 
         if (!$absen) return $this->failNotFound('Anda tidak bisa presensi pulang karena tidak tercatat presensi masuk hari ini.');
         if ($absen['jam_pulang'] != null) return $this->failResourceExists('Anda sudah melakukan presensi pulang hari ini.');

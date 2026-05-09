@@ -1,9 +1,9 @@
 <?php
 
 /**
- * @var array $list_kelas
- * @var string $kelas_aktif
- * @var array $siswa
+ * @var array<int, array<string, mixed>> $list_kelas
+ * @var string|null $kelas_aktif
+ * @var array<int, array<string, mixed>> $siswa
  * @var int $total_data
  * @var int $page
  * @var int $perPage
@@ -85,7 +85,7 @@
         </div>
 
         <div class="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
-            <form action="/admin/siswa" method="GET" class="flex-1 md:w-48">
+            <form action="<?= base_url('admin/siswa') ?>" method="GET" class="flex-1 md:w-48">
                 <select name="kelas" onchange="this.form.submit()" class="w-full border-gray-200 rounded-xl p-2.5 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 min-w-[120px] cursor-pointer">
                     <option value="">Semua Kelas</option>
                     <?php if (!empty($list_kelas)) : ?>
@@ -96,14 +96,14 @@
                 </select>
             </form>
 
-            <a href="/admin/siswa/export?kelas=<?= esc((string) ($kelas_aktif ?? '')) ?>" class="flex items-center justify-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700 shadow-md transition-all active:scale-95 whitespace-nowrap">Export</a>
+            <a href="<?= base_url('admin/siswa/export?kelas=' . (string) $kelas_aktif) ?>" class="flex items-center justify-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700 shadow-md transition-all active:scale-95 whitespace-nowrap">Export</a>
             <button onclick="openImportModal()" class="flex items-center justify-center gap-2 bg-slate-100 text-slate-700 px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-200 shadow-sm transition-all active:scale-95 whitespace-nowrap">Import</button>
             <button onclick="toggleFormTambah()" class="flex items-center justify-center gap-1 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-md whitespace-nowrap active:scale-95 transition-all">+ Tambah</button>
         </div>
     </div>
 
     <div id="form-tambah" class="bg-blue-50/50 p-6 border-b hidden transition-all">
-        <form action="/admin/siswa/store" method="POST" enctype="multipart/form-data" id="formSiswa" class="grid grid-cols-1 md:grid-cols-4 gap-5 items-end">
+        <form action="<?= base_url('admin/siswa/store') ?>" method="POST" enctype="multipart/form-data" id="formSiswa" class="grid grid-cols-1 md:grid-cols-4 gap-5 items-end">
             <?= csrf_field() ?>
             <div><label class="block text-xs font-bold text-gray-600 uppercase mb-2">NIS</label><input type="text" name="nis" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="Contoh: 2026001"></div>
             <div><label class="block text-xs font-bold text-gray-600 uppercase mb-2">Nama Lengkap</label><input type="text" name="nama_siswa" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="Nama siswa"></div>
@@ -136,7 +136,7 @@
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs shadow-inner overflow-hidden border border-gray-200 shrink-0">
-                                        <?php if (!empty($s['foto_profil'])): ?><img src="/uploads/siswa/<?= esc((string) $s['foto_profil']) ?>" alt="Foto" class="w-full h-full object-cover"><?php else: ?><?= esc(strtoupper(substr((string) ($s['nama_siswa'] ?? ''), 0, 1))) ?><?php endif; ?>
+                                        <?php if (!empty($s['foto_profil'])): ?><img src="<?= base_url('uploads/siswa/' . (string) $s['foto_profil']) ?>" alt="Foto" class="w-full h-full object-cover"><?php else: ?><?= esc(strtoupper(substr((string) ($s['nama_siswa'] ?? ''), 0, 1))) ?><?php endif; ?>
                                     </div>
                                     <div>
                                         <div class="text-sm font-bold text-gray-800"><?= esc((string) $s['nama_siswa']) ?></div>
@@ -151,7 +151,7 @@
                             </td>
                             <td class="px-6 py-4 text-center">
                                 <div class="flex flex-col items-center">
-                                    <span class="text-[10px] font-bold <?= (!empty($s['is_blocked'])) ? 'text-red-500' : 'text-gray-600' ?>"><?= esc((string) ($s['fraud_count'] ?? 0)) ?>/3 Fraud</span>
+                                    <span class="text-[10px] font-bold <?= (!empty($s['is_blocked'])) ? 'text-red-500' : 'text-gray-600' ?>"><?= (int) ($s['fraud_count'] ?? 0) ?>/3 Fraud</span>
                                     <div class="w-16 h-1 bg-gray-100 rounded-full mt-1 overflow-hidden">
                                         <div class="h-full <?= (!empty($s['is_blocked'])) ? 'bg-red-500' : 'bg-blue-500' ?>" style="width: <?= (((int)($s['fraud_count'] ?? 0)) / 3) * 100 ?>%"></div>
                                     </div>
@@ -159,11 +159,11 @@
                             </td>
                             <td class="px-6 py-4 text-right">
                                 <div class="flex justify-end gap-2">
-                                    <a href="/admin/siswa/detail/<?= esc((string) $s['id_siswa']) ?>" class="p-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 rounded-lg transition-colors" title="Profil 360"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <a href="<?= base_url('admin/siswa/detail/' . (string) $s['id_siswa']) ?>" class="p-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 rounded-lg transition-colors" title="Profil 360"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                                         </svg></a>
-                                    <a href="/admin/tracking/siswa/<?= esc((string) $s['id_siswa']) ?>" class="p-2 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 rounded-lg transition-colors" title="Live Tracking"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <a href="<?= base_url('admin/tracking/siswa/' . (string) $s['id_siswa']) ?>" class="p-2 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 rounded-lg transition-colors" title="Live Tracking"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
                                         </svg></a>
                                     <button onclick='openEditModal(<?= htmlspecialchars(json_encode($s), ENT_QUOTES, "UTF-8") ?>)' class="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 rounded-lg transition-colors" title="Edit Data"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -171,7 +171,7 @@
                                         </svg></button>
 
                                     <?php if (!empty($s['device_id'])): ?>
-                                        <form action="/admin/siswa/reset_device/<?= esc((string) $s['id_siswa']) ?>" method="POST" class="inline">
+                                        <form action="<?= base_url('admin/siswa/resetDevice/' . (string) $s['id_siswa']) ?>" method="POST" class="inline">
                                             <?= csrf_field() ?>
                                             <button type="button" class="btn-confirm p-2 text-amber-600 bg-amber-50 hover:bg-amber-100 border border-amber-100 rounded-lg transition-colors" data-text="Akses HP akan direset. Yakin?" data-btn="Ya, Reset HP" title="Reset Device">
                                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -182,7 +182,7 @@
                                     <?php endif; ?>
 
                                     <?php if (!empty($s['is_blocked'])): ?>
-                                        <form action="/admin/siswa/unblock/<?= esc((string) $s['id_siswa']) ?>" method="POST" class="inline">
+                                        <form action="<?= base_url('admin/siswa/unblock/' . (string) $s['id_siswa']) ?>" method="POST" class="inline">
                                             <?= csrf_field() ?>
                                             <button type="button" class="btn-confirm p-2 text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 rounded-lg transition-colors" data-text="Buka blokir akun siswa ini?" data-btn="Ya, Buka Blokir" title="Unblock">
                                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -192,7 +192,7 @@
                                         </form>
                                     <?php endif; ?>
 
-                                    <form action="/admin/siswa/delete/<?= esc((string) $s['id_siswa']) ?>" method="POST" class="inline">
+                                    <form action="<?= base_url('admin/siswa/delete/' . (string) $s['id_siswa']) ?>" method="POST" class="inline">
                                         <?= csrf_field() ?>
                                         <button type="button" class="btn-confirm p-2 text-slate-600 bg-slate-50 hover:bg-red-100 hover:text-red-600 border border-slate-200 rounded-lg transition-colors" data-text="Data siswa beserta foto akan dihapus permanen. Lanjutkan?" data-btn="Ya, Hapus Permanen" title="Hapus Siswa">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -217,7 +217,7 @@
         <div class="text-sm text-gray-500 font-medium">
             <?php $start = ($page - 1) * $perPage + 1;
             $end = min($page * $perPage, $total_data); ?>
-            Menampilkan <span class="font-bold text-gray-800"><?= (string) $start ?></span> - <span class="font-bold text-gray-800"><?= (string) $end ?></span> dari <span class="font-bold text-gray-800"><?= esc((string) ($total_data ?? 0)) ?></span> siswa
+            Menampilkan <span class="font-bold text-gray-800"><?= (int) $start ?></span> - <span class="font-bold text-gray-800"><?= (int) $end ?></span> dari <span class="font-bold text-gray-800"><?= esc((string) ($total_data ?? 0)) ?></span> siswa
         </div>
         <div class="pagination-wrapper"><?= $pager_links ?? '' ?></div>
     </div>
@@ -225,7 +225,7 @@
 
 <div id="modal-edit" class="fixed inset-0 z-[60] hidden items-center justify-center p-4">
     <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="closeEditModal()"></div>
-    <div class="bg-white rounded-3xl shadow-2xl z-10 w-full max-w-lg p-8">
+    <div class="bg-white rounded-3xl shadow-2xl z-10 w-full max-w-lg p-8 relative">
         <div class="flex justify-between items-center mb-6">
             <h3 class="text-xl font-bold text-gray-800">Edit Data Siswa</h3>
             <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -250,14 +250,14 @@
 
 <div id="modal-import" class="fixed inset-0 z-[60] hidden items-center justify-center p-4">
     <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="closeImportModal()"></div>
-    <div class="bg-white rounded-3xl shadow-2xl z-10 w-full max-w-md p-8">
+    <div class="bg-white rounded-3xl shadow-2xl z-10 w-full max-w-md p-8 relative">
         <div class="flex justify-between items-center mb-6">
             <h3 class="text-xl font-bold text-gray-800">Import Data</h3>
             <button onclick="closeImportModal()" class="text-gray-400 hover:text-gray-600"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path d="M6 18L18 6M6 6l12 12"></path>
                 </svg></button>
         </div>
-        <form action="/admin/siswa/import" method="POST" enctype="multipart/form-data" id="formImport" class="space-y-6">
+        <form action="<?= base_url('admin/siswa/import') ?>" method="POST" enctype="multipart/form-data" id="formImport" class="space-y-6">
             <?= csrf_field() ?>
             <div class="p-6 border-2 border-dashed border-slate-300 rounded-2xl text-center bg-slate-50 hover:bg-slate-100 cursor-pointer">
                 <input type="file" name="file_excel" id="file_excel" class="hidden" required accept=".xlsx">
@@ -267,8 +267,9 @@
                     <p class="text-sm font-medium text-slate-600" id="file-name-preview">Klik pilih file Excel (.xlsx)</p>
                 </label>
             </div>
+
             <div class="bg-amber-50 border border-amber-100 p-4 rounded-xl">
-                <p class="text-[11px] text-amber-700 leading-relaxed font-medium text-center">Gunakan format template agar tidak error.</p><a href="/admin/siswa/download_template" class="block text-center text-amber-900 font-bold text-xs mt-2 underline">Unduh Template</a>
+                <p class="text-[11px] text-amber-700 leading-relaxed font-medium text-center">Gunakan format template agar tidak error.</p><a href="<?= base_url('admin/siswa/downloadTemplate') ?>" class="block text-center text-amber-900 font-bold text-xs mt-2 underline">Unduh Template</a>
             </div>
             <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 btn-submit">Mulai Import</button>
         </form>
@@ -292,7 +293,7 @@
         document.getElementById('edit-nama').value = data.nama_siswa;
         document.getElementById('edit-kelas').value = data.kelas_id;
         document.querySelector('input[name="foto"]').value = "";
-        document.getElementById('form-edit-action').action = '/admin/siswa/update/' + data.id_siswa;
+        document.getElementById('form-edit-action').action = '<?= base_url("admin/siswa/update/") ?>' + data.id_siswa;
         document.getElementById('modal-edit').classList.replace('hidden', 'flex');
         document.body.classList.add('modal-active');
     }

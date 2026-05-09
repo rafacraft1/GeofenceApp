@@ -29,7 +29,7 @@ class Jadwal extends BaseController
         $dataJadwal = $this->request->getPost('jadwal');
 
         if ($dataJadwal && is_array($dataJadwal)) {
-            $this->jadwalModel->db->transStart(); // Mulai transaksi
+            $this->jadwalModel->db->transStart();
 
             foreach ($dataJadwal as $id => $data) {
                 $isLibur = isset($data['is_libur']) ? 1 : 0;
@@ -43,7 +43,7 @@ class Jadwal extends BaseController
                 ]);
             }
 
-            $this->jadwalModel->db->transComplete(); // Selesaikan transaksi
+            $this->jadwalModel->db->transComplete();
 
             if ($this->jadwalModel->db->transStatus() === false) {
                 return redirect()->back()->with('error', 'Gagal memperbarui jadwal ke database.');

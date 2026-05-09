@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @var array<int, array<string, string|null>> $daftarIzin
+ * @var array<int, array<string, mixed>> $daftarIzin
  */
 ?>
 <?= $this->extend('layout/admin') ?>
@@ -27,54 +27,61 @@
             <tbody class="divide-y divide-gray-100">
                 <?php if (!empty($daftarIzin)) : ?>
                     <?php foreach ($daftarIzin as $izin): ?>
-                        <tr class="hover:bg-gray-50/50 transition-colors group">
+                        <tr class="hover:bg-gray-50/50 transition-colors">
                             <td class="px-6 py-4">
-                                <div class="text-sm font-bold text-gray-800"><?= esc((string) $izin['nama_siswa']) ?></div>
-                                <div class="text-[11px] text-gray-500 font-medium bg-gray-100 px-2 py-0.5 rounded inline-block mt-1">
-                                    <?= esc((string) $izin['nis']) ?> • <?= esc((string) ($izin['nama_kelas'] ?? '-')) ?>
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs shadow-inner border border-indigo-100 shrink-0">
+                                        <?= esc(strtoupper(substr((string) ($izin['nama_siswa'] ?? ''), 0, 1))) ?>
+                                    </div>
+                                    <div>
+                                        <div class="text-sm font-bold text-gray-800"><?= esc((string) $izin['nama_siswa']) ?></div>
+                                        <div class="text-[11px] text-gray-500 font-medium mt-0.5">
+                                            <?= esc((string) $izin['nis']) ?> • <?= esc((string) ($izin['nama_kelas'] ?? '-')) ?>
+                                        </div>
+                                    </div>
                                 </div>
                             </td>
                             <td class="px-6 py-4">
-                                <?php
-                                $badgeColor = $izin['jenis'] == 'Sakit' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700';
-                                ?>
-                                <span class="inline-block px-2 py-1 rounded text-[10px] font-bold <?= $badgeColor ?> mb-1 uppercase tracking-wide">
-                                    <?= esc((string) $izin['jenis']) ?>
-                                </span>
-                                <div class="text-xs font-semibold text-gray-700 mt-1">
-                                    <?= date('d M Y', strtotime((string) $izin['tanggal_mulai'])) ?> s/d <?= date('d M Y', strtotime((string) $izin['tanggal_selesai'])) ?>
+                                <div class="text-sm font-bold text-gray-700 mb-1">
+                                    <span class="text-blue-600"><?= esc((string) $izin['jenis']) ?></span>
+                                    <span class="text-gray-400 font-normal mx-1">&bull;</span>
+                                    <?= date('d M', strtotime((string) $izin['tanggal_mulai'])) ?> - <?= date('d M Y', strtotime((string) $izin['tanggal_selesai'])) ?>
                                 </div>
-                                <p class="text-xs text-gray-500 mt-1 max-w-xs truncate" title="<?= esc((string) $izin['alasan']) ?>">
+                                <div class="text-xs text-gray-500 line-clamp-2 italic">
                                     "<?= esc((string) $izin['alasan']) ?>"
-                                </p>
+                                </div>
                             </td>
                             <td class="px-6 py-4 text-center">
                                 <?php if (!empty($izin['bukti_foto'])): ?>
-                                    <a href="<?= base_url('uploads/izin/' . esc((string) $izin['bukti_foto'])) ?>" target="_blank" class="inline-flex items-center justify-center p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors" title="Lihat Surat/Bukti">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                    <a href="<?= base_url('uploads/izin/' . (string) $izin['bukti_foto']) ?>" target="_blank" class="inline-flex items-center gap-1.5 text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-200 transition-colors">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                                         </svg>
+                                        Lihat
                                     </a>
                                 <?php else: ?>
-                                    <span class="text-xs text-gray-400">-</span>
+                                    <span class="text-[11px] text-gray-400 italic">Tidak ada</span>
                                 <?php endif; ?>
                             </td>
                             <td class="px-6 py-4 text-center">
-                                <?php if ($izin['status'] == 'Pending'): ?>
-                                    <span class="text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-1.5 rounded-lg border border-orange-100">MENUNGGU</span>
-                                <?php elseif ($izin['status'] == 'Approved'): ?>
-                                    <span class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1.5 rounded-lg border border-emerald-100">DISETUJUI</span>
-                                <?php else: ?>
-                                    <span class="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-1.5 rounded-lg border border-red-100">DITOLAK</span>
-                                <?php endif; ?>
+                                <?php
+                                $status = (string) $izin['status'];
+                                $badgeClass = match ($status) {
+                                    'Approved' => 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                                    'Rejected' => 'bg-red-50 text-red-700 border-red-200',
+                                    default    => 'bg-amber-50 text-amber-700 border-amber-200', // Pending
+                                };
+                                ?>
+                                <span class="inline-block px-2.5 py-1 rounded-lg text-[10px] font-bold border uppercase tracking-wide <?= $badgeClass ?>">
+                                    <?= esc($status) ?>
+                                </span>
                             </td>
                             <td class="px-6 py-4 text-right">
-                                <?php if ($izin['status'] == 'Pending'): ?>
+                                <?php if ((string) $izin['status'] === 'Pending'): ?>
                                     <div class="flex justify-end gap-2">
                                         <form action="<?= base_url('admin/izin/approve/' . (string) $izin['id_izin']) ?>" method="POST" class="inline">
                                             <?= csrf_field() ?>
-                                            <button type="button" class="btn-confirm p-2 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 rounded-lg transition-colors" data-text="Setujui pengajuan ini? Kehadiran akan otomatis terisi <?= esc((string) $izin['jenis']) ?>." data-btn="Ya, Setujui" title="Approve">
+                                            <button type="button" class="btn-confirm p-2 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 rounded-lg transition-colors" data-text="Setujui izin ini? Absensi akan otomatis diisi." data-btn="Ya, Setujui" title="Approve">
                                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                                                 </svg>

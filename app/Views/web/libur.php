@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @var array $daftar_libur
+ * @var array<int, array<string, mixed>> $daftar_libur
  */
 ?>
 <?= $this->extend('layout/admin') ?>
@@ -67,20 +67,20 @@
                             foreach ($daftar_libur as $libur) : ?>
                                 <?php
                                 $date = new DateTime((string) $libur['tanggal']);
-                                $tanggal_indo = $date->format('d-m-Y');
-                                $is_passed = (new DateTime())->setTime(0, 0, 0) > $date;
+                                $tanggalIndo = $date->format('d-m-Y'); // camelCase
+                                $isPassed = (new DateTime())->setTime(0, 0, 0) > $date; // camelCase
                                 ?>
-                                <tr class="hover:bg-gray-50 transition-colors <?= $is_passed ? 'opacity-60' : '' ?>">
+                                <tr class="hover:bg-gray-50 transition-colors <?= $isPassed ? 'opacity-60' : '' ?>">
                                     <td class="px-6 py-4 text-sm text-gray-600 font-medium"><?= $no++ ?></td>
                                     <td class="px-6 py-4">
                                         <div class="flex items-center">
-                                            <div class="h-8 w-8 rounded bg-<?= $is_passed ? 'gray' : 'red' ?>-100 flex items-center justify-center text-<?= $is_passed ? 'gray' : 'red' ?>-600 mr-3 font-bold text-xs"><?= $date->format('d') ?></div>
-                                            <span class="text-sm font-medium text-gray-800"><?= $tanggal_indo ?></span>
+                                            <div class="h-8 w-8 rounded bg-<?= $isPassed ? 'gray' : 'red' ?>-100 flex items-center justify-center text-<?= $isPassed ? 'gray' : 'red' ?>-600 mr-3 font-bold text-xs"><?= $date->format('d') ?></div>
+                                            <span class="text-sm font-medium text-gray-800"><?= $tanggalIndo ?></span>
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 text-sm text-gray-600">
                                         <?= esc((string) $libur['keterangan']) ?>
-                                        <?php if ($is_passed): ?><span class="ml-2 text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">Selesai</span><?php endif; ?>
+                                        <?php if ($isPassed): ?><span class="ml-2 text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">Selesai</span><?php endif; ?>
                                     </td>
                                     <td class="px-6 py-4 text-center">
                                         <form action="<?= base_url('admin/libur/delete/' . (string) $libur['id_libur']) ?>" method="POST" class="inline">

@@ -18,6 +18,7 @@ $routes->get('admin/logout', 'Web\AuthWeb::logout');
 
 // Group khusus Admin (Wajib Login)
 $routes->group('admin', ['filter' => 'webAuth', 'namespace' => 'App\Controllers\Web'], function ($routes) {
+
     // Dashboard & Pengaturan
     $routes->get('dashboard', 'Dashboard::index');
     $routes->get('pengaturan', 'Pengaturan::index');
@@ -31,48 +32,45 @@ $routes->group('admin', ['filter' => 'webAuth', 'namespace' => 'App\Controllers\
     $routes->post('kelas/update/(:num)', 'Kelas::update/$1');
     $routes->post('kelas/delete/(:num)', 'Kelas::delete/$1');
 
-    // Manajemen Siswa
+    // Manajemen Siswa (Refactored to camelCase)
     $routes->get('siswa', 'Siswa::index');
     $routes->post('siswa/store', 'Siswa::store');
     $routes->post('siswa/update/(:num)', 'Siswa::update/$1');
     $routes->post('siswa/delete/(:num)', 'Siswa::delete/$1');
-    $routes->post('siswa/reset_device/(:num)', 'Siswa::reset_device/$1');
+    $routes->post('siswa/resetDevice/(:num)', 'Siswa::resetDevice/$1'); // Ubah dari reset_device
     $routes->post('siswa/unblock/(:num)', 'Siswa::unblock/$1');
-    $routes->get('siswa/download_template', 'Siswa::download_template');
+    $routes->get('siswa/downloadTemplate', 'Siswa::downloadTemplate'); // Ubah dari download_template
     $routes->post('siswa/import', 'Siswa::import');
     $routes->get('siswa/export', 'Siswa::export');
-    $routes->get('siswa/detail/(:num)', 'Siswa::detail/$1'); // FASE 3: Detail 360
+    $routes->get('siswa/detail/(:num)', 'Siswa::detail/$1');
 
+    // Manajemen Hari Libur
     $routes->get('libur', 'Libur::index');
     $routes->post('libur/store', 'Libur::store');
     $routes->post('libur/delete/(:num)', 'Libur::delete/$1');
 
-    // Absensi & Tracking
+    // Absensi & Tracking (Refactored to camelCase)
     $routes->get('absensi', 'Absensi::index');
-    $routes->post('absensi/input_manual', 'Absensi::input_manual');
+    $routes->post('absensi/inputManual', 'Absensi::inputManual'); // Ubah dari input_manual
     $routes->get('tracking', 'Tracking::index');
     $routes->get('tracking/siswa/(:num)', 'Tracking::index/$1');
-    $routes->get('tracking/get_location/(:num)', 'Tracking::get_location/$1');
+    $routes->get('tracking/getLocation/(:num)', 'Tracking::getLocation/$1'); // Ubah dari get_location
 
     // Broadcast Pengumuman
     $routes->get('pengumuman', 'Pengumuman::index');
     $routes->post('pengumuman/store', 'Pengumuman::store');
     $routes->post('pengumuman/delete/(:num)', 'Pengumuman::delete/$1');
 
-    // --- FASE 2: Sistem Izin & Sakit ---
+    // Fitur Enterprise
     $routes->get('izin', 'Izin::index');
     $routes->post('izin/approve/(:num)', 'Izin::approve/$1');
     $routes->post('izin/reject/(:num)', 'Izin::reject/$1');
-
-    // --- FASE 3: Log Pelanggaran Keamanan ---
     $routes->get('log-fraud', 'LogFraud::index');
-
-    // --- FASE 4: Laporan & Rekapitulasi ---
     $routes->get('laporan', 'Laporan::index');
     $routes->get('laporan/export', 'Laporan::export');
 
-    // API Ping diletakkan paling bawah agar rapi
-    $routes->post('tracking/ping_siswa/(:num)', '\App\Controllers\Api\TrackingApi::ping_siswa/$1');
+    // API Ping (Refactored to camelCase)
+    $routes->post('tracking/pingSiswa/(:num)', '\App\Controllers\Api\TrackingApi::pingSiswa/$1'); // Ubah dari ping_siswa
 });
 
 // ========================================================================
@@ -80,25 +78,21 @@ $routes->group('admin', ['filter' => 'webAuth', 'namespace' => 'App\Controllers\
 // ========================================================================
 $routes->group('api/v1', ['filter' => 'throttle', 'namespace' => 'App\Controllers\Api'], function ($routes) {
 
-    // Auth (Tidak perlu filter token apiAuth)
+    // Auth & Info Publik
     $routes->post('auth/login', 'AuthApi::login');
-
-    // Pengumuman (Bisa ditarik saat pertama kali buka APK tanpa harus login dulu)
     $routes->get('pengumuman', 'PengumumanApi::index');
     $routes->get('waktu_server', 'WaktuApi::index');
 
-    // Group Khusus Transaksi Data (Wajib menyertakan API Token)
+    // Group Khusus Transaksi Data (Wajib API Token)
     $routes->group('', ['filter' => 'apiAuth'], function ($routes) {
         $routes->post('absen/masuk', 'AbsensiApi::masuk');
         $routes->post('absen/pulang', 'AbsensiApi::pulang');
         $routes->get('absen/riwayat', 'AbsensiApi::riwayat');
-        $routes->post('tracking/update', 'TrackingApi::update_lokasi');
+        $routes->post('tracking/update', 'TrackingApi::updateLokasi'); // Ubah dari update_lokasi
         $routes->post('profile/upload-foto', 'ProfileApi::uploadFoto');
 
-        // --- FASE 2: API Pengajuan Izin ---
+        // Tambahan Fitur Enterprise
         $routes->post('izin/ajukan', 'IzinApi::ajukan');
-
-        // --- FASE 5: API FCM Token ---
-        $routes->post('fcm/update-token', 'FcmApi::updateToken');
+        $routes->post('fcm/updateToken', 'FcmApi::updateToken'); // Ubah dari update-token untuk konsistensi
     });
 });

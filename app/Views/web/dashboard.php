@@ -1,15 +1,15 @@
 <?php
 
 /**
- * @var int|string $total_siswa
- * @var int|string $hadir_hari_ini
- * @var int|string $alpa_hari_ini
- * @var int|string $fraud_hari_ini
+ * @var int $total_siswa
+ * @var int $hadir_hari_ini
+ * @var int $alpa_hari_ini
+ * @var int $fraud_hari_ini
  * @var string $chart_labels
  * @var string $chart_hadir
  * @var string $chart_terlambat
  * @var string $chart_alpa
- * @var array $list_manipulasi
+ * @var array<int, array<string, mixed>> $list_manipulasi
  */
 ?>
 <?= $this->extend('layout/admin') ?>
@@ -80,10 +80,8 @@
 
 </div>
 
-<!-- AREA BAWAH: GRAFIK & LIST MANIPULASI -->
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
 
-    <!-- Bagian Grafik (Lebar 2 Kolom) -->
     <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col">
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-lg font-bold text-gray-800">Tren Kehadiran & Pelanggaran</h3>
@@ -95,7 +93,6 @@
         </div>
     </div>
 
-    <!-- Bagian List Manipulasi Hari Ini (Lebar 1 Kolom) -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col h-[400px]">
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-lg font-bold text-gray-800">Anomali Hari Ini</h3>
@@ -116,7 +113,6 @@
             <?php else: ?>
                 <?php foreach ($list_manipulasi as $m): ?>
                     <div class="flex items-start gap-3 p-3 bg-red-50/50 border border-red-100 rounded-xl">
-                        <!-- Avatar Kecil -->
                         <div class="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-bold text-xs shadow-inner overflow-hidden shrink-0 border border-red-200">
                             <?php if (!empty($m['foto_profil'])): ?>
                                 <img src="/uploads/siswa/<?= esc((string) $m['foto_profil']) ?>" alt="Foto" class="w-full h-full object-cover">
@@ -125,7 +121,6 @@
                             <?php endif; ?>
                         </div>
 
-                        <!-- Info Detail -->
                         <div class="flex-1">
                             <h4 class="text-sm font-bold text-gray-800 leading-tight"><?= esc((string) $m['nama_siswa']) ?></h4>
                             <p class="text-[10px] text-gray-500 font-medium mb-1"><?= esc((string) ($m['kelas'] ?? '-')) ?> • <?= esc((string) $m['nis']) ?></p>
@@ -157,25 +152,31 @@
     document.addEventListener("DOMContentLoaded", function() {
         const ctx = document.getElementById('attendanceChart').getContext('2d');
 
+        // Menerima data JSON mentah dari PHP
+        const chartLabels = <?= $chart_labels ?>;
+        const chartHadir = <?= $chart_hadir ?>;
+        const chartTerlambat = <?= $chart_terlambat ?>;
+        const chartAlpa = <?= $chart_alpa ?>;
+
         new window.Chart(ctx, {
             type: 'bar',
             data: {
-                labels: <?= $chart_labels ?>,
+                labels: chartLabels,
                 datasets: [{
                         label: 'Tepat Waktu',
-                        data: <?= $chart_hadir ?>,
+                        data: chartHadir,
                         backgroundColor: '#10B981',
                         borderRadius: 4
                     },
                     {
                         label: 'Terlambat',
-                        data: <?= $chart_terlambat ?>,
+                        data: chartTerlambat,
                         backgroundColor: '#F59E0B',
                         borderRadius: 4
                     },
                     {
                         label: 'Alpa',
-                        data: <?= $chart_alpa ?>,
+                        data: chartAlpa,
                         backgroundColor: '#EF4444',
                         borderRadius: 4
                     }

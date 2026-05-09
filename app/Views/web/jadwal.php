@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @var array $daftar_jadwal
+ * @var array<int, array<string, mixed>> $daftar_jadwal
  */
 ?>
 <?= $this->extend('layout/admin') ?>
@@ -31,7 +31,7 @@
                     <?php foreach ($daftar_jadwal as $hari) : ?>
                         <?php
                         $id = (string) $hari['id_jadwal'];
-                        $isLibur = $hari['is_libur'] == 1;
+                        $isLibur = (int) $hari['is_libur'] === 1;
                         ?>
                         <tr class="hover:bg-gray-50 transition-colors">
                             <td class="px-6 py-4">
@@ -43,10 +43,10 @@
                                 </label>
                             </td>
                             <td class="px-6 py-4">
-                                <input type="time" id="masuk_<?= $id ?>" name="jadwal[<?= $id ?>][jam_masuk]" value="<?= esc((string) $hari['jam_masuk']) ?>" class="px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed" <?= $isLibur ? 'disabled' : 'required' ?>>
+                                <input type="time" id="masuk_<?= $id ?>" name="jadwal[<?= $id ?>][jam_masuk]" value="<?= esc((string) ($hari['jam_masuk'] ?? '')) ?>" class="px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed" <?= $isLibur ? 'disabled' : 'required' ?>>
                             </td>
                             <td class="px-6 py-4">
-                                <input type="time" id="pulang_<?= $id ?>" name="jadwal[<?= $id ?>][jam_pulang]" value="<?= esc((string) $hari['jam_pulang']) ?>" class="px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed" <?= $isLibur ? 'disabled' : 'required' ?>>
+                                <input type="time" id="pulang_<?= $id ?>" name="jadwal[<?= $id ?>][jam_pulang]" value="<?= esc((string) ($hari['jam_pulang'] ?? '')) ?>" class="px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed" <?= $isLibur ? 'disabled' : 'required' ?>>
                             </td>
                         </tr>
                     <?php endforeach; ?>

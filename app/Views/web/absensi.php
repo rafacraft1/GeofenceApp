@@ -1,218 +1,179 @@
 <?php
 
 /**
- * @var array $absensi
- * @var array $siswa
- * @var array $list_kelas
+ * @var string $title
  * @var string $tanggal
  * @var string $kelas_aktif
+ * @var array<int, array<string, string|null>> $absensi
+ * @var array<int, array<string, string|null>> $siswa
+ * @var array<int, array<string, string|null>> $list_kelas
  */
 ?>
 <?= $this->extend('layout/admin') ?>
 
 <?= $this->section('content') ?>
+<div class="mb-6 flex flex-col md:flex-row justify-between md:items-center gap-4">
+    <div>
+        <h2 class="text-2xl font-bold text-gray-800">Data Absensi Harian</h2>
+        <p class="text-sm text-gray-500 mt-1">Pantau kehadiran, keterlambatan, dan input absen manual.</p>
+    </div>
+</div>
 
-<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-
-<style>
-    .select2-container .select2-selection--single {
-        height: 46px !important;
-        border: 1px solid #e5e7eb !important;
-        border-radius: 0.75rem !important;
-        display: flex;
-        align-items: center;
-        padding-left: 0.5rem;
-        transition: all 0.2s;
-    }
-
-    .select2-container--default .select2-selection--single .select2-selection__arrow {
-        height: 44px !important;
-        right: 10px !important;
-    }
-
-    .select2-container--default .select2-selection--single:focus,
-    .select2-container--default.select2-container--focus .select2-selection--single {
-        border-color: #3b82f6 !important;
-        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
-        outline: none !important;
-    }
-
-    .select2-dropdown {
-        border: 1px solid #e5e7eb !important;
-        border-radius: 0.75rem !important;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
-        overflow: hidden;
-        z-index: 9999;
-    }
-</style>
-
-<div class="space-y-6">
-
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
-        <div class="p-5 border-b flex flex-col md:flex-row justify-between items-center gap-4">
-            <div>
-                <h3 class="text-lg font-bold text-gray-800">Data Absensi Harian</h3>
-                <p class="text-sm text-gray-500">Log kehadiran seluruh siswa berdasarkan tanggal.</p>
-            </div>
-
-            <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
-                <form action="/admin/absensi" method="GET" class="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
-                    <!-- Dropdown Filter Kelas -->
-                    <select name="kelas_id" class="border-gray-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-gray-700 w-full sm:w-40 transition-all cursor-pointer">
-                        <option value="">Semua Kelas</option>
-                        <?php if (!empty($list_kelas)): ?>
-                            <?php foreach ($list_kelas as $k): ?>
-                                <option value="<?= (string) $k['id_kelas'] ?>" <?= ((string) $kelas_aktif === (string) $k['id_kelas']) ? 'selected' : '' ?>>
-                                    <?= esc((string) $k['nama_kelas']) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </select>
-
-                    <input type="date" name="tanggal" value="<?= esc((string) $tanggal) ?>" class="border-gray-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-gray-700 font-medium w-full sm:w-40 transition-all cursor-pointer">
-                    <button type="submit" class="w-full sm:w-auto bg-slate-800 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-900 transition-all active:scale-95 shadow-md">Terapkan</button>
-                </form>
-
-                <button onclick="toggleFormManual()" class="w-full sm:w-auto flex items-center justify-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-md active:scale-95 whitespace-nowrap transition-all">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                    </svg>
-                    Input Manual
-                </button>
-            </div>
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+    <form action="<?= base_url('admin/absensi') ?>" method="GET" class="flex w-full md:w-auto gap-3 items-center">
+        <div>
+            <input type="date" name="tanggal" value="<?= esc((string) $tanggal) ?>" class="border-gray-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer bg-gray-50" onchange="this.form.submit()">
         </div>
-
-        <div id="form-manual" class="bg-blue-50/50 p-6 border-b hidden transition-all">
-            <h4 class="font-bold text-blue-800 mb-4 text-sm flex items-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                </svg>
-                Catat / Ralat Kehadiran Khusus (Sakit / Izin / Hadir Manual)
-            </h4>
-            <form action="/admin/absensi/input_manual" method="POST" id="formManualSubmit" class="grid grid-cols-1 md:grid-cols-12 gap-5 items-end">
-                <?= csrf_field() ?>
-                <div class="md:col-span-5 relative">
-                    <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Pilih Siswa</label>
-                    <select name="siswa_id" id="siswa_select" class="w-full" required>
-                        <option value="">-- Cari Nama atau NIS --</option>
-                        <?php if (!empty($siswa)): ?>
-                            <?php foreach ($siswa as $s): ?>
-                                <option value="<?= (string) $s['id_siswa'] ?>"><?= esc((string) $s['nis']) ?> - <?= esc((string) $s['nama_siswa']) ?> (<?= esc((string) ($s['nama_kelas'] ?? '-')) ?>)</option>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </select>
-                </div>
-
-                <div class="md:col-span-2">
-                    <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Tanggal</label>
-                    <input type="date" name="tanggal" value="<?= esc((string) $tanggal) ?>" required class="w-full border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all">
-                </div>
-
-                <div class="md:col-span-2">
-                    <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Status</label>
-                    <select name="status" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none bg-white focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer">
-                        <option value="Hadir">Hadir</option>
-                        <option value="Sakit">Sakit</option>
-                        <option value="Izin">Izin</option>
-                    </select>
-                </div>
-
-                <div class="md:col-span-3">
-                    <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Ket. (Opsional)</label>
-                    <input type="text" name="keterangan" class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="Contoh: Surat Dokter">
-                </div>
-
-                <div class="md:col-span-12 flex justify-end gap-3 pt-2">
-                    <button type="button" onclick="toggleFormManual()" class="text-gray-500 px-5 py-2.5 text-sm font-semibold hover:text-gray-800 transition-colors">Batal</button>
-                    <button type="submit" class="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold shadow hover:bg-blue-700 transition-all btn-submit">Simpan Data</button>
-                </div>
-            </form>
+        <div>
+            <select name="kelas_id" class="border-gray-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-gray-50 cursor-pointer" onchange="this.form.submit()">
+                <option value="">Semua Kelas</option>
+                <?php foreach ($list_kelas as $k): ?>
+                    <option value="<?= esc((string) $k['id_kelas']) ?>" <?= ($kelas_aktif === (string) $k['id_kelas']) ? 'selected' : '' ?>>
+                        <?= esc((string) $k['nama_kelas']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
         </div>
+    </form>
 
-        <div class="overflow-x-auto flex-1">
-            <table class="w-full text-left">
-                <thead>
-                    <tr class="bg-gray-50/50 text-gray-400 text-[11px] font-bold uppercase tracking-wider border-y border-gray-100">
-                        <th class="px-6 py-4">Nama Siswa</th>
-                        <th class="px-6 py-4 text-center">Masuk</th>
-                        <th class="px-6 py-4 text-center">Pulang</th>
-                        <th class="px-6 py-4">Status</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100">
-                    <?php if (empty($absensi)): ?>
-                        <tr>
-                            <td colspan="4" class="px-6 py-20 text-center">
-                                <div class="flex flex-col items-center">
-                                    <div class="bg-gray-50 p-4 rounded-full mb-4 text-gray-300">
-                                        <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
-                                        </svg>
-                                    </div>
-                                    <h4 class="text-gray-800 font-bold">Data Kosong</h4>
-                                    <p class="text-gray-500 text-sm max-w-xs mx-auto mt-1">Tidak ada catatan absensi untuk tanggal <?= esc(date('d M Y', strtotime((string) $tanggal))) ?>.</p>
+    <button onclick="openManualModal()" class="w-full md:w-auto flex items-center justify-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-md transition-all active:scale-95">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+        </svg>
+        Input Manual
+    </button>
+</div>
+
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-left">
+            <thead>
+                <tr class="bg-gray-50/50 text-gray-400 text-[11px] font-bold uppercase tracking-wider border-y border-gray-100">
+                    <th class="px-6 py-4">No</th>
+                    <th class="px-6 py-4">Identitas Siswa</th>
+                    <th class="px-6 py-4">Waktu Presensi</th>
+                    <th class="px-6 py-4 text-center">Status</th>
+                    <th class="px-6 py-4">Keterangan</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                <?php if (!empty($absensi)) : ?>
+                    <?php $no = 1;
+                    foreach ($absensi as $ab): ?>
+                        <tr class="hover:bg-gray-50/50 transition-colors">
+                            <td class="px-6 py-4 text-sm text-gray-500 font-medium"><?= $no++ ?></td>
+                            <td class="px-6 py-4">
+                                <div class="text-sm font-bold text-gray-800"><?= esc((string) $ab['nama_siswa']) ?></div>
+                                <div class="text-[11px] text-gray-500 font-medium mt-1">
+                                    <?= esc((string) $ab['nis']) ?> • <?= esc((string) ($ab['nama_kelas'] ?? '-')) ?>
                                 </div>
                             </td>
-                        </tr>
-                    <?php endif; ?>
-
-                    <?php foreach ($absensi as $a): ?>
-                        <tr class="hover:bg-gray-50 transition-colors">
                             <td class="px-6 py-4">
-                                <div class="font-bold text-gray-800 text-sm"><?= esc((string) $a['nama_siswa']) ?></div>
-                                <div class="text-[10px] text-gray-400 font-bold uppercase tracking-tight mt-0.5"><?= esc((string) $a['nis']) ?> • <?= esc((string) ($a['nama_kelas'] ?? '-')) ?></div>
+                                <div class="text-sm font-mono text-gray-700 font-semibold">
+                                    Masuk: <?= esc((string) ($ab['jam_masuk'] ?? '--:--:--')) ?>
+                                </div>
+                                <div class="text-xs font-mono text-gray-500 mt-1">
+                                    Pulang: <?= esc((string) ($ab['jam_pulang'] ?? '--:--:--')) ?>
+                                </div>
                             </td>
                             <td class="px-6 py-4 text-center">
-                                <?php if (!empty($a['jam_masuk'])): ?>
-                                    <span class="text-sm font-semibold text-slate-700"><?= esc(substr((string) $a['jam_masuk'], 0, 5)) ?></span>
-                                <?php else: ?>
-                                    <span class="text-gray-300">-</span>
-                                <?php endif; ?>
-                            </td>
-                            <td class="px-6 py-4 text-center">
-                                <?php if (!empty($a['jam_pulang'])): ?>
-                                    <span class="text-sm font-semibold text-slate-700"><?= esc(substr((string) $a['jam_pulang'], 0, 5)) ?></span>
-                                <?php else: ?>
-                                    <span class="text-gray-300">-</span>
-                                <?php endif; ?>
-                            </td>
-                            <td class="px-6 py-4">
                                 <?php
-                                $color = 'bg-gray-100 text-gray-600 border-gray-200';
-                                if ($a['status'] == 'Hadir') $color = 'bg-emerald-50 text-emerald-600 border-emerald-200';
-                                else if ($a['status'] == 'Alpa') $color = 'bg-red-50 text-red-600 border-red-200';
-                                else if (in_array($a['status'], ['Sakit', 'Izin'])) $color = 'bg-blue-50 text-blue-600 border-blue-200';
+                                $status = (string) $ab['status'];
+                                $badgeColor = match ($status) {
+                                    'Hadir'     => 'bg-emerald-100 text-emerald-700 border-emerald-200',
+                                    'Terlambat' => 'bg-amber-100 text-amber-700 border-amber-200',
+                                    'Sakit', 'Izin' => 'bg-blue-100 text-blue-700 border-blue-200',
+                                    'Alpa', 'Manipulasi' => 'bg-red-100 text-red-700 border-red-200',
+                                    default     => 'bg-gray-100 text-gray-700 border-gray-200'
+                                };
                                 ?>
-                                <span class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border <?= $color ?>"><?= esc(strtoupper((string) $a['status'])) ?></span>
+                                <span class="inline-block px-2.5 py-1 rounded-lg text-[10px] font-bold border uppercase tracking-wide <?= $badgeColor ?>">
+                                    <?= esc($status) ?>
+                                </span>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="text-xs text-gray-500"><?= esc((string) ($ab['keterangan'] ?? '-')) ?></span>
+                                <?php if (!empty($ab['is_fake_gps'])): ?>
+                                    <div class="mt-1 text-[10px] font-bold text-red-600 flex items-center gap-1">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                                        </svg>
+                                        Fake GPS
+                                    </div>
+                                <?php endif; ?>
                             </td>
                         </tr>
                     <?php endforeach; ?>
-                </tbody>
-            </table>
+                <?php else: ?>
+                    <tr>
+                        <td colspan="5" class="py-8 text-center text-gray-500">Belum ada data absensi untuk tanggal ini.</td>
+                    </tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="modal-manual" class="fixed inset-0 z-[60] hidden items-center justify-center p-4">
+    <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="closeManualModal()"></div>
+    <div class="bg-white rounded-3xl shadow-2xl z-10 w-full max-w-lg p-8 relative">
+        <div class="flex justify-between items-center mb-6">
+            <h3 class="text-xl font-bold text-gray-800">Input Absensi Manual</h3>
+            <button onclick="closeManualModal()" class="text-gray-400 hover:text-gray-600 transition-colors"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path d="M6 18L18 6M6 6l12 12"></path>
+                </svg></button>
         </div>
+
+        <form action="<?= base_url('admin/absensi/inputManual') ?>" method="POST" id="form-manual" class="space-y-5">
+            <?= csrf_field() ?>
+            <input type="hidden" name="tanggal" value="<?= esc((string) $tanggal) ?>">
+
+            <div>
+                <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Pilih Siswa</label>
+                <select name="siswa_id" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-gray-50 cursor-pointer">
+                    <option value="" disabled selected>-- Cari / Pilih Siswa --</option>
+                    <?php foreach ($siswa as $s): ?>
+                        <option value="<?= esc((string) $s['id_siswa']) ?>">
+                            <?= esc((string) $s['nama_siswa']) ?> (<?= esc((string) ($s['nama_kelas'] ?? '-')) ?>)
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Status Kehadiran</label>
+                <select name="status" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-gray-50 cursor-pointer">
+                    <option value="Hadir">Hadir</option>
+                    <option value="Sakit">Sakit</option>
+                    <option value="Izin">Izin</option>
+                    <option value="Alpa">Alpa</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Keterangan (Opsional)</label>
+                <input type="text" name="keterangan" class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="Catatan tambahan admin...">
+            </div>
+
+            <div class="flex justify-end gap-3 pt-4">
+                <button type="button" onclick="closeManualModal()" class="px-5 py-2.5 text-sm font-semibold text-gray-400">Batal</button>
+                <button type="submit" class="bg-blue-600 text-white px-8 py-2.5 rounded-xl text-sm font-semibold shadow-lg hover:bg-blue-700 btn-submit transition-all">Simpan Data</button>
+            </div>
+        </form>
     </div>
 </div>
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
-    function toggleFormManual() {
-        document.getElementById('form-manual').classList.toggle('hidden');
+    function openManualModal() {
+        document.getElementById('modal-manual').classList.replace('hidden', 'flex');
+        document.body.classList.add('overflow-hidden');
     }
 
-    if (typeof $ !== 'undefined') {
-        $(document).ready(function() {
-            $('#siswa_select').select2({
-                placeholder: "-- Ketik Nama atau NIS --",
-                allowClear: true,
-                width: '100%'
-            });
-
-            $('#formManualSubmit').on('submit', function() {
-                $(this).find('.btn-submit').addClass('btn-loading');
-            });
-        });
+    function closeManualModal() {
+        document.getElementById('modal-manual').classList.replace('flex', 'hidden');
+        document.body.classList.remove('overflow-hidden');
     }
 </script>
 <?= $this->endSection() ?>

@@ -1,8 +1,7 @@
 <?php
 
 /**
- * Dideklarasikan untuk menghilangkan false-positive error Intelephense
- * @var array $config
+ * @var array<string, mixed> $config
  */
 ?>
 <?= $this->extend('layout/admin') ?>

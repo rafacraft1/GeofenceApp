@@ -2,17 +2,11 @@
 
 namespace App\Controllers\Web;
 
-use CodeIgniter\Controller;
-use CodeIgniter\Database\BaseConnection;
+use App\Controllers\BaseController;
 
-class Pengaturan extends Controller
+class Pengaturan extends BaseController
 {
-    protected BaseConnection $db;
-
-    public function __construct()
-    {
-        $this->db = \Config\Database::connect();
-    }
+    // $this->db sudah diinisialisasi otomatis oleh BaseController
 
     public function index()
     {
@@ -32,7 +26,7 @@ class Pengaturan extends Controller
             'latitude_sekolah'  => 'required',
             'longitude_sekolah' => 'required',
             'radius_meter'      => 'required|numeric',
-            'firebase_url'      => 'permit_empty|valid_url', // Diubah menjadi opsional agar fleksibel
+            'firebase_url'      => 'permit_empty|valid_url', // Fleksibel jika kosong
         ];
 
         if (!$this->validate($rules)) {

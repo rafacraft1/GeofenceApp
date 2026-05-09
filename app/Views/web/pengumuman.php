@@ -1,7 +1,8 @@
 <?php
 
 /**
- * @var array $pengumuman
+ * @var string $title
+ * @var array<int, array<string, mixed>> $pengumuman
  */
 ?>
 <?= $this->extend('layout/admin') ?>
@@ -14,7 +15,7 @@
             <h3 class="text-lg font-bold text-gray-800 mb-2">Buat Broadcast Baru</h3>
             <p class="text-xs text-gray-500 mb-6">Pesan akan langsung muncul di aplikasi siswa.</p>
 
-            <form action="/admin/pengumuman/store" method="POST" class="space-y-4" id="formPengumuman">
+            <form action="<?= base_url('admin/pengumuman/store') ?>" method="POST" class="space-y-4" id="formPengumuman">
                 <?= csrf_field() ?>
                 <div>
                     <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Tipe Pengumuman</label>
@@ -59,23 +60,22 @@
         <?php else: ?>
             <?php foreach ($pengumuman as $p): ?>
                 <?php
-                $bg_color = 'bg-blue-50';
-                $text_color = 'text-blue-600';
+                $bgColor = 'bg-blue-50';
+                $textColor = 'text-blue-600';
                 $icon = 'ℹ️';
 
-                if ($p['tipe'] == 'Penting') {
-                    $bg_color = 'bg-red-50';
-                    $text_color = 'text-red-600';
+                if ((string) $p['tipe'] === 'Penting') {
+                    $bgColor = 'bg-red-50';
+                    $textColor = 'text-red-600';
                     $icon = '⚠️';
-                }
-                if ($p['tipe'] == 'Libur') {
-                    $bg_color = 'bg-emerald-50';
-                    $text_color = 'text-emerald-600';
+                } elseif ((string) $p['tipe'] === 'Libur') {
+                    $bgColor = 'bg-emerald-50';
+                    $textColor = 'text-emerald-600';
                     $icon = '🏖️';
                 }
                 ?>
                 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex gap-4 hover:shadow-md transition-shadow relative group">
-                    <div class="w-12 h-12 rounded-full <?= $bg_color ?> <?= $text_color ?> flex items-center justify-center text-xl shrink-0">
+                    <div class="w-12 h-12 rounded-full <?= $bgColor ?> <?= $textColor ?> flex items-center justify-center text-xl shrink-0">
                         <?= $icon ?>
                     </div>
                     <div class="flex-1 pb-1">
@@ -83,11 +83,11 @@
                             <h4 class="font-bold text-gray-800 text-base"><?= esc((string) $p['judul']) ?></h4>
                             <span class="text-[10px] text-gray-400 font-semibold whitespace-nowrap"><?= date('d M Y, H:i', strtotime((string) $p['created_at'])) ?></span>
                         </div>
-                        <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold <?= $bg_color ?> <?= $text_color ?> mb-2">Kategori: <?= esc((string) $p['tipe']) ?></span>
+                        <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold <?= $bgColor ?> <?= $textColor ?> mb-2">Kategori: <?= esc((string) $p['tipe']) ?></span>
                         <p class="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap"><?= esc((string) $p['isi']) ?></p>
                     </div>
 
-                    <form action="/admin/pengumuman/delete/<?= esc((string) $p['id_pengumuman']) ?>" method="POST" class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <form action="<?= base_url('admin/pengumuman/delete/' . (string) $p['id_pengumuman']) ?>" method="POST" class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
                         <?= csrf_field() ?>
                         <button type="button" class="btn-confirm p-2 bg-white text-gray-400 hover:text-red-500 hover:bg-red-50 border border-gray-200 rounded-lg shadow-sm" data-text="Tarik pengumuman ini agar tidak terlihat lagi oleh siswa?" data-btn="Ya, Tarik" title="Tarik / Hapus">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

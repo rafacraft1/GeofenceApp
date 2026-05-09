@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @var array<int, array<string, string|null>> $logFraud
+ * @var array<int, array<string, mixed>> $logFraud
  */
 ?>
 <?= $this->extend('layout/admin') ?>
@@ -47,7 +47,7 @@
                                 <div class="text-xs font-mono text-gray-600 bg-gray-50 px-2 py-1 rounded border border-gray-200 inline-block">
                                     <?= esc((string) $log['lat_fraud']) ?>, <?= esc((string) $log['long_fraud']) ?>
                                 </div>
-                                <a href="https://www.google.com/maps?q=<?= esc((string) $log['lat_fraud']) ?>,<?= esc((string) $log['long_fraud']) ?>" target="_blank" class="ml-2 text-[10px] text-blue-600 hover:underline font-bold">Lihat Peta</a>
+                                <a href="https://maps.google.com/?q=<?= esc((string) $log['lat_fraud']) ?>,<?= esc((string) $log['long_fraud']) ?>" target="_blank" class="ml-2 text-[10px] text-blue-600 hover:underline font-bold">Lihat Peta</a>
                             </td>
                         </tr>
                     <?php endforeach; ?>

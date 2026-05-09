@@ -18,6 +18,7 @@ class IzinApi extends ResourceController
     {
         $authHeader = $this->request->getHeaderLine('Authorization');
         $token = \str_replace('Bearer ', '', $authHeader);
+
         if (empty($token)) return null;
 
         return $this->db->table('siswa')->where('api_token', $token)->get()->getRowArray();
@@ -49,15 +50,21 @@ class IzinApi extends ResourceController
             return $this->failValidationErrors($this->validator->getErrors());
         }
 
-        $tglMulai = $this->request->getPost('tanggal_mulai');
-        $tglSelesai = $this->request->getPost('tanggal_selesai');
+        $tglMulai   = (string) $this->request->getPost('tanggal_mulai');
+        $tglSelesai = (string) $this->request->getPost('tanggal_selesai');
+        $jenis      = (string) $this->request->getPost('jenis');
+        $alasan     = (string) $this->request->getPost('alasan');
 
         if ($tglMulai > $tglSelesai) {
             return $this->failValidationErrors('Tanggal mulai tidak boleh melewati tanggal selesai.');
         }
 
-        // Proses Upload File
+        // Proses Upload File dengan keamanan tambahan
         $fileBukti = $this->request->getFile('bukti_foto');
+        if (!$fileBukti || !$fileBukti->isValid() || $fileBukti->hasMoved()) {
+            return $this->failValidationErrors('Gagal memproses file foto bukti.');
+        }
+
         $namaBukti = $fileBukti->getRandomName();
         $fileBukti->move(FCPATH . 'uploads/izin', $namaBukti);
 
@@ -66,8 +73,8 @@ class IzinApi extends ResourceController
             'siswa_id'        => $siswa['id_siswa'],
             'tanggal_mulai'   => $tglMulai,
             'tanggal_selesai' => $tglSelesai,
-            'jenis'           => $this->request->getPost('jenis'),
-            'alasan'          => $this->request->getPost('alasan'),
+            'jenis'           => $jenis,
+            'alasan'          => $alasan,
             'bukti_foto'      => $namaBukti,
             'status'          => 'Pending',
             'created_at'      => date('Y-m-d H:i:s'),
@@ -75,7 +82,7 @@ class IzinApi extends ResourceController
         ]);
 
         return $this->respondCreated([
-            'status'  => 'success',
+            'status'  => 201,
             'message' => 'Pengajuan berhasil dikirim dan menunggu persetujuan admin.'
         ]);
     }

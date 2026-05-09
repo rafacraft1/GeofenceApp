@@ -7,7 +7,6 @@ use App\Models\HariLiburModel;
 
 class Libur extends BaseController
 {
-    // Menambahkan type-hint HariLiburModel
     protected HariLiburModel $liburModel;
 
     public function __construct()
@@ -47,10 +46,10 @@ class Libur extends BaseController
         return redirect()->to('/admin/libur')->with('success', 'Hari libur berhasil ditambahkan.');
     }
 
-    // Menambahkan type-hint string pada parameter $id
     public function delete(string $id)
     {
         $this->liburModel->delete($id);
+
         return redirect()->to('/admin/libur')->with('success', 'Hari libur berhasil dihapus.');
     }
 }

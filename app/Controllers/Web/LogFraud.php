@@ -6,6 +6,8 @@ use App\Controllers\BaseController;
 
 class LogFraud extends BaseController
 {
+    // $this->db sudah diinisialisasi otomatis oleh BaseController
+
     public function index()
     {
         $logFraud = $this->db->table('log_fraud')
@@ -13,7 +15,8 @@ class LogFraud extends BaseController
             ->join('siswa', 'siswa.id_siswa = log_fraud.siswa_id')
             ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left')
             ->orderBy('log_fraud.created_at', 'DESC')
-            ->get()->getResultArray();
+            ->get()
+            ->getResultArray();
 
         $data = [
             'title'    => 'Log Keamanan & Pelanggaran',
