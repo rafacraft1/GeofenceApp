@@ -16,8 +16,9 @@ class AuthWeb extends BaseController
 
     public function login()
     {
-        $username = $this->request->getPost('username');
-        $password = (string) $this->request->getPost('password'); // Casting ke string mencegah error P1006
+        // Type-casting string yang ketat untuk keamanan & mencegah P1006
+        $username = (string) $this->request->getPost('username');
+        $password = (string) $this->request->getPost('password');
 
         // Mengambil data user lengkap dengan nama role-nya menggunakan JOIN
         $user = $this->db->table('users')
@@ -27,17 +28,22 @@ class AuthWeb extends BaseController
             ->get()
             ->getRowArray();
 
-        if ($user && password_verify($password, $user['password_hash'])) {
+        // Verifikasi keberadaan user dan kecocokan password_hash
+        if ($user && password_verify($password, (string) $user['password_hash'])) {
             $this->session->set([
-                'user_id'      => $user['id_user'],
-                'nama_lengkap' => $user['nama_lengkap'],
-                'role'         => $user['nama_role'], // Menggunakan nama_role dari tabel roles
+                'user_id'      => (int) $user['id_user'],
+                'nama_lengkap' => (string) $user['nama_lengkap'],
+                'role_id'      => (int) $user['role_id'], // Ditambahkan untuk memudahkan Filter Akses
+                'role'         => (string) $user['nama_role'],
                 'logged_in'    => true
             ]);
-            return redirect()->to('/admin/dashboard');
+
+            // Tambahkan flashdata success untuk disambut oleh Toastr di Dashboard
+            return redirect()->to('/admin/dashboard')->with('success', 'Selamat datang kembali, ' . $user['nama_lengkap']);
         }
 
-        return redirect()->to('/admin/login')->with('error', 'Username atau Password salah.');
+        // withInput() agar jika view punya fungsi old('username'), username tidak perlu diketik ulang
+        return redirect()->to('/admin/login')->withInput()->with('error', 'Username atau Password salah.');
     }
 
     public function logout()

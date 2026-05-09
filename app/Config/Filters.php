@@ -37,6 +37,7 @@ class Filters extends BaseFilters
         'throttle'      => \App\Filters\ThrottleFilter::class,
         'webAuth'       => \App\Filters\WebAuthFilter::class,
         'apiAuth'       => \App\Filters\ApiAuthFilter::class,
+        'adminOnly' => \App\Filters\AdminFilter::class,
     ];
 
     /**

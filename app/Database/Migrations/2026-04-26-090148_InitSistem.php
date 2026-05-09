@@ -49,10 +49,11 @@ class InitSistem extends Migration
         $this->forge->addKey('id_siswa', true);
         $this->forge->addKey('api_token');
         $this->forge->addKey('kelas_id');
+        // RESTRICT digunakan agar kelas tidak sengaja terhapus jika masih ada siswa di dalamnya
         $this->forge->addForeignKey('kelas_id', 'kelas', 'id_kelas', 'CASCADE', 'RESTRICT');
         $this->forge->createTable('siswa');
 
-        // 3. Tabel Users 
+        // 3. Tabel Users (Admin & Guru Wali Kelas)
         $this->forge->addField([
             'id_user'       => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
             'nama_lengkap'  => ['type' => 'VARCHAR', 'constraint' => '100'],
@@ -142,7 +143,7 @@ class InitSistem extends Migration
         $this->forge->addKey('tanggal');
         $this->forge->createTable('hari_libur');
 
-        // 9. Tabel Pengajuan Izin (Baru)
+        // 9. Tabel Pengajuan Izin
         $this->forge->addField([
             'id_izin'         => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
             'siswa_id'        => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true],
@@ -160,7 +161,7 @@ class InitSistem extends Migration
         $this->forge->addForeignKey('siswa_id', 'siswa', 'id_siswa', 'CASCADE', 'CASCADE');
         $this->forge->createTable('pengajuan_izin');
 
-        // 10. Tabel Log Fraud / Pelanggaran (Baru)
+        // 10. Tabel Log Fraud / Pelanggaran
         $this->forge->addField([
             'id_log'      => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
             'siswa_id'    => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true],
@@ -178,7 +179,7 @@ class InitSistem extends Migration
 
     public function down()
     {
-        // Bypass Intelephense error dengan Raw Query
+        // Bypass Foreign Key Checks saat menghapus (rollback)
         $this->db->query('SET FOREIGN_KEY_CHECKS=0');
 
         $this->forge->dropTable('log_fraud', true);

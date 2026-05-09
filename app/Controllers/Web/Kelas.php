@@ -16,66 +16,79 @@ class Kelas extends BaseController
 
     public function index()
     {
+        // 1. Cari ID Role untuk 'Guru'
+        $roleGuru = $this->db->table('roles')->where('nama_role', 'Guru')->get()->getRowArray();
+
+        // 2. Ambil semua User yang memiliki Role Guru
+        $listGuru = [];
+        if ($roleGuru) {
+            $listGuru = $this->db->table('users')
+                ->where('role_id', $roleGuru['id_role'])
+                ->orderBy('nama_lengkap', 'ASC')
+                ->get()->getResultArray();
+        }
+
         $data = [
-            'title' => 'Manajemen Kelas',
-            'kelas' => $this->kelasModel->findAll()
+            'title'    => 'Manajemen Kelas',
+            'kelas'    => $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll(),
+            'listGuru' => $listGuru // Kirim daftar guru ke View
         ];
 
         return view('web/kelas', $data);
     }
 
-    /**
-     * Metode Dinamis: Insert jika baru, Update jika nama_kelas sudah ada.
-     */
     public function store()
     {
+        $idKelas   = $this->request->getPost('id_kelas');
         $namaKelas = (string) $this->request->getPost('nama_kelas');
-        $waliKelas = (string) $this->request->getPost('wali_kelas');
+        $waliKelas = (string) $this->request->getPost('wali_kelas'); // Ini akan berisi Nama Guru
 
-        // Cari apakah nama kelas sudah ada (karena bersifat unik secara logika)
-        $existing = $this->kelasModel->where('nama_kelas', $namaKelas)->first();
+        if (empty($namaKelas)) {
+            return redirect()->back()->with('error', 'Nama kelas wajib diisi!');
+        }
 
-        if ($existing) {
-            // Jika ada, lakukan Update
-            $this->kelasModel->update($existing['id_kelas'], [
+        if (!empty($idKelas)) {
+            // MODE EDIT
+            $cekDuplikat = $this->kelasModel->where('nama_kelas', $namaKelas)
+                ->where('id_kelas !=', $idKelas)
+                ->first();
+
+            if ($cekDuplikat) {
+                return redirect()->back()->with('error', 'Gagal update: Nama kelas "' . $namaKelas . '" sudah digunakan.');
+            }
+
+            $this->kelasModel->update($idKelas, [
+                'nama_kelas' => $namaKelas,
                 'wali_kelas' => $waliKelas,
                 'updated_at' => date('Y-m-d H:i:s')
             ]);
+
             $pesan = "Data kelas $namaKelas berhasil diperbarui.";
         } else {
-            // Jika tidak ada, lakukan Insert
+            // MODE TAMBAH BARU
+            $cekDuplikat = $this->kelasModel->where('nama_kelas', $namaKelas)->first();
+
+            if ($cekDuplikat) {
+                return redirect()->back()->with('error', 'Gagal: Kelas "' . $namaKelas . '" sudah terdaftar.');
+            }
+
             $this->kelasModel->save([
                 'nama_kelas' => $namaKelas,
                 'wali_kelas' => $waliKelas,
                 'created_at' => date('Y-m-d H:i:s')
             ]);
-            $pesan = "Data kelas $namaKelas berhasil ditambahkan.";
+
+            $pesan = "Kelas baru $namaKelas berhasil ditambahkan.";
         }
 
         return redirect()->to('/admin/kelas')->with('success', $pesan);
     }
 
-    // Metode update manual tetap dipertahankan jika dibutuhkan oleh rute spesifik, 
-    // namun secara fungsional sudah tercover oleh store().
-    public function update(string $id)
-    {
-        $this->kelasModel->update($id, [
-            'nama_kelas' => $this->request->getPost('nama_kelas'),
-            'wali_kelas' => $this->request->getPost('wali_kelas'),
-            'updated_at' => date('Y-m-d H:i:s')
-        ]);
-
-        return redirect()->to('/admin/kelas')->with('success', 'Data kelas berhasil diperbarui.');
-    }
-
     public function delete(string $id)
     {
         $this->db->transStart();
-
-        // Hapus siswa terkait agar tidak melanggar Foreign Key RESTRICT
         $this->db->table('siswa')->where('kelas_id', $id)->delete();
         $this->kelasModel->delete($id);
-
         $this->db->transComplete();
 
         if ($this->db->transStatus() === false) {
