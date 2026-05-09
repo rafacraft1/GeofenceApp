@@ -77,11 +77,13 @@
 </style>
 
 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+
     <div class="p-5 border-b flex flex-col md:flex-row justify-between items-center gap-4 bg-white">
         <div>
             <h3 class="text-lg font-bold text-gray-800">Daftar Siswa</h3>
             <p class="text-sm text-gray-500">Kelola data siswa, foto, dan pantau perangkat.</p>
         </div>
+
         <div class="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
             <form action="/admin/siswa" method="GET" class="flex-1 md:w-48">
                 <select name="kelas" onchange="this.form.submit()" class="w-full border-gray-200 rounded-xl p-2.5 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 min-w-[120px] cursor-pointer">
@@ -93,6 +95,7 @@
                     <?php endif; ?>
                 </select>
             </form>
+
             <a href="/admin/siswa/export?kelas=<?= esc((string) ($kelas_aktif ?? '')) ?>" class="flex items-center justify-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700 shadow-md transition-all active:scale-95 whitespace-nowrap">Export</a>
             <button onclick="openImportModal()" class="flex items-center justify-center gap-2 bg-slate-100 text-slate-700 px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-200 shadow-sm transition-all active:scale-95 whitespace-nowrap">Import</button>
             <button onclick="toggleFormTambah()" class="flex items-center justify-center gap-1 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-md whitespace-nowrap active:scale-95 transition-all">+ Tambah</button>
@@ -108,12 +111,10 @@
                 <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Pilih Kelas</label>
                 <select name="kelas_id" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-white cursor-pointer">
                     <option value="" disabled selected>-- Pilih Kelas --</option>
-                    <?php if (!empty($list_kelas)) : ?>
-                        <?php foreach ($list_kelas as $k): ?><option value="<?= (string) $k['id_kelas'] ?>"><?= esc((string) $k['nama_kelas']) ?></option><?php endforeach; ?>
-                    <?php endif; ?>
+                    <?php if (!empty($list_kelas)) : ?><?php foreach ($list_kelas as $k): ?><option value="<?= (string) $k['id_kelas'] ?>"><?= esc((string) $k['nama_kelas']) ?></option><?php endforeach; ?><?php endif; ?>
                 </select>
             </div>
-            <div><label class="block text-xs font-bold text-gray-600 uppercase mb-2">Foto (Opsional)</label><input type="file" name="foto" accept="image/*" class="w-full border-gray-200 rounded-xl p-2 bg-white text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"></div>
+            <div><label class="block text-xs font-bold text-gray-600 uppercase mb-2">Foto (Opsional)</label><input type="file" name="foto" accept="image/*" class="w-full border-gray-200 rounded-xl p-2 bg-white text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all"></div>
             <div class="md:col-span-4 flex justify-end gap-3 pt-2"><button type="button" onclick="toggleFormTambah()" class="text-sm font-semibold text-gray-500 px-4 py-2">Batal</button><button type="submit" class="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold shadow hover:bg-blue-700 btn-submit transition-all">Simpan Data</button></div>
         </form>
     </div>
@@ -135,11 +136,7 @@
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs shadow-inner overflow-hidden border border-gray-200 shrink-0">
-                                        <?php if (!empty($s['foto_profil'])): ?>
-                                            <img src="/uploads/siswa/<?= esc((string) $s['foto_profil']) ?>" alt="Foto" class="w-full h-full object-cover">
-                                        <?php else: ?>
-                                            <?= esc(strtoupper(substr((string) ($s['nama_siswa'] ?? ''), 0, 1))) ?>
-                                        <?php endif; ?>
+                                        <?php if (!empty($s['foto_profil'])): ?><img src="/uploads/siswa/<?= esc((string) $s['foto_profil']) ?>" alt="Foto" class="w-full h-full object-cover"><?php else: ?><?= esc(strtoupper(substr((string) ($s['nama_siswa'] ?? ''), 0, 1))) ?><?php endif; ?>
                                     </div>
                                     <div>
                                         <div class="text-sm font-bold text-gray-800"><?= esc((string) $s['nama_siswa']) ?></div>
@@ -148,13 +145,9 @@
                                 </div>
                             </td>
                             <td class="px-6 py-4">
-                                <?php if (!empty($s['device_id'])): ?>
-                                    <div class="flex items-center gap-1.5 text-emerald-600 bg-emerald-50 px-2 py-1.5 rounded-lg text-[10px] font-bold w-fit border border-emerald-100">
+                                <?php if (!empty($s['device_id'])): ?><div class="flex items-center gap-1.5 text-emerald-600 bg-emerald-50 px-2 py-1.5 rounded-lg text-[10px] font-bold w-fit border border-emerald-100">
                                         <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>TERIKAT
-                                    </div>
-                                <?php else: ?>
-                                    <div class="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1.5 rounded-lg w-fit border border-gray-200">BELUM TERIKAT</div>
-                                <?php endif; ?>
+                                    </div><?php else: ?><div class="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1.5 rounded-lg w-fit border border-gray-200">BELUM TERIKAT</div><?php endif; ?>
                             </td>
                             <td class="px-6 py-4 text-center">
                                 <div class="flex flex-col items-center">
@@ -166,22 +159,21 @@
                             </td>
                             <td class="px-6 py-4 text-right">
                                 <div class="flex justify-end gap-2">
-                                    <a href="/admin/tracking/siswa/<?= esc((string) $s['id_siswa']) ?>" class="p-2 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 rounded-lg transition-colors" title="Live Tracking">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <a href="/admin/siswa/detail/<?= esc((string) $s['id_siswa']) ?>" class="p-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 rounded-lg transition-colors" title="Profil 360"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                        </svg></a>
+                                    <a href="/admin/tracking/siswa/<?= esc((string) $s['id_siswa']) ?>" class="p-2 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 rounded-lg transition-colors" title="Live Tracking"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
-                                        </svg>
-                                    </a>
-
-                                    <button onclick='openEditModal(<?= htmlspecialchars(json_encode($s), ENT_QUOTES, "UTF-8") ?>)' class="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 rounded-lg transition-colors" title="Edit Data">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        </svg></a>
+                                    <button onclick='openEditModal(<?= htmlspecialchars(json_encode($s), ENT_QUOTES, "UTF-8") ?>)' class="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 rounded-lg transition-colors" title="Edit Data"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                                        </svg>
-                                    </button>
+                                        </svg></button>
 
                                     <?php if (!empty($s['device_id'])): ?>
                                         <form action="/admin/siswa/reset_device/<?= esc((string) $s['id_siswa']) ?>" method="POST" class="inline">
                                             <?= csrf_field() ?>
-                                            <button type="submit" class="btn-confirm p-2 text-amber-600 bg-amber-50 hover:bg-amber-100 border border-amber-100 rounded-lg transition-colors" data-text="Akses HP akan direset. Yakin?" data-btn="Ya, Reset HP" title="Reset Device">
+                                            <button type="button" class="btn-confirm p-2 text-amber-600 bg-amber-50 hover:bg-amber-100 border border-amber-100 rounded-lg transition-colors" data-text="Akses HP akan direset. Yakin?" data-btn="Ya, Reset HP" title="Reset Device">
                                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
                                                 </svg>
@@ -192,7 +184,7 @@
                                     <?php if (!empty($s['is_blocked'])): ?>
                                         <form action="/admin/siswa/unblock/<?= esc((string) $s['id_siswa']) ?>" method="POST" class="inline">
                                             <?= csrf_field() ?>
-                                            <button type="submit" class="btn-confirm p-2 text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 rounded-lg transition-colors" data-text="Buka blokir akun siswa ini?" data-btn="Ya, Buka Blokir" title="Unblock">
+                                            <button type="button" class="btn-confirm p-2 text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 rounded-lg transition-colors" data-text="Buka blokir akun siswa ini?" data-btn="Ya, Buka Blokir" title="Unblock">
                                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
                                                 </svg>
@@ -202,7 +194,7 @@
 
                                     <form action="/admin/siswa/delete/<?= esc((string) $s['id_siswa']) ?>" method="POST" class="inline">
                                         <?= csrf_field() ?>
-                                        <button type="submit" class="btn-confirm p-2 text-slate-600 bg-slate-50 hover:bg-red-100 hover:text-red-600 border border-slate-200 rounded-lg transition-colors" data-text="Data siswa beserta foto akan dihapus permanen. Lanjutkan?" data-btn="Ya, Hapus Permanen" title="Hapus Siswa">
+                                        <button type="button" class="btn-confirm p-2 text-slate-600 bg-slate-50 hover:bg-red-100 hover:text-red-600 border border-slate-200 rounded-lg transition-colors" data-text="Data siswa beserta foto akan dihapus permanen. Lanjutkan?" data-btn="Ya, Hapus Permanen" title="Hapus Siswa">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                                             </svg>
@@ -223,10 +215,8 @@
 
     <div class="p-5 border-t border-gray-100 bg-gray-50/30 flex flex-col md:flex-row justify-between items-center gap-4">
         <div class="text-sm text-gray-500 font-medium">
-            <?php
-            $start = ($page - 1) * $perPage + 1;
-            $end = min($page * $perPage, $total_data);
-            ?>
+            <?php $start = ($page - 1) * $perPage + 1;
+            $end = min($page * $perPage, $total_data); ?>
             Menampilkan <span class="font-bold text-gray-800"><?= (string) $start ?></span> - <span class="font-bold text-gray-800"><?= (string) $end ?></span> dari <span class="font-bold text-gray-800"><?= esc((string) ($total_data ?? 0)) ?></span> siswa
         </div>
         <div class="pagination-wrapper"><?= $pager_links ?? '' ?></div>
@@ -252,7 +242,7 @@
                     <?php if (!empty($list_kelas)) : ?><?php foreach ($list_kelas as $k): ?><option value="<?= (string) $k['id_kelas'] ?>"><?= esc((string) $k['nama_kelas']) ?></option><?php endforeach; ?><?php endif; ?>
                 </select>
             </div>
-            <div><label class="block text-xs font-bold text-gray-600 uppercase mb-2">Ganti Foto (Kosongkan jika tidak mengubah)</label><input type="file" name="foto" accept="image/*" class="w-full border-gray-200 rounded-xl p-2 bg-gray-50 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200"></div>
+            <div><label class="block text-xs font-bold text-gray-600 uppercase mb-2">Ganti Foto (Kosongkan jika tidak mengubah)</label><input type="file" name="foto" accept="image/*" class="w-full border-gray-200 rounded-xl p-2 bg-gray-50 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all"></div>
             <div class="flex justify-end gap-3 pt-4"><button type="button" onclick="closeEditModal()" class="px-5 py-2.5 text-sm font-semibold text-gray-400">Batal</button><button type="submit" class="bg-blue-600 text-white px-8 py-2.5 rounded-xl text-sm font-semibold shadow-lg hover:bg-blue-700 btn-submit transition-all">Simpan Perubahan</button></div>
         </form>
     </div>
@@ -271,16 +261,14 @@
             <?= csrf_field() ?>
             <div class="p-6 border-2 border-dashed border-slate-300 rounded-2xl text-center bg-slate-50 hover:bg-slate-100 cursor-pointer">
                 <input type="file" name="file_excel" id="file_excel" class="hidden" required accept=".xlsx">
-                <label for="file_excel" class="cursor-pointer block w-full h-full">
-                    <svg class="w-12 h-12 text-slate-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <label for="file_excel" class="cursor-pointer block w-full h-full"><svg class="w-12 h-12 text-slate-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
                     </svg>
                     <p class="text-sm font-medium text-slate-600" id="file-name-preview">Klik pilih file Excel (.xlsx)</p>
                 </label>
             </div>
             <div class="bg-amber-50 border border-amber-100 p-4 rounded-xl">
-                <p class="text-[11px] text-amber-700 leading-relaxed font-medium text-center">Gunakan format template agar tidak error.</p>
-                <a href="/admin/siswa/download_template" class="block text-center text-amber-900 font-bold text-xs mt-2 underline">Unduh Template</a>
+                <p class="text-[11px] text-amber-700 leading-relaxed font-medium text-center">Gunakan format template agar tidak error.</p><a href="/admin/siswa/download_template" class="block text-center text-amber-900 font-bold text-xs mt-2 underline">Unduh Template</a>
             </div>
             <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 btn-submit">Mulai Import</button>
         </form>
@@ -325,7 +313,6 @@
         document.getElementById('file_excel').value = '';
         document.getElementById('file-name-preview').textContent = "Belum ada file dipilih";
     }
-
     if (typeof $ !== 'undefined') {
         $(document).ready(function() {
             $('#formSiswa, #form-edit-action, #formImport').on('submit', function() {

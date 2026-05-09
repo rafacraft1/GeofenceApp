@@ -46,15 +46,9 @@
                         <?php $no = 1;
                         foreach ($kelas as $k) : ?>
                             <tr class="border-b border-gray-200 hover:bg-gray-50">
-                                <td class="py-3 px-6 text-left whitespace-nowrap">
-                                    <span class="font-medium"><?= $no++ ?></span>
-                                </td>
-                                <td class="py-3 px-6 text-left">
-                                    <span><?= esc($k['nama_kelas']) ?></span>
-                                </td>
-                                <td class="py-3 px-6 text-left">
-                                    <span><?= esc($k['wali_kelas']) ?: '-' ?></span>
-                                </td>
+                                <td class="py-3 px-6 text-left whitespace-nowrap"><span class="font-medium"><?= $no++ ?></span></td>
+                                <td class="py-3 px-6 text-left"><span><?= esc($k['nama_kelas']) ?></span></td>
+                                <td class="py-3 px-6 text-left"><span><?= esc($k['wali_kelas']) ?: '-' ?></span></td>
                                 <td class="py-3 px-6 text-center">
                                     <div class="flex item-center justify-center space-x-2">
                                         <form action="<?= base_url('admin/kelas/delete/' . $k['id_kelas']) ?>" method="POST" class="inline">
@@ -69,7 +63,6 @@
                                 </td>
                             </tr>
                         <?php endforeach; ?>
-
                         <?php if (empty($kelas)): ?>
                             <tr>
                                 <td colspan="4" class="py-4 text-center text-gray-500">Belum ada data kelas.</td>

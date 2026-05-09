@@ -34,43 +34,19 @@
                         $isLibur = $hari['is_libur'] == 1;
                         ?>
                         <tr class="hover:bg-gray-50 transition-colors">
-                            <!-- Nama Hari -->
                             <td class="px-6 py-4">
-                                <span class="font-bold text-gray-800 <?= $isLibur ? 'text-red-500' : '' ?>">
-                                    <?= esc((string) $hari['nama_hari']) ?>
-                                </span>
+                                <span class="font-bold text-gray-800 <?= $isLibur ? 'text-red-500' : '' ?>"><?= esc((string) $hari['nama_hari']) ?></span>
                             </td>
-
-                            <!-- Checkbox Libur -->
                             <td class="px-6 py-4 text-center">
                                 <label class="inline-flex items-center cursor-pointer">
-                                    <input type="checkbox"
-                                        name="jadwal[<?= $id ?>][is_libur]"
-                                        value="1"
-                                        class="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500 toggle-libur"
-                                        data-target="<?= $id ?>"
-                                        <?= $isLibur ? 'checked' : '' ?>>
+                                    <input type="checkbox" name="jadwal[<?= $id ?>][is_libur]" value="1" class="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500 toggle-libur" data-target="<?= $id ?>" <?= $isLibur ? 'checked' : '' ?>>
                                 </label>
                             </td>
-
-                            <!-- Jam Masuk -->
                             <td class="px-6 py-4">
-                                <input type="time"
-                                    id="masuk_<?= $id ?>"
-                                    name="jadwal[<?= $id ?>][jam_masuk]"
-                                    value="<?= esc((string) $hari['jam_masuk']) ?>"
-                                    class="px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
-                                    <?= $isLibur ? 'disabled' : 'required' ?>>
+                                <input type="time" id="masuk_<?= $id ?>" name="jadwal[<?= $id ?>][jam_masuk]" value="<?= esc((string) $hari['jam_masuk']) ?>" class="px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed" <?= $isLibur ? 'disabled' : 'required' ?>>
                             </td>
-
-                            <!-- Jam Pulang -->
                             <td class="px-6 py-4">
-                                <input type="time"
-                                    id="pulang_<?= $id ?>"
-                                    name="jadwal[<?= $id ?>][jam_pulang]"
-                                    value="<?= esc((string) $hari['jam_pulang']) ?>"
-                                    class="px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
-                                    <?= $isLibur ? 'disabled' : 'required' ?>>
+                                <input type="time" id="pulang_<?= $id ?>" name="jadwal[<?= $id ?>][jam_pulang]" value="<?= esc((string) $hari['jam_pulang']) ?>" class="px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed" <?= $isLibur ? 'disabled' : 'required' ?>>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -87,19 +63,16 @@
         </div>
     </div>
 </form>
-
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Logika untuk mendisable input jam jika hari ditandai Libur
         const toggles = document.querySelectorAll('.toggle-libur');
         toggles.forEach(toggle => {
             toggle.addEventListener('change', function() {
                 const targetId = this.getAttribute('data-target');
                 const isChecked = this.checked;
-
                 const inputMasuk = document.getElementById('masuk_' + targetId);
                 const inputPulang = document.getElementById('pulang_' + targetId);
 

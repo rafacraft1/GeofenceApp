@@ -77,13 +77,27 @@ class AbsensiApi extends ResourceController
 
         if (!$lat || !$lon || !$foto) return $this->failValidationErrors('Koordinat dan foto selfie wajib dikirim.');
 
+        // BLOK FAKE GPS (LOG FRAUD DIAKTIFKAN)
         if ($is_mock) {
             $this->db->transStart();
+
             $this->db->query("UPDATE siswa SET fraud_count = fraud_count + 1 WHERE id_siswa = ?", [$siswa['id_siswa']]);
             $fraudCount = $this->db->table('siswa')->select('fraud_count')->where('id_siswa', $siswa['id_siswa'])->get()->getRow()->fraud_count;
+
             if ($fraudCount >= 3) {
                 $this->db->table('siswa')->where('id_siswa', $siswa['id_siswa'])->update(['is_blocked' => 1]);
             }
+
+            // INSERT LOG FRAUD KE DATABASE
+            $this->db->table('log_fraud')->insert([
+                'siswa_id'   => $siswa['id_siswa'],
+                'tipe_fraud' => 'Fake GPS',
+                'lat_fraud'  => $lat,
+                'long_fraud' => $lon,
+                'user_agent' => $this->request->getUserAgent()->getAgentString(),
+                'created_at' => \date('Y-m-d H:i:s')
+            ]);
+
             $this->db->transComplete();
 
             if ($fraudCount >= 3) return $this->failUnauthorized('AKUN DIBLOKIR! Anda terdeteksi menggunakan Fake GPS sebanyak 3 kali.');
@@ -158,13 +172,27 @@ class AbsensiApi extends ResourceController
 
         if (!$lat || !$lon || !$foto) return $this->failValidationErrors('Koordinat dan foto selfie wajib dikirim.');
 
+        // BLOK FAKE GPS (LOG FRAUD DIAKTIFKAN)
         if ($is_mock) {
             $this->db->transStart();
+
             $this->db->query("UPDATE siswa SET fraud_count = fraud_count + 1 WHERE id_siswa = ?", [$siswa['id_siswa']]);
             $fraudCount = $this->db->table('siswa')->select('fraud_count')->where('id_siswa', $siswa['id_siswa'])->get()->getRow()->fraud_count;
+
             if ($fraudCount >= 3) {
                 $this->db->table('siswa')->where('id_siswa', $siswa['id_siswa'])->update(['is_blocked' => 1]);
             }
+
+            // INSERT LOG FRAUD KE DATABASE
+            $this->db->table('log_fraud')->insert([
+                'siswa_id'   => $siswa['id_siswa'],
+                'tipe_fraud' => 'Fake GPS',
+                'lat_fraud'  => $lat,
+                'long_fraud' => $lon,
+                'user_agent' => $this->request->getUserAgent()->getAgentString(),
+                'created_at' => \date('Y-m-d H:i:s')
+            ]);
+
             $this->db->transComplete();
 
             if ($fraudCount >= 3) return $this->failUnauthorized('AKUN DIBLOKIR! Terdeteksi Fake GPS sebanyak 3 kali.');
@@ -180,13 +208,11 @@ class AbsensiApi extends ResourceController
 
         if ($jadwalHariIni['is_libur']) return $this->failForbidden('Presensi ditolak. Hari ini libur.');
 
-        // PERBAIKAN LOGIKA 2: Cek apakah sudah waktunya pulang
         $jam_pulang_pukul = Time::parse($tanggal_ini . ' ' . $jadwalHariIni['jam_pulang'], $timezone);
         if ($sekarang->isBefore($jam_pulang_pukul)) {
             return $this->failForbidden('Belum waktunya pulang. Jam pulang hari ini pukul ' . $jam_pulang_pukul->format('H:i'));
         }
 
-        // PERBAIKAN LOGIKA 1: Validasi Jarak Geofence pada saat pulang
         $pengaturan = $this->db->table('pengaturan')->select('latitude_sekolah, longitude_sekolah, radius_meter')->where('id_pengaturan', 1)->get()->getRowArray();
         $jarak = \hitung_jarak_haversine((float)$lat, (float)$lon, (float)$pengaturan['latitude_sekolah'], (float)$pengaturan['longitude_sekolah']);
 

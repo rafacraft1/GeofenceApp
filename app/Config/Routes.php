@@ -41,10 +41,10 @@ $routes->group('admin', ['filter' => 'webAuth', 'namespace' => 'App\Controllers\
     $routes->get('siswa/download_template', 'Siswa::download_template');
     $routes->post('siswa/import', 'Siswa::import');
     $routes->get('siswa/export', 'Siswa::export');
+    $routes->get('siswa/detail/(:num)', 'Siswa::detail/$1'); // FASE 3: Detail 360
 
     $routes->get('libur', 'Libur::index');
     $routes->post('libur/store', 'Libur::store');
-    // PERBAIKAN KEAMANAN: Method GET diganti menjadi POST untuk delete (Mencegah CSRF)
     $routes->post('libur/delete/(:num)', 'Libur::delete/$1');
 
     // Absensi & Tracking
@@ -58,6 +58,18 @@ $routes->group('admin', ['filter' => 'webAuth', 'namespace' => 'App\Controllers\
     $routes->get('pengumuman', 'Pengumuman::index');
     $routes->post('pengumuman/store', 'Pengumuman::store');
     $routes->post('pengumuman/delete/(:num)', 'Pengumuman::delete/$1');
+
+    // --- FASE 2: Sistem Izin & Sakit ---
+    $routes->get('izin', 'Izin::index');
+    $routes->post('izin/approve/(:num)', 'Izin::approve/$1');
+    $routes->post('izin/reject/(:num)', 'Izin::reject/$1');
+
+    // --- FASE 3: Log Pelanggaran Keamanan ---
+    $routes->get('log-fraud', 'LogFraud::index');
+
+    // --- FASE 4: Laporan & Rekapitulasi ---
+    $routes->get('laporan', 'Laporan::index');
+    $routes->get('laporan/export', 'Laporan::export');
 
     // API Ping diletakkan paling bawah agar rapi
     $routes->post('tracking/ping_siswa/(:num)', '\App\Controllers\Api\TrackingApi::ping_siswa/$1');
@@ -82,5 +94,11 @@ $routes->group('api/v1', ['filter' => 'throttle', 'namespace' => 'App\Controller
         $routes->get('absen/riwayat', 'AbsensiApi::riwayat');
         $routes->post('tracking/update', 'TrackingApi::update_lokasi');
         $routes->post('profile/upload-foto', 'ProfileApi::uploadFoto');
+
+        // --- FASE 2: API Pengajuan Izin ---
+        $routes->post('izin/ajukan', 'IzinApi::ajukan');
+
+        // --- FASE 5: API FCM Token ---
+        $routes->post('fcm/update-token', 'FcmApi::updateToken');
     });
 });

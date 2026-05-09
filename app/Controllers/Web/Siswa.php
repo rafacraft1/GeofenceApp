@@ -131,7 +131,6 @@ class Siswa extends Controller
         return redirect()->to('/admin/siswa')->with('success', 'Perangkat berhasil di-reset.');
     }
 
-    // PERBAIKAN: Mengaktifkan fungsionalitas Unblock (reset is_blocked dan fraud_count)
     public function unblock(string $id)
     {
         $this->db->table('siswa')->where('id_siswa', $id)->update([
@@ -239,5 +238,56 @@ class Siswa extends Controller
         }
 
         return redirect()->to('/admin/siswa')->with('success', "Berhasil import $inserted data baru. $skipped data dilewati (NIS duplikat).");
+    }
+
+    // FASE 3: Fungsi Detail Profil 360
+    public function detail(string $id_siswa)
+    {
+        $siswa = $this->db->table('siswa')
+            ->select('siswa.*, kelas.nama_kelas')
+            ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left')
+            ->where('id_siswa', $id_siswa)
+            ->get()->getRowArray();
+
+        if (!$siswa) {
+            return redirect()->to('/admin/siswa')->with('error', 'Data siswa tidak ditemukan.');
+        }
+
+        // Ambil riwayat absen 10 hari terakhir
+        $absensi = $this->db->table('absensi')
+            ->where('siswa_id', $id_siswa)
+            ->orderBy('tanggal', 'DESC')
+            ->limit(10)
+            ->get()->getResultArray();
+
+        // Ambil riwayat fraud
+        $logFraud = $this->db->table('log_fraud')
+            ->where('siswa_id', $id_siswa)
+            ->orderBy('created_at', 'DESC')
+            ->get()->getResultArray();
+
+        // Statistik Total
+        $statHadir = $this->db->table('absensi')->where(['siswa_id' => $id_siswa, 'status' => 'Hadir'])->countAllResults();
+        $statTelat = $this->db->table('absensi')->where(['siswa_id' => $id_siswa, 'status' => 'Terlambat'])->countAllResults();
+        $statSakit = $this->db->table('absensi')->where(['siswa_id' => $id_siswa, 'status' => 'Sakit'])->countAllResults();
+        $statIzin  = $this->db->table('absensi')->where(['siswa_id' => $id_siswa, 'status' => 'Izin'])->countAllResults();
+        $statAlpa  = $this->db->table('absensi')->where(['siswa_id' => $id_siswa, 'status' => 'Alpa'])->countAllResults();
+
+        $data = [
+            'title'    => 'Profil 360: ' . $siswa['nama_siswa'],
+            'siswa'    => $siswa,
+            'absensi'  => $absensi,
+            'logFraud' => $logFraud,
+            'stats'    => [
+                'hadir'     => $statHadir,
+                'terlambat' => $statTelat,
+                'sakit'     => $statSakit,
+                'izin'      => $statIzin,
+                'alpa'      => $statAlpa,
+                'total'     => $statHadir + $statTelat + $statSakit + $statIzin + $statAlpa
+            ]
+        ];
+
+        return view('web/siswa_detail', $data);
     }
 }

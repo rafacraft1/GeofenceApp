@@ -2,33 +2,19 @@
 
 namespace App\Controllers\Web;
 
-use CodeIgniter\Controller;
-use CodeIgniter\Database\BaseConnection;
+use App\Controllers\BaseController;
 
-class Pengumuman extends Controller
+class Pengumuman extends BaseController
 {
-    protected BaseConnection $db;
-
-    public function __construct()
-    {
-        $this->db = \Config\Database::connect();
-    }
-
     public function index()
     {
         $pengumuman = $this->db->table('pengumuman')->orderBy('created_at', 'DESC')->get()->getResultArray();
-
-        $data = [
-            'title'      => 'Broadcast Pengumuman',
-            'pengumuman' => $pengumuman
-        ];
-
+        $data = ['title' => 'Broadcast Pengumuman', 'pengumuman' => $pengumuman];
         return view('web/pengumuman', $data);
     }
 
     public function store()
     {
-        // PERBAIKAN: Penambahan validasi input
         $rules = [
             'judul' => 'required|min_length[5]|max_length[150]',
             'isi'   => 'required',
@@ -36,23 +22,35 @@ class Pengumuman extends Controller
         ];
 
         if (!$this->validate($rules)) {
-            return redirect()->back()->withInput()->with('error', 'Gagal: Pastikan judul dan isi pengumuman terisi dengan benar.');
+            return redirect()->back()->withInput()->with('error', 'Validasi gagal.');
         }
 
+        $judul = $this->request->getPost('judul');
+        $isi = $this->request->getPost('isi');
+
         $this->db->table('pengumuman')->insert([
-            'judul'      => $this->request->getPost('judul'),
-            'isi'        => $this->request->getPost('isi'),
+            'judul'      => $judul,
+            'isi'        => $isi,
             'tipe'       => $this->request->getPost('tipe'),
             'created_at' => date('Y-m-d H:i:s'),
             'updated_at' => date('Y-m-d H:i:s')
         ]);
 
-        return redirect()->to('/admin/pengumuman')->with('success', 'Pengumuman berhasil disiarkan!');
+        // FASE 5: Kirim Notifikasi via Helper FCM
+        helper('fcm');
+        $allTokens = $this->db->table('siswa')->select('fcm_token')->where('fcm_token IS NOT NULL')->get()->getResultArray();
+        $tokenList = array_column($allTokens, 'fcm_token');
+
+        if (!empty($tokenList)) {
+            send_fcm_notification($tokenList, "📢 " . $judul, substr(strip_tags($isi), 0, 100) . "...");
+        }
+
+        return redirect()->to('/admin/pengumuman')->with('success', 'Pengumuman disiarkan!');
     }
 
     public function delete(string $id)
     {
         $this->db->table('pengumuman')->where('id_pengumuman', $id)->delete();
-        return redirect()->to('/admin/pengumuman')->with('success', 'Pengumuman berhasil ditarik/dihapus.');
+        return redirect()->to('/admin/pengumuman')->with('success', 'Pengumuman dihapus.');
     }
 }

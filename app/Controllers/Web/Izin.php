@@ -9,12 +9,12 @@ class Izin extends BaseController
 {
     public function index()
     {
-        // Ambil data izin, join dengan siswa dan kelas, urutkan yang Pending di atas
+        // PERBAIKAN: Menggunakan kueri kustom pada orderBy agar fungsi FIELD() tidak dirusak oleh CI4
         $daftarIzin = $this->db->table('pengajuan_izin')
             ->select('pengajuan_izin.*, siswa.nama_siswa, siswa.nis, kelas.nama_kelas')
             ->join('siswa', 'siswa.id_siswa = pengajuan_izin.siswa_id')
             ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left')
-            ->orderBy("FIELD(pengajuan_izin.status, 'Pending', 'Approved', 'Rejected')", 'ASC')
+            ->orderBy("FIELD(pengajuan_izin.status, 'Pending', 'Approved', 'Rejected')", '', false) // Parameter false mematikan escaping
             ->orderBy('pengajuan_izin.created_at', 'DESC')
             ->get()->getResultArray();
 
