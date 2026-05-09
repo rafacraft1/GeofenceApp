@@ -8,7 +8,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class Laporan extends BaseController
 {
-    private function getRekapData(string $bulan, string $tahun, string $kelasId): array
+    private function getRekapData(string $bulanMulai, string $bulanSelesai, string $tahun, string $kelasId): array
     {
         $builderSiswa = $this->db->table('siswa')
             ->select('siswa.id_siswa, siswa.nis, siswa.nama_siswa, kelas.nama_kelas')
@@ -24,7 +24,8 @@ class Laporan extends BaseController
 
         $builderAbsen = $this->db->table('absensi')
             ->select('siswa_id, status, COUNT(id_absensi) as total')
-            ->where('MONTH(tanggal)', $bulan)
+            ->where('MONTH(tanggal) >=', $bulanMulai)
+            ->where('MONTH(tanggal) <=', $bulanSelesai)
             ->where('YEAR(tanggal)', $tahun);
 
         if (!empty($kelasId)) {
@@ -45,6 +46,8 @@ class Laporan extends BaseController
                 'Sakit'      => 0,
                 'Izin'       => 0,
                 'Alpa'       => 0,
+                'TotalHari'  => 0,
+                'Persentase' => 0,
             ];
         }
 
@@ -56,26 +59,36 @@ class Laporan extends BaseController
             }
         }
 
+        foreach ($rekap as $id => $data) {
+            $hadirAktif = $data['Hadir'] + $data['Terlambat'];
+            $absenAktif = $data['Sakit'] + $data['Izin'] + $data['Alpa'];
+            $totalHari  = $hadirAktif + $absenAktif;
+
+            $rekap[$id]['TotalHari']  = $totalHari;
+            $rekap[$id]['Persentase'] = $totalHari > 0 ? round(($hadirAktif / $totalHari) * 100) : 0;
+        }
+
         return $rekap;
     }
 
     public function index()
     {
-        $bulan   = (string) ($this->request->getGet('bulan') ?? date('m'));
-        $tahun   = (string) ($this->request->getGet('tahun') ?? date('Y'));
-        $kelasId = (string) ($this->request->getGet('kelas') ?? '');
+        $bulanMulai   = (string) ($this->request->getGet('bulan_mulai') ?? date('m'));
+        $bulanSelesai = (string) ($this->request->getGet('bulan_selesai') ?? $bulanMulai);
+        $tahun        = (string) ($this->request->getGet('tahun') ?? date('Y'));
+        $kelasId      = (string) ($this->request->getGet('kelas') ?? '');
 
         $listKelas = $this->db->table('kelas')->orderBy('nama_kelas', 'ASC')->get()->getResultArray();
-
-        $rekapData = $this->getRekapData($bulan, $tahun, $kelasId);
+        $rekapData = $this->getRekapData($bulanMulai, $bulanSelesai, $tahun, $kelasId);
 
         $data = [
-            'title'      => 'Rekapitulasi Kehadiran',
-            'listKelas'  => $listKelas, // PERBAIKAN: disinkronkan menjadi camelCase
-            'bulan'      => $bulan,
-            'tahun'      => $tahun,
-            'kelasId'    => $kelasId,   // PERBAIKAN: disinkronkan menjadi camelCase
-            'rekapData'  => $rekapData
+            'title'        => 'Rekapitulasi Kehadiran',
+            'listKelas'    => $listKelas,
+            'bulanMulai'   => $bulanMulai,
+            'bulanSelesai' => $bulanSelesai,
+            'tahun'        => $tahun,
+            'kelasId'      => $kelasId,
+            'rekapData'    => array_values($rekapData)
         ];
 
         return view('web/laporan/index', $data);
@@ -83,15 +96,12 @@ class Laporan extends BaseController
 
     public function export()
     {
-        $bulan   = (string) $this->request->getGet('bulan');
-        $tahun   = (string) $this->request->getGet('tahun');
-        $kelasId = (string) $this->request->getGet('kelas');
+        $bulanMulai   = (string) $this->request->getGet('bulan_mulai');
+        $bulanSelesai = (string) $this->request->getGet('bulan_selesai');
+        $tahun        = (string) $this->request->getGet('tahun');
+        $kelasId      = (string) $this->request->getGet('kelas');
 
-        if (empty($bulan) || empty($tahun)) {
-            return redirect()->back()->with('error', 'Parameter bulan dan tahun tidak valid.');
-        }
-
-        $rekapData = $this->getRekapData($bulan, $tahun, $kelasId);
+        $rekapData = $this->getRekapData($bulanMulai, $bulanSelesai, $tahun, $kelasId);
 
         $namaKelasStr = 'Semua_Kelas';
         if (!empty($kelasId)) {
@@ -99,32 +109,33 @@ class Laporan extends BaseController
             if ($kelasInfo) $namaKelasStr = str_replace(' ', '_', (string) $kelasInfo['nama_kelas']);
         }
 
-        $namaBulan = date('F', mktime(0, 0, 0, (int)$bulan, 10));
-        $fileName  = "Rekap_Absensi_{$namaKelasStr}_{$namaBulan}_{$tahun}.xlsx";
+        $namaBulanMulai   = date('F', mktime(0, 0, 0, (int)$bulanMulai, 10));
+        $namaBulanSelesai = date('F', mktime(0, 0, 0, (int)$bulanSelesai, 10));
+
+        $periodeStr = ($bulanMulai === $bulanSelesai) ? $namaBulanMulai : "{$namaBulanMulai}_sd_{$namaBulanSelesai}";
+        $fileName   = "Rekap_Absensi_{$namaKelasStr}_{$periodeStr}_{$tahun}.xlsx";
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
 
-        // Judul Laporan
         $sheet->setCellValue('A1', 'REKAPITULASI KEHADIRAN SISWA');
-        $sheet->setCellValue('A2', 'Bulan: ' . $namaBulan . ' ' . $tahun);
-        $sheet->mergeCells('A1:I1');
-        $sheet->mergeCells('A2:I2');
+        $sheet->setCellValue('A2', "Periode: $namaBulanMulai - $namaBulanSelesai $tahun");
+        $sheet->mergeCells('A1:K1');
+        $sheet->mergeCells('A2:K2');
 
-        // Header Tabel
-        $headers = ['No', 'NIS', 'Nama Lengkap', 'Kelas', 'Hadir', 'Terlambat', 'Sakit', 'Izin', 'Alpa'];
+        $headers = ['No', 'NIS', 'Nama Lengkap', 'Kelas', 'Hadir', 'Terlambat', 'Sakit', 'Izin', 'Alpa', 'Total Hari', '% Kehadiran'];
         $col = 'A';
         foreach ($headers as $h) {
             $sheet->setCellValue($col . '4', $h);
+            $sheet->getStyle($col . '4')->getFont()->setBold(true);
             $col++;
         }
 
-        // Isi Data
         $row = 5;
         $no = 1;
         foreach ($rekapData as $data) {
             $sheet->setCellValue('A' . $row, $no++);
-            $sheet->setCellValue('B' . $row, $data['nis']);
+            $sheet->setCellValueExplicit('B' . $row, $data['nis'], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
             $sheet->setCellValue('C' . $row, $data['nama_siswa']);
             $sheet->setCellValue('D' . $row, $data['nama_kelas']);
             $sheet->setCellValue('E' . $row, $data['Hadir']);
@@ -132,7 +143,13 @@ class Laporan extends BaseController
             $sheet->setCellValue('G' . $row, $data['Sakit']);
             $sheet->setCellValue('H' . $row, $data['Izin']);
             $sheet->setCellValue('I' . $row, $data['Alpa']);
+            $sheet->setCellValue('J' . $row, $data['TotalHari']);
+            $sheet->setCellValue('K' . $row, $data['Persentase'] . '%');
             $row++;
+        }
+
+        foreach (range('A', 'K') as $columnID) {
+            $sheet->getColumnDimension($columnID)->setAutoSize(true);
         }
 
         $writer = new Xlsx($spreadsheet);

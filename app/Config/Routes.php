@@ -59,6 +59,8 @@ $routes->group('admin', ['filter' => 'webAuth', 'namespace' => 'App\Controllers\
         $routes->get('user', 'User::index');
         $routes->post('user/store', 'User::store');
         $routes->post('user/delete/(:num)', 'User::delete/$1');
+        // Rute Reset Password ke Default (guru1234)
+        $routes->post('user/reset/(:num)', 'User::reset/$1');
 
         // Manajemen Kelas
         $routes->get('kelas', 'Kelas::index');

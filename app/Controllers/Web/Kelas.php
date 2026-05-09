@@ -19,7 +19,6 @@ class Kelas extends BaseController
         // 1. Cari ID Role untuk 'Guru'
         $roleGuru = $this->db->table('roles')->where('nama_role', 'Guru')->get()->getRowArray();
 
-        // 2. Ambil semua User yang memiliki Role Guru
         $listGuru = [];
         if ($roleGuru) {
             $listGuru = $this->db->table('users')
@@ -28,10 +27,18 @@ class Kelas extends BaseController
                 ->get()->getResultArray();
         }
 
+        // 2. Ambil data kelas beserta hitung jumlah siswanya (Optimasi LEFT JOIN)
+        $kelas = $this->db->table('kelas')
+            ->select('kelas.*, COUNT(siswa.id_siswa) as jumlah_siswa')
+            ->join('siswa', 'siswa.kelas_id = kelas.id_kelas', 'left')
+            ->groupBy('kelas.id_kelas')
+            ->orderBy('nama_kelas', 'ASC')
+            ->get()->getResultArray();
+
         $data = [
             'title'    => 'Manajemen Kelas',
-            'kelas'    => $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll(),
-            'listGuru' => $listGuru // Kirim daftar guru ke View
+            'kelas'    => $kelas,
+            'listGuru' => $listGuru
         ];
 
         return view('web/kelas', $data);
@@ -40,15 +47,14 @@ class Kelas extends BaseController
     public function store()
     {
         $idKelas   = $this->request->getPost('id_kelas');
-        $namaKelas = (string) $this->request->getPost('nama_kelas');
-        $waliKelas = (string) $this->request->getPost('wali_kelas'); // Ini akan berisi Nama Guru
+        $namaKelas = strtoupper(trim((string) $this->request->getPost('nama_kelas')));
+        $waliKelas = (string) $this->request->getPost('wali_kelas');
 
         if (empty($namaKelas)) {
             return redirect()->back()->with('error', 'Nama kelas wajib diisi!');
         }
 
         if (!empty($idKelas)) {
-            // MODE EDIT
             $cekDuplikat = $this->kelasModel->where('nama_kelas', $namaKelas)
                 ->where('id_kelas !=', $idKelas)
                 ->first();
@@ -65,7 +71,6 @@ class Kelas extends BaseController
 
             $pesan = "Data kelas $namaKelas berhasil diperbarui.";
         } else {
-            // MODE TAMBAH BARU
             $cekDuplikat = $this->kelasModel->where('nama_kelas', $namaKelas)->first();
 
             if ($cekDuplikat) {

@@ -14,80 +14,82 @@
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="bg-white rounded-lg shadow-md p-6 h-fit border-t-4 border-blue-600 transition-all" id="form-container">
-            <h2 class="text-lg font-semibold mb-1 text-gray-700" id="form-title">Tambah Kelas Baru</h2>
-            <p class="text-xs text-gray-500 mb-4" id="form-subtitle">Tentukan kelas dan pilih Wali Kelas dari daftar guru.</p>
+        <div class="bg-white rounded-xl shadow-sm p-6 h-fit border-t-4 border-blue-600 transition-all" id="form-container">
+            <h2 class="text-lg font-bold mb-1 text-gray-800" id="form-title">Tambah Kelas Baru</h2>
+            <p class="text-xs text-gray-500 mb-5" id="form-subtitle">Tentukan kelas dan pilih Wali Kelas dari daftar guru.</p>
 
             <form action="<?= base_url('admin/kelas/store') ?>" method="POST" id="form-kelas">
                 <?= csrf_field() ?>
                 <input type="hidden" name="id_kelas" id="id_kelas">
 
                 <div class="mb-4">
-                    <label for="nama_kelas" class="block text-sm font-medium text-gray-700 mb-2">Nama Kelas (Unik)</label>
-                    <input type="text" name="nama_kelas" id="nama_kelas" autocomplete="off" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 outline-none transition-all" placeholder="Contoh: XII RPL 1" required>
+                    <label for="nama_kelas" class="block text-xs font-bold text-gray-600 uppercase mb-2">Nama Kelas</label>
+                    <input type="text" name="nama_kelas" id="nama_kelas" autocomplete="off"
+                        class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all uppercase text-sm"
+                        placeholder="Contoh: XII RPL 1" required>
                 </div>
 
-                <div class="mb-5">
-                    <label for="wali_kelas" class="block text-sm font-medium text-gray-700 mb-2">Pilih Wali Kelas (Guru)</label>
-                    <select name="wali_kelas" id="wali_kelas" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white cursor-pointer">
+                <div class="mb-6">
+                    <label for="wali_kelas" class="block text-xs font-bold text-gray-600 uppercase mb-2">Pilih Wali Kelas</label>
+                    <select name="wali_kelas" id="wali_kelas" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer text-sm">
                         <option value="">-- Tanpa Wali Kelas --</option>
                         <?php foreach ($listGuru as $guru): ?>
                             <option value="<?= esc((string) $guru['nama_lengkap']) ?>"><?= esc((string) $guru['nama_lengkap']) ?></option>
                         <?php endforeach; ?>
                     </select>
-                    <p class="text-[10px] text-gray-400 mt-1">*Hanya menampilkan user dengan peran Guru.</p>
                 </div>
 
                 <div class="flex gap-2">
-                    <button type="reset" onclick="resetForm()" id="btn-cancel" class="w-1/3 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-2 px-4 rounded transition duration-200 hidden">
+                    <button type="reset" onclick="resetForm()" id="btn-cancel" class="w-1/3 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-2 px-4 rounded-lg transition duration-200 hidden text-sm">
                         Batal
                     </button>
-                    <button type="submit" id="btn-submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition duration-200 shadow-lg shadow-blue-200">
+                    <button type="submit" id="btn-submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-lg transition duration-200 shadow-md">
                         Simpan Data
                     </button>
                 </div>
             </form>
         </div>
 
-        <div class="md:col-span-2 bg-white rounded-lg shadow-md overflow-hidden">
+        <div class="md:col-span-2 bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
             <div class="overflow-x-auto">
                 <table class="min-w-full bg-white text-left">
-                    <thead class="bg-gray-50 text-gray-600 uppercase text-[11px] font-bold">
+                    <thead class="bg-gray-50/50 text-gray-500 uppercase text-[10px] font-bold tracking-wider">
                         <tr>
-                            <th class="py-4 px-6">No</th>
-                            <th class="py-4 px-6">Nama Kelas</th>
-                            <th class="py-4 px-6">Wali Kelas</th>
-                            <th class="py-4 px-6 text-center">Aksi</th>
+                            <th class="py-4 px-6 border-b border-gray-100">Informasi Kelas</th>
+                            <th class="py-4 px-6 border-b border-gray-100 text-center">Wali Kelas</th>
+                            <th class="py-4 px-6 border-b border-gray-100 text-center">Siswa</th>
+                            <th class="py-4 px-6 border-b border-gray-100 text-center">Aksi</th>
                         </tr>
                     </thead>
-                    <tbody class="text-gray-600 text-sm divide-y divide-gray-100">
-                        <?php $no = 1;
-                        foreach ($kelas as $k) : ?>
-                            <tr class="hover:bg-blue-50/50 transition-colors group">
-                                <td class="py-3 px-6 whitespace-nowrap font-medium text-gray-500"><?= $no++ ?></td>
-                                <td class="py-3 px-6 font-bold text-gray-800"><?= esc((string) $k['nama_kelas']) ?></td>
-                                <td class="py-3 px-6">
-                                    <span class="inline-flex items-center gap-1.5 font-medium text-gray-600">
-                                        <svg class="w-3 h-3 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-                                            <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"></path>
-                                        </svg>
-                                        <?= esc((string) ($k['wali_kelas'] ?? '-')) ?>
+                    <tbody class="text-gray-600 text-sm divide-y divide-gray-50">
+                        <?php foreach ($kelas as $k) : ?>
+                            <tr class="hover:bg-blue-50/30 transition-colors group">
+                                <td class="py-4 px-6">
+                                    <span class="font-black text-gray-800 tracking-tight"><?= esc((string) $k['nama_kelas']) ?></span>
+                                </td>
+                                <td class="py-4 px-6 text-center italic text-xs text-gray-500">
+                                    <?= esc((string) ($k['wali_kelas'] ?? '-')) ?>
+                                </td>
+                                <td class="py-4 px-6 text-center">
+                                    <span class="bg-blue-50 text-blue-600 text-[10px] font-black px-2 py-1 rounded-md border border-blue-100">
+                                        <?= (int) $k['jumlah_siswa'] ?> Orang
                                     </span>
                                 </td>
-                                <td class="py-3 px-6 text-center">
-                                    <div class="flex item-center justify-center space-x-3">
+                                <td class="py-4 px-6 text-center">
+                                    <div class="flex item-center justify-center space-x-2">
                                         <button type="button"
                                             onclick="fillForm('<?= esc((string) $k['id_kelas']) ?>', '<?= esc((string) $k['nama_kelas'], 'js') ?>', '<?= esc((string) ($k['wali_kelas'] ?? ''), 'js') ?>')"
                                             class="text-blue-500 hover:text-blue-700 transition-transform hover:scale-110 bg-blue-50 p-1.5 rounded-lg border border-blue-100" title="Edit Data">
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                             </svg>
                                         </button>
 
                                         <form action="<?= base_url('admin/kelas/delete/' . (string) $k['id_kelas']) ?>" method="POST" id="form-delete-<?= (string) $k['id_kelas'] ?>" class="inline">
                                             <?= csrf_field() ?>
-                                            <button type="button" onclick="konfirmasiHapusKelas('<?= (string) $k['id_kelas'] ?>', '<?= esc((string) $k['nama_kelas'], 'js') ?>')" class="text-red-500 hover:text-red-700 transition-transform hover:scale-110 bg-red-50 p-1.5 rounded-lg border border-red-100" title="Hapus Kelas">
-                                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <button type="button" onclick="konfirmasiHapusKelas('<?= (string) $k['id_kelas'] ?>', '<?= esc((string) $k['nama_kelas'], 'js') ?>')"
+                                                class="text-red-500 hover:text-red-700 transition-transform hover:scale-110 bg-red-50 p-1.5 rounded-lg border border-red-100" title="Hapus Kelas">
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                 </svg>
                                             </button>
@@ -96,6 +98,11 @@
                                 </td>
                             </tr>
                         <?php endforeach; ?>
+                        <?php if (empty($kelas)): ?>
+                            <tr>
+                                <td colspan="4" class="py-10 text-center text-gray-400 italic">Belum ada data kelas.</td>
+                            </tr>
+                        <?php endif; ?>
                     </tbody>
                 </table>
             </div>
@@ -110,7 +117,7 @@
     function fillForm(id, nama, wali) {
         document.getElementById('id_kelas').value = id;
         document.getElementById('nama_kelas').value = nama;
-        document.getElementById('wali_kelas').value = wali; // Dropdown akan otomatis menyesuaikan berdasarkan nama teks
+        document.getElementById('wali_kelas').value = wali;
 
         document.getElementById('form-title').innerText = 'Edit Kelas';
         document.getElementById('form-subtitle').innerText = 'Mengubah data kelas ' + nama;
@@ -143,7 +150,7 @@
 
     function konfirmasiHapusKelas(id, namaKelas) {
         Swal.fire({
-            title: 'Hapus ' + namaKelas + '?',
+            title: 'Hapus Kelas ' + namaKelas + '?',
             text: "Seluruh data siswa dan absensi di dalamnya akan ikut terhapus!",
             icon: 'warning',
             showCancelButton: true,
