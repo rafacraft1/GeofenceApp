@@ -138,11 +138,13 @@
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <script>
     document.addEventListener("DOMContentLoaded", function() {
         // 1. Inisialisasi Peta (Leaflet)
-        // Menggunakan window.L agar tidak dianggap class PHP oleh resolver
         const map = window.L.map('mapFraud').setView([-6.20000000, 106.81666600], 13);
         window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
@@ -181,7 +183,6 @@
         }
 
         // 2. Bar Chart Trend
-        // Langsung gunakan new window.Chart untuk menghindari peringatan 'Class not imported'
         new window.Chart(document.getElementById('attendanceChart'), {
             type: 'bar',
             data: {

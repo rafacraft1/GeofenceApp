@@ -3,12 +3,14 @@
 namespace App\Controllers\Web;
 
 use App\Controllers\BaseController;
+use App\Models\UserModel;
 
 class AuthWeb extends BaseController
 {
     public function index()
     {
-        if ($this->session->get('logged_in')) {
+        // Gunakan helper session() global CI4
+        if (session()->get('logged_in')) {
             return redirect()->to('/admin/dashboard');
         }
         return view('web/login');
@@ -16,39 +18,43 @@ class AuthWeb extends BaseController
 
     public function login()
     {
-        // Type-casting string yang ketat untuk keamanan & mencegah P1006
+        // 1. Validasi Input Standar CI4
+        $aturanValidasi = [
+            'username' => 'required',
+            'password' => 'required'
+        ];
+
+        if (!$this->validate($aturanValidasi)) {
+            return redirect()->back()->withInput()->with('error', 'Username dan Password wajib diisi.');
+        }
+
         $username = (string) $this->request->getPost('username');
         $password = (string) $this->request->getPost('password');
 
-        // Mengambil data user lengkap dengan nama role-nya menggunakan JOIN
-        $user = $this->db->table('users')
-            ->select('users.*, roles.nama_role')
-            ->join('roles', 'roles.id_role = users.role_id')
-            ->where('username', $username)
-            ->get()
-            ->getRowArray();
+        // 2. Gunakan Model (Sesuai Konsep MVC)
+        $userModel = new UserModel();
+        $user      = $userModel->getUserWithRole($username);
 
-        // Verifikasi keberadaan user dan kecocokan password_hash
+        // 3. Verifikasi & Set Session
         if ($user && password_verify($password, (string) $user['password_hash'])) {
-            $this->session->set([
+            session()->set([
                 'user_id'      => (int) $user['id_user'],
                 'nama_lengkap' => (string) $user['nama_lengkap'],
-                'role_id'      => (int) $user['role_id'], // Ditambahkan untuk memudahkan Filter Akses
+                'role_id'      => (int) $user['role_id'],
                 'role'         => (string) $user['nama_role'],
                 'logged_in'    => true
             ]);
 
-            // Tambahkan flashdata success untuk disambut oleh Toastr di Dashboard
             return redirect()->to('/admin/dashboard')->with('success', 'Selamat datang kembali, ' . $user['nama_lengkap']);
         }
 
-        // withInput() agar jika view punya fungsi old('username'), username tidak perlu diketik ulang
-        return redirect()->to('/admin/login')->withInput()->with('error', 'Username atau Password salah.');
+        // Pesan error generic untuk keamanan (tidak memberi tahu apakah username atau password yang salah)
+        return redirect()->back()->withInput()->with('error', 'Username atau Password tidak valid.');
     }
 
     public function logout()
     {
-        $this->session->destroy();
+        session()->destroy();
         return redirect()->to('/admin/login');
     }
 }

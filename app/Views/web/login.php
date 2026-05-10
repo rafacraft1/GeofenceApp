@@ -39,7 +39,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                         </svg>
                     </div>
-                    <input type="text" name="username" id="username" required class="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-gray-50 focus:bg-white" placeholder="Masukkan username">
+                    <input type="text" name="username" id="username" value="<?= old('username') ?>" required class="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-gray-50 focus:bg-white" placeholder="Masukkan username">
                 </div>
             </div>
 

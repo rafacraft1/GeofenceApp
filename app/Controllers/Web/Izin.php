@@ -3,19 +3,30 @@
 namespace App\Controllers\Web;
 
 use App\Controllers\BaseController;
+use App\Models\PengajuanIzinModel;
+use App\Models\AbsensiModel;
 use CodeIgniter\I18n\Time;
 
 class Izin extends BaseController
 {
+    protected PengajuanIzinModel $izinModel;
+    protected AbsensiModel $absensiModel;
+
+    public function __construct()
+    {
+        $this->izinModel    = new PengajuanIzinModel();
+        $this->absensiModel = new AbsensiModel();
+    }
+
     public function index()
     {
-        $daftarIzin = $this->db->table('pengajuan_izin')
+        $daftarIzin = $this->izinModel
             ->select('pengajuan_izin.*, siswa.nama_siswa, siswa.nis, kelas.nama_kelas')
             ->join('siswa', 'siswa.id_siswa = pengajuan_izin.siswa_id')
             ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left')
             ->orderBy("FIELD(pengajuan_izin.status, 'Pending', 'Approved', 'Rejected')", '', false)
             ->orderBy('pengajuan_izin.created_at', 'DESC')
-            ->get()->getResultArray();
+            ->findAll();
 
         $data = [
             'title'      => 'Manajemen Pengajuan Izin',
@@ -27,18 +38,16 @@ class Izin extends BaseController
 
     public function approve(string $idIzin)
     {
-        $izin = $this->db->table('pengajuan_izin')->where('id_izin', $idIzin)->get()->getRowArray();
+        $izin = $this->izinModel->find($idIzin);
 
         if (!$izin || $izin['status'] !== 'Pending') {
             return redirect()->back()->with('error', 'Data tidak valid atau sudah diproses.');
         }
 
-        $this->db->transStart();
+        // Mulai Transaksi Database Aman
+        $this->izinModel->db->transStart();
 
-        $this->db->table('pengajuan_izin')->where('id_izin', $idIzin)->update([
-            'status'     => 'Approved',
-            'updated_at' => date('Y-m-d H:i:s')
-        ]);
+        $this->izinModel->update($idIzin, ['status' => 'Approved']);
 
         $tglMulai   = Time::parse($izin['tanggal_mulai']);
         $tglSelesai = Time::parse($izin['tanggal_selesai']);
@@ -47,30 +56,29 @@ class Izin extends BaseController
         while ($tglMulai->toDateString() <= $tglSelesai->toDateString()) {
             $tanggalString = $tglMulai->toDateString();
 
-            $this->db->table('absensi')->where([
+            // Hapus data absen yang tumpang tindih menggunakan Model
+            $this->absensiModel->where([
                 'siswa_id' => $izin['siswa_id'],
                 'tanggal'  => $tanggalString
             ])->delete();
 
             $insertData[] = [
-                'siswa_id'    => $izin['siswa_id'],
-                'tanggal'     => $tanggalString,
-                'status'      => $izin['jenis'],
-                'keterangan'  => 'Disetujui via sistem: ' . $izin['alasan'],
-                'created_at'  => date('Y-m-d H:i:s'),
-                'updated_at'  => date('Y-m-d H:i:s')
+                'siswa_id'   => $izin['siswa_id'],
+                'tanggal'    => $tanggalString,
+                'status'     => $izin['jenis'],
+                'keterangan' => 'Disetujui via sistem: ' . $izin['alasan']
             ];
 
             $tglMulai = $tglMulai->addDays(1);
         }
 
         if (!empty($insertData)) {
-            $this->db->table('absensi')->insertBatch($insertData);
+            $this->absensiModel->insertBatch($insertData);
         }
 
-        $this->db->transComplete();
+        $this->izinModel->db->transComplete();
 
-        if ($this->db->transStatus() === false) {
+        if ($this->izinModel->db->transStatus() === false) {
             return redirect()->back()->with('error', 'Terjadi kesalahan sistem saat menyetujui izin.');
         }
 
@@ -79,11 +87,7 @@ class Izin extends BaseController
 
     public function reject(string $idIzin)
     {
-        $this->db->table('pengajuan_izin')->where('id_izin', $idIzin)->update([
-            'status'     => 'Rejected',
-            'updated_at' => date('Y-m-d H:i:s')
-        ]);
-
+        $this->izinModel->update($idIzin, ['status' => 'Rejected']);
         return redirect()->back()->with('success', 'Pengajuan izin telah ditolak.');
     }
 }

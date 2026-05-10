@@ -4,30 +4,33 @@ namespace App\Controllers\Web;
 
 use CodeIgniter\Controller;
 use App\Models\SiswaModel;
+use App\Models\KelasModel;
+use App\Models\AbsensiModel;
+use App\Models\LogFraudModel;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class Siswa extends Controller
 {
-    protected \CodeIgniter\Database\BaseConnection $db;
     protected SiswaModel $siswaModel;
+    protected KelasModel $kelasModel;
+    protected AbsensiModel $absensiModel;
+    protected LogFraudModel $logFraudModel;
 
     public function __construct()
     {
-        $this->db = \Config\Database::connect();
-        $this->siswaModel = new SiswaModel();
+        $this->siswaModel    = new SiswaModel();
+        $this->kelasModel    = new KelasModel();
+        $this->absensiModel  = new AbsensiModel();
+        $this->logFraudModel = new LogFraudModel();
     }
 
     public function index()
     {
         $kelasFilter = $this->request->getGet('kelas');
 
-        // Untuk tabel selain siswa, kita tetap bisa pakai DB Builder atau model masing-masing jika ada
-        $listKelas = $this->db->table('kelas')
-            ->orderBy('nama_kelas', 'ASC')
-            ->get()
-            ->getResultArray();
+        $listKelas = $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll();
 
         $pager   = \Config\Services::pager();
         $page    = (int) ($this->request->getGet('page') ?? 1);
@@ -41,7 +44,7 @@ class Siswa extends Controller
         }
 
         $totalData = $this->siswaModel->countAllResults(false);
-        $offset = ($page - 1) * $perPage;
+        $offset    = ($page - 1) * $perPage;
 
         $siswa = $this->siswaModel->orderBy('kelas.nama_kelas', 'ASC')
             ->orderBy('siswa.nama_siswa', 'ASC')
@@ -66,7 +69,6 @@ class Siswa extends Controller
         $foto = $this->request->getFile('foto');
         $namaFoto = null;
 
-        // Validasi dan Upload Foto
         if ($foto && $foto->isValid() && !$foto->hasMoved()) {
             $aturanValidasi = [
                 'foto' => [
@@ -85,12 +87,12 @@ class Siswa extends Controller
             }
 
             $namaFoto = $foto->getRandomName();
-            $foto->move('uploads/siswa', $namaFoto);
+            // Keamanan: Gunakan FCPATH
+            $foto->move(FCPATH . 'uploads/siswa', $namaFoto);
         }
 
         $nis = $this->request->getPost('nis');
 
-        // created_at & updated_at akan otomatis diisi oleh model karena useTimestamps = true
         $this->siswaModel->insert([
             'nis'          => $nis,
             'nama_siswa'   => $this->request->getPost('nama_siswa'),
@@ -126,10 +128,11 @@ class Siswa extends Controller
             }
 
             $namaFoto = $foto->getRandomName();
-            $foto->move('uploads/siswa', $namaFoto);
+            // Keamanan: Gunakan FCPATH
+            $foto->move(FCPATH . 'uploads/siswa', $namaFoto);
 
-            if (!empty($siswaLama['foto_profil']) && file_exists('uploads/siswa/' . $siswaLama['foto_profil'])) {
-                unlink('uploads/siswa/' . $siswaLama['foto_profil']);
+            if (!empty($siswaLama['foto_profil']) && file_exists(FCPATH . 'uploads/siswa/' . $siswaLama['foto_profil'])) {
+                unlink(FCPATH . 'uploads/siswa/' . $siswaLama['foto_profil']);
             }
         }
 
@@ -147,8 +150,8 @@ class Siswa extends Controller
     {
         $siswa = $this->siswaModel->find($id);
         if ($siswa) {
-            if (!empty($siswa['foto_profil']) && file_exists('uploads/siswa/' . $siswa['foto_profil'])) {
-                unlink('uploads/siswa/' . $siswa['foto_profil']);
+            if (!empty($siswa['foto_profil']) && file_exists(FCPATH . 'uploads/siswa/' . $siswa['foto_profil'])) {
+                unlink(FCPATH . 'uploads/siswa/' . $siswa['foto_profil']);
             }
             $this->siswaModel->delete($id);
         }
@@ -158,10 +161,7 @@ class Siswa extends Controller
 
     public function resetDevice(string $id)
     {
-        $this->siswaModel->update($id, [
-            'device_id'  => null
-        ]);
-
+        $this->siswaModel->update($id, ['device_id' => null]);
         return redirect()->to('/admin/siswa')->with('success', 'Perangkat berhasil di-reset.');
     }
 
@@ -171,7 +171,6 @@ class Siswa extends Controller
             'is_blocked'  => 0,
             'fraud_count' => 0
         ]);
-
         return redirect()->to('/admin/siswa')->with('success', 'Akun siswa berhasil di-unblock dan fraud count di-reset.');
     }
 
@@ -276,29 +275,25 @@ class Siswa extends Controller
 
     public function detail(string $idSiswa)
     {
-        // Memanfaatkan fungsi di dalam SiswaModel
         $siswa = $this->siswaModel->getSiswaWithKelas($idSiswa);
 
         if (!$siswa) {
             return redirect()->to('/admin/siswa')->with('error', 'Data siswa tidak ditemukan.');
         }
 
-        $absensi = $this->db->table('absensi')
-            ->where('siswa_id', $idSiswa)
+        $absensi = $this->absensiModel->where('siswa_id', $idSiswa)
             ->orderBy('tanggal', 'DESC')
-            ->limit(10)
-            ->get()->getResultArray();
+            ->findAll(10);
 
-        $logFraud = $this->db->table('log_fraud')
-            ->where('siswa_id', $idSiswa)
+        $logFraud = $this->logFraudModel->where('siswa_id', $idSiswa)
             ->orderBy('created_at', 'DESC')
-            ->get()->getResultArray();
+            ->findAll(10);
 
-        $statHadir = $this->db->table('absensi')->where(['siswa_id' => $idSiswa, 'status' => 'Hadir'])->countAllResults();
-        $statTelat = $this->db->table('absensi')->where(['siswa_id' => $idSiswa, 'status' => 'Terlambat'])->countAllResults();
-        $statSakit = $this->db->table('absensi')->where(['siswa_id' => $idSiswa, 'status' => 'Sakit'])->countAllResults();
-        $statIzin  = $this->db->table('absensi')->where(['siswa_id' => $idSiswa, 'status' => 'Izin'])->countAllResults();
-        $statAlpa  = $this->db->table('absensi')->where(['siswa_id' => $idSiswa, 'status' => 'Alpa'])->countAllResults();
+        $statHadir = $this->absensiModel->where(['siswa_id' => $idSiswa, 'status' => 'Hadir'])->countAllResults();
+        $statTelat = $this->absensiModel->where(['siswa_id' => $idSiswa, 'status' => 'Terlambat'])->countAllResults();
+        $statSakit = $this->absensiModel->where(['siswa_id' => $idSiswa, 'status' => 'Sakit'])->countAllResults();
+        $statIzin  = $this->absensiModel->where(['siswa_id' => $idSiswa, 'status' => 'Izin'])->countAllResults();
+        $statAlpa  = $this->absensiModel->where(['siswa_id' => $idSiswa, 'status' => 'Alpa'])->countAllResults();
 
         $data = [
             'title'    => 'Profil 360: ' . $siswa['nama_siswa'],

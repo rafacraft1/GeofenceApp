@@ -16,8 +16,8 @@
     <div class="w-full lg:w-80 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-hidden">
         <div class="p-4 border-b bg-gray-50/50">
             <h3 class="font-bold text-gray-800 text-sm mb-3">Monitoring Siswa</h3>
-            <form action="/admin/tracking" method="GET">
-                <select name="kelas_id" onchange="this.form.submit()" class="w-full border-gray-200 rounded-xl p-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
+            <form action="<?= base_url('admin/tracking') ?>" method="GET">
+                <select name="kelas_id" onchange="this.form.submit()" class="w-full border-gray-200 rounded-xl p-2 text-xs outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                     <option value="">-- Semua Kelas --</option>
                     <?php foreach ($list_kelas as $k): ?>
                         <option value="<?= (string)$k['id_kelas'] ?>" <?= ($kelas_aktif == (string)$k['id_kelas']) ? 'selected' : '' ?>>
@@ -32,7 +32,7 @@
             <?php if (!empty($list_siswa)) : ?>
                 <?php foreach ($list_siswa as $s): ?>
                     <button onclick="focusSiswa(<?= esc((string)$s['id_siswa']) ?>, '<?= esc((string)$s['nama_siswa']) ?>')"
-                        class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-blue-50 transition-all text-left group border border-transparent hover:border-blue-100">
+                        class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-blue-50 transition-all text-left group border border-transparent hover:border-blue-100 focus:outline-none">
                         <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-[10px] group-hover:bg-blue-600 group-hover:text-white transition-colors">
                             <?= esc(strtoupper(substr((string)$s['nama_siswa'], 0, 1))) ?>
                         </div>
@@ -72,23 +72,24 @@
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <script>
     let map, marker, circle;
     let currentTargetId = null;
     let intervalId = null;
 
-    // Inisialisasi Map
     document.addEventListener('DOMContentLoaded', function() {
-        map = L.map('map').setView([<?= (string)$config['latitude_sekolah'] ?>, <?= (string)$config['longitude_sekolah'] ?>], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        // Menggunakan window.L secara eksplisit
+        map = window.L.map('map').setView([<?= (string)$config['latitude_sekolah'] ?>, <?= (string)$config['longitude_sekolah'] ?>], 15);
+        window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-        // Marker Sekolah
-        L.marker([<?= (string)$config['latitude_sekolah'] ?>, <?= (string)$config['longitude_sekolah'] ?>])
+        window.L.marker([<?= (string)$config['latitude_sekolah'] ?>, <?= (string)$config['longitude_sekolah'] ?>])
             .addTo(map)
             .bindPopup("<b>Lokasi Sekolah</b><br>Radius: <?= (string)$config['radius_meter'] ?>m").openPopup();
 
-        // Area Geofence
-        L.circle([<?= (string)$config['latitude_sekolah'] ?>, <?= (string)$config['longitude_sekolah'] ?>], {
+        window.L.circle([<?= (string)$config['latitude_sekolah'] ?>, <?= (string)$config['longitude_sekolah'] ?>], {
             color: '#3b82f6',
             fillColor: '#3b82f6',
             fillOpacity: 0.1,
@@ -101,40 +102,37 @@
 
         currentTargetId = idSiswa;
         document.getElementById('target-name').textContent = nama.toUpperCase();
-
-        // Menampilkan tracking status
         document.getElementById('tracking-status').classList.remove('hidden');
 
-        // PERBAIKAN: Menghapus 'hidden' lalu menyisipkan 'flex' melalui JavaScript
         let btnPing = document.getElementById('btn-ping');
         btnPing.classList.remove('hidden');
         btnPing.classList.add('flex');
 
         fetchLocation();
-        intervalId = setInterval(fetchLocation, 5000); // Update otomatis setiap 5 detik
+        intervalId = setInterval(fetchLocation, 5000);
     }
 
     function fetchLocation() {
         if (!currentTargetId) return;
 
-        fetch(`/admin/tracking/getLocation/${currentTargetId}`)
+        fetch(`<?= base_url('admin/tracking/getLocation/') ?>${currentTargetId}`)
             .then(response => response.json())
             .then(data => {
                 if (data.status === 200 && data.lat) {
                     const pos = [data.lat, data.lng];
                     if (marker) map.removeLayer(marker);
-                    marker = L.marker(pos).addTo(map).bindPopup(`<b>${data.nama}</b><br>Terakhir: ${data.last_update}`).openPopup();
+                    marker = window.L.marker(pos).addTo(map).bindPopup(`<b>${data.nama}</b><br>Terakhir: ${data.last_update}`).openPopup();
                     map.panTo(pos);
                 }
-            });
+            }).catch(err => console.log('Menunggu pembaruan radar...'));
     }
 
     function pingSiswa() {
         if (!currentTargetId) return;
 
-        toastr.info("Mengirim sinyal ping...");
+        toastr.info("Mengirim sinyal ping ke perangkat...");
 
-        fetch(`/admin/tracking/pingSiswa/${currentTargetId}`, {
+        fetch(`<?= base_url('admin/tracking/pingSiswa/') ?>${currentTargetId}`, {
                 method: 'POST',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
@@ -144,7 +142,7 @@
             .then(res => res.json())
             .then(res => {
                 if (res.status === 200) toastr.success(res.message);
-                else toastr.error(res.messages.error || "Gagal ping siswa.");
+                else toastr.error(res.message);
             });
     }
 </script>
