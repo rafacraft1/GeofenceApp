@@ -17,18 +17,23 @@ class AuthApi extends ResourceController
 
     public function login()
     {
-        $nis      = $this->request->getPost('nis');
-        $password = (string) $this->request->getPost('password');
-        $deviceId = $this->request->getPost('device_id');
+        $aturanValidasi = [
+            'nis'       => 'required|numeric',
+            'password'  => 'required',
+            'device_id' => 'permit_empty|string'
+        ];
 
-        if (!$nis || !$password) {
-            return $this->failValidationErrors('NIS dan Password wajib diisi.');
+        if (!$this->validate($aturanValidasi)) {
+            return $this->failValidationErrors($this->validator->getErrors());
         }
 
-        // 1. Eksekusi seluruh logika kompleks melalui Service
+        $nis      = (string) $this->request->getPost('nis');
+        $password = (string) $this->request->getPost('password');
+        $deviceId = (string) $this->request->getPost('device_id');
+
+        // Eksekusi logika kompleks melalui Service
         $result = $this->authService->attemptLogin($nis, $password, $deviceId);
 
-        // 2. Mapping format status ke standar RESTful Response CI4
         if ($result['status'] === 404) {
             return $this->failNotFound($result['message']);
         }

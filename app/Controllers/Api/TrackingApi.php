@@ -3,61 +3,62 @@
 namespace App\Controllers\Api;
 
 use CodeIgniter\RESTful\ResourceController;
+use App\Models\SiswaModel;
 
 class TrackingApi extends ResourceController
 {
     protected $format = 'json';
-    protected \CodeIgniter\Database\BaseConnection $db;
+    protected SiswaModel $siswaModel;
 
     public function __construct()
     {
-        $this->db = \Config\Database::connect();
+        $this->siswaModel = new SiswaModel();
     }
 
-    private function getSiswaAuth()
+    private function getSiswaAuth(): array
     {
-        $authHeader = $this->request->getHeaderLine('Authorization');
-        $token = str_replace('Bearer ', '', $authHeader);
-        if (empty($token)) return null;
-
-        return $this->db->table('siswa')->where('api_token', $token)->get()->getRowArray();
+        /** @var mixed $request */
+        $request = $this->request;
+        return (array) $request->siswaAuth;
     }
 
-    // Refactored: update_lokasi -> updateLokasi
     public function updateLokasi()
     {
         $siswa = $this->getSiswaAuth();
-        if (!$siswa) return $this->failUnauthorized('Sesi tidak valid.');
 
-        $lat = $this->request->getPost('lat');
-        $lon = $this->request->getPost('long');
+        $aturanValidasi = [
+            'lat'  => 'required|numeric',
+            'long' => 'required|numeric'
+        ];
 
-        if (!$lat || !$lon) return $this->fail('Koordinat tidak lengkap.');
+        if (!$this->validate($aturanValidasi)) {
+            return $this->failValidationErrors($this->validator->getErrors());
+        }
 
-        // Update database untuk koordinat terakhir (Internal Monitoring)
-        $this->db->table('siswa')->where('id_siswa', $siswa['id_siswa'])->update([
+        // Pemicu update timestamps (Internal Monitoring)
+        // Kita force isi array data agar CI4 mentrigger event beforeUpdate/afterUpdate
+        $this->siswaModel->update($siswa['id_siswa'], [
             'updated_at' => date('Y-m-d H:i:s')
         ]);
 
         return $this->respond(['status' => 200, 'message' => 'Lokasi berhasil diperbarui.']);
     }
 
-    // Refactored: ping_siswa -> pingSiswa
     public function pingSiswa(string $targetId)
     {
         helper('fcm');
 
-        $siswa = $this->db->table('siswa')->where('id_siswa', $targetId)->get()->getRowArray();
+        $siswa = $this->siswaModel->find($targetId);
+
         if (!$siswa || empty($siswa['fcm_token'])) {
-            return $this->failNotFound('Siswa tidak ditemukan atau HP sedang offline.');
+            return $this->failNotFound('Siswa tidak ditemukan atau perangkat sedang offline.');
         }
 
-        // Kirim sinyal "SILENT PING" ke HP Siswa agar app Android mengirim lokasi terbaru
         $result = send_fcm_notification(
             (string) $siswa['fcm_token'],
             "PING_LOCATION",
             "Permintaan lokasi real-time dari Admin.",
-            ['action' => 'fetch_location'] // Data payload untuk trigger background service di Android
+            ['action' => 'fetch_location']
         );
 
         if ($result) {

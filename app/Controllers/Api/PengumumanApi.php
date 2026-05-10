@@ -3,24 +3,23 @@
 namespace App\Controllers\Api;
 
 use CodeIgniter\RESTful\ResourceController;
+use App\Models\PengumumanModel;
 
 class PengumumanApi extends ResourceController
 {
     protected $format = 'json';
-    protected \CodeIgniter\Database\BaseConnection $db;
+    protected PengumumanModel $pengumumanModel;
 
     public function __construct()
     {
-        $this->db = \Config\Database::connect();
+        $this->pengumumanModel = new PengumumanModel();
     }
 
     public function index()
     {
-        $pengumuman = $this->db->table('pengumuman')
+        $pengumuman = $this->pengumumanModel
             ->orderBy('created_at', 'DESC')
-            ->limit(10)
-            ->get()
-            ->getResultArray();
+            ->findAll(10);
 
         return $this->respond([
             'status'  => 200,

@@ -3,33 +3,28 @@
 namespace App\Controllers\Api;
 
 use CodeIgniter\RESTful\ResourceController;
+use App\Models\PengajuanIzinModel;
 
 class IzinApi extends ResourceController
 {
     protected $format = 'json';
-    protected \CodeIgniter\Database\BaseConnection $db;
+    protected PengajuanIzinModel $izinModel;
 
     public function __construct()
     {
-        $this->db = \Config\Database::connect();
+        $this->izinModel = new PengajuanIzinModel();
     }
 
-    private function getSiswaAuth()
+    private function getSiswaAuth(): array
     {
-        $authHeader = $this->request->getHeaderLine('Authorization');
-        $token = \str_replace('Bearer ', '', $authHeader);
-
-        if (empty($token)) return null;
-
-        return $this->db->table('siswa')->where('api_token', $token)->get()->getRowArray();
+        /** @var mixed $request */
+        $request = $this->request;
+        return (array) $request->siswaAuth;
     }
 
     public function ajukan()
     {
         $siswa = $this->getSiswaAuth();
-        if (!$siswa) {
-            return $this->failUnauthorized('Sesi berakhir atau token tidak valid.');
-        }
 
         $aturanValidasi = [
             'tanggal_mulai'   => 'required|valid_date[Y-m-d]',
@@ -41,7 +36,8 @@ class IzinApi extends ResourceController
                 'errors' => [
                     'uploaded' => 'Bukti foto wajib dilampirkan.',
                     'max_size' => 'Ukuran foto maksimal 2MB.',
-                    'is_image' => 'File yang diupload bukan gambar valid.'
+                    'is_image' => 'File yang diupload bukan gambar valid.',
+                    'mime_in'  => 'Hanya file JPG/PNG yang diizinkan.'
                 ]
             ],
         ];
@@ -59,31 +55,37 @@ class IzinApi extends ResourceController
             return $this->failValidationErrors('Tanggal mulai tidak boleh melewati tanggal selesai.');
         }
 
-        // Proses Upload File dengan keamanan tambahan
         $fileBukti = $this->request->getFile('bukti_foto');
-        if (!$fileBukti || !$fileBukti->isValid() || $fileBukti->hasMoved()) {
-            return $this->failValidationErrors('Gagal memproses file foto bukti.');
+
+        if ($fileBukti && $fileBukti->isValid() && !$fileBukti->hasMoved()) {
+            $namaBukti = $fileBukti->getRandomName();
+            // Menggunakan FCPATH untuk menjamin lokasi upload absolut dan aman
+            $fileBukti->move(FCPATH . 'uploads/izin', $namaBukti);
+
+            try {
+                $this->izinModel->insert([
+                    'siswa_id'        => $siswa['id_siswa'],
+                    'tanggal_mulai'   => $tglMulai,
+                    'tanggal_selesai' => $tglSelesai,
+                    'jenis'           => $jenis,
+                    'alasan'          => $alasan,
+                    'bukti_foto'      => $namaBukti,
+                    'status'          => 'Pending'
+                ]);
+
+                return $this->respondCreated([
+                    'status'  => 201,
+                    'message' => 'Pengajuan berhasil dikirim dan menunggu persetujuan admin.'
+                ]);
+            } catch (\Exception $e) {
+                // Rollback File: Hapus file yang sudah terupload jika insert database gagal
+                if (file_exists(FCPATH . 'uploads/izin/' . $namaBukti)) {
+                    unlink(FCPATH . 'uploads/izin/' . $namaBukti);
+                }
+                return $this->failServerError('Gagal menyimpan data pengajuan izin ke database.');
+            }
         }
 
-        $namaBukti = $fileBukti->getRandomName();
-        $fileBukti->move(FCPATH . 'uploads/izin', $namaBukti);
-
-        // Simpan ke database
-        $this->db->table('pengajuan_izin')->insert([
-            'siswa_id'        => $siswa['id_siswa'],
-            'tanggal_mulai'   => $tglMulai,
-            'tanggal_selesai' => $tglSelesai,
-            'jenis'           => $jenis,
-            'alasan'          => $alasan,
-            'bukti_foto'      => $namaBukti,
-            'status'          => 'Pending',
-            'created_at'      => date('Y-m-d H:i:s'),
-            'updated_at'      => date('Y-m-d H:i:s')
-        ]);
-
-        return $this->respondCreated([
-            'status'  => 201,
-            'message' => 'Pengajuan berhasil dikirim dan menunggu persetujuan admin.'
-        ]);
+        return $this->failValidationErrors('Gagal memproses file foto bukti.');
     }
 }

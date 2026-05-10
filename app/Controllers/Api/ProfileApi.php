@@ -15,38 +15,44 @@ class ProfileApi extends ResourceController
         $this->siswaModel = new SiswaModel();
     }
 
-    private function getSiswaAuth()
+    private function getSiswaAuth(): array
     {
-        $authHeader = $this->request->getHeaderLine('Authorization');
-        $token      = str_replace('Bearer ', '', $authHeader);
-
-        if (empty($token)) return null;
-
-        return $this->siswaModel->where('api_token', $token)->first();
+        /** @var mixed $request */
+        $request = $this->request;
+        return (array) $request->siswaAuth;
     }
 
     public function uploadFoto()
     {
         $siswa = $this->getSiswaAuth();
-        if (!$siswa) {
-            return $this->failUnauthorized('Sesi berakhir atau token tidak valid.');
+
+        // Standarisasi Validasi CI4
+        $aturanValidasi = [
+            'foto' => [
+                'rules'  => 'uploaded[foto]|is_image[foto]|mime_in[foto,image/jpg,image/jpeg,image/png]|max_size[foto,2048]',
+                'errors' => [
+                    'uploaded' => 'File foto wajib dipilih.',
+                    'is_image' => 'File harus berupa gambar.',
+                    'mime_in'  => 'Hanya file JPG/PNG yang diizinkan.',
+                    'max_size' => 'Ukuran foto maksimal 2MB.'
+                ]
+            ]
+        ];
+
+        if (!$this->validate($aturanValidasi)) {
+            return $this->failValidationErrors($this->validator->getErrors());
         }
 
         $foto = $this->request->getFile('foto');
 
-        // Validasi tambahan untuk keamanan upload dari API
         if ($foto && $foto->isValid() && !$foto->hasMoved()) {
-
-            if (!$foto->getMimeType() || !in_array($foto->getMimeType(), ['image/jpg', 'image/jpeg', 'image/png'])) {
-                return $this->failValidationErrors('Hanya file JPG/PNG yang diizinkan.');
-            }
-
             $namaFoto = $foto->getRandomName();
-            $foto->move('uploads/siswa', $namaFoto);
+            // Gunakan FCPATH agar path selalu absolut dan aman
+            $foto->move(FCPATH . 'uploads/siswa', $namaFoto);
 
             // Hapus foto lama jika ada
-            if (!empty($siswa['foto_profil']) && file_exists('uploads/siswa/' . $siswa['foto_profil'])) {
-                unlink('uploads/siswa/' . $siswa['foto_profil']);
+            if (!empty($siswa['foto_profil']) && file_exists(FCPATH . 'uploads/siswa/' . $siswa['foto_profil'])) {
+                unlink(FCPATH . 'uploads/siswa/' . $siswa['foto_profil']);
             }
 
             $this->siswaModel->update($siswa['id_siswa'], [
@@ -60,6 +66,6 @@ class ProfileApi extends ResourceController
             ]);
         }
 
-        return $this->failValidationErrors('File foto tidak valid atau terlalu besar.');
+        return $this->failServerError('Gagal memproses file foto.');
     }
 }

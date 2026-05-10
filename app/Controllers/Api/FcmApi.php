@@ -3,43 +3,41 @@
 namespace App\Controllers\Api;
 
 use CodeIgniter\RESTful\ResourceController;
+use App\Models\SiswaModel;
 
 class FcmApi extends ResourceController
 {
     protected $format = 'json';
-    protected \CodeIgniter\Database\BaseConnection $db;
+    protected SiswaModel $siswaModel;
 
     public function __construct()
     {
-        $this->db = \Config\Database::connect();
+        $this->siswaModel = new SiswaModel();
     }
 
-    private function getSiswaAuth()
+    private function getSiswaAuth(): array
     {
-        $authHeader = $this->request->getHeaderLine('Authorization');
-        $token = \str_replace('Bearer ', '', $authHeader);
-
-        if (empty($token)) return null;
-
-        return $this->db->table('siswa')->where('api_token', $token)->get()->getRowArray();
+        /** @var mixed $request */
+        $request = $this->request;
+        return (array) $request->siswaAuth;
     }
 
     public function updateToken()
     {
         $siswa = $this->getSiswaAuth();
-        if (!$siswa) {
-            return $this->failUnauthorized('Sesi tidak valid atau telah kedaluwarsa.');
+
+        $aturanValidasi = [
+            'fcm_token' => 'required'
+        ];
+
+        if (!$this->validate($aturanValidasi)) {
+            return $this->failValidationErrors('FCM Token wajib dikirim.');
         }
 
         $fcmToken = (string) $this->request->getPost('fcm_token');
 
-        if (empty($fcmToken)) {
-            return $this->failValidationErrors('FCM Token wajib dikirim.');
-        }
-
-        $this->db->table('siswa')->where('id_siswa', $siswa['id_siswa'])->update([
-            'fcm_token'  => $fcmToken,
-            'updated_at' => date('Y-m-d H:i:s')
+        $this->siswaModel->update($siswa['id_siswa'], [
+            'fcm_token' => $fcmToken
         ]);
 
         return $this->respond([
