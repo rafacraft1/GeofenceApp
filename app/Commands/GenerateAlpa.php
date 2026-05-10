@@ -6,6 +6,9 @@ use CodeIgniter\CLI\BaseCommand;
 use CodeIgniter\CLI\CLI;
 use CodeIgniter\I18n\Time;
 use App\Models\SiswaModel;
+use App\Models\AbsensiModel;
+use App\Models\HariLiburModel;
+use App\Models\JadwalAbsenModel;
 
 class GenerateAlpa extends BaseCommand
 {
@@ -15,40 +18,42 @@ class GenerateAlpa extends BaseCommand
 
     public function run(array $params)
     {
-        $db = \Config\Database::connect();
-        $siswaModel = new SiswaModel();
+        $siswaModel   = new SiswaModel();
+        $absensiModel = new AbsensiModel();
+        $liburModel   = new HariLiburModel();
+        $jadwalModel  = new JadwalAbsenModel();
 
         $timezone       = env('app.appTimezone', 'Asia/Jakarta');
         $waktu_sekarang = Time::now($timezone);
         $hari_ini       = $waktu_sekarang->toDateString();
         $jam_sekarang   = $waktu_sekarang->toTimeString();
-        $kode_hari      = $waktu_sekarang->format('N');
+        $kode_hari      = $waktu_sekarang->format('N'); // 1 (Senin) - 7 (Minggu)
 
         CLI::write("Memulai proses Generate Alpa untuk tanggal: {$hari_ini}...", 'yellow');
 
         // 1. Cek Hari Libur Nasional
-        $libur = $db->table('hari_libur')->where('tanggal', $hari_ini)->get()->getRow();
+        $libur = $liburModel->where('tanggal', $hari_ini)->first();
         if ($libur) {
-            CLI::write("Hari ini adalah hari libur: {$libur->keterangan}. Proses dihentikan.", 'green');
+            CLI::write("Hari ini adalah hari libur: {$libur['keterangan']}. Proses dihentikan.", 'green');
             return;
         }
 
         // 2. Cek Jadwal Mingguan
-        $jadwal = $db->table('jadwal_absen')->where('kode_hari', $kode_hari)->get()->getRow();
-        if (!$jadwal || $jadwal->is_libur == 1) {
-            CLI::write("Hari ini adalah akhir pekan / diliburkan. Proses dihentikan.", 'green');
+        $jadwal = $jadwalModel->where('kode_hari', $kode_hari)->first();
+        if (!$jadwal || $jadwal['is_libur'] == 1) {
+            CLI::write("Hari ini adalah akhir pekan/libur reguler. Proses dihentikan.", 'green');
             return;
         }
 
-        // 3. Validasi Waktu Eksekusi (Harus setelah jam masuk selesai)
-        if ($jam_sekarang < $jadwal->jam_masuk) {
-            CLI::write("Belum melampaui batas jam masuk ({$jadwal->jam_masuk}). Proses dihentikan.", 'red');
+        // 3. Validasi Waktu Eksekusi
+        // Jangan jalankan jika belum melewati jam masuk (mencegah Alpa prematur)
+        if ($jam_sekarang < $jadwal['jam_masuk']) {
+            CLI::write("Belum melampaui batas jam masuk ({$jadwal['jam_masuk']}). Proses dihentikan.", 'red');
             return;
         }
 
-        // 4. Ambil Siswa yang belum absen (Memanfaatkan Subquery & Indexing)
-        // Jauh lebih cepat dan hemat memori dibandingkan array_diff
-        $subqueryAbsensi = $db->table('absensi')->select('siswa_id')->where('tanggal', $hari_ini);
+        // 4. Ambil Siswa yang belum absen (Memanfaatkan Subquery & Indexing via Model Builder)
+        $subqueryAbsensi = $absensiModel->builder()->select('siswa_id')->where('tanggal', $hari_ini);
 
         $siswaBelumAbsen = $siswaModel->select('id_siswa')
             ->where('is_blocked', 0)
@@ -61,7 +66,7 @@ class GenerateAlpa extends BaseCommand
         }
 
         // 5. Insert Batch Status Alpa
-        $insertData = [];
+        $insertData  = [];
         $waktuInsert = $waktu_sekarang->toDateTimeString();
 
         foreach ($siswaBelumAbsen as $siswa) {
@@ -75,10 +80,10 @@ class GenerateAlpa extends BaseCommand
             ];
         }
 
-        // Insert batch untuk performa database maksimal
-        $db->table('absensi')->insertBatch($insertData);
+        // Insert batch melalui Model
+        $absensiModel->insertBatch($insertData);
 
         $total = count($insertData);
-        CLI::write("Berhasil men-generate status Alpa untuk {$total} siswa.", 'green');
+        CLI::write("BERHASIL! {$total} siswa telah ditandai Alpa.", 'green');
     }
 }

@@ -3,18 +3,22 @@
 namespace App\Controllers\Web;
 
 use App\Controllers\BaseController;
+use App\Models\PengaturanModel;
 
 class Pengaturan extends BaseController
 {
-    // $this->db sudah diinisialisasi otomatis oleh BaseController
+    protected PengaturanModel $pengaturanModel;
+
+    public function __construct()
+    {
+        $this->pengaturanModel = new PengaturanModel();
+    }
 
     public function index()
     {
-        $config = $this->db->table('pengaturan')->where('id_pengaturan', 1)->get()->getRowArray();
-
         $data = [
             'title'  => 'Pengaturan Sistem',
-            'config' => $config
+            'config' => $this->pengaturanModel->find(1)
         ];
 
         return view('web/pengaturan', $data);
@@ -26,21 +30,20 @@ class Pengaturan extends BaseController
             'latitude_sekolah'  => 'required',
             'longitude_sekolah' => 'required',
             'radius_meter'      => 'required|numeric',
-            'firebase_url'      => 'permit_empty|valid_url', // Fleksibel jika kosong
+            'firebase_url'      => 'permit_empty|valid_url'
         ];
 
         if (!$this->validate($rules)) {
             return redirect()->back()->withInput()->with('error', 'Data tidak valid: ' . $this->validator->listErrors());
         }
 
-        $this->db->table('pengaturan')->where('id_pengaturan', 1)->update([
-            'latitude_sekolah'  => $this->request->getPost('latitude_sekolah'),
-            'longitude_sekolah' => $this->request->getPost('longitude_sekolah'),
-            'radius_meter'      => $this->request->getPost('radius_meter'),
-            'firebase_url'      => $this->request->getPost('firebase_url'),
-            'updated_at'        => date('Y-m-d H:i:s')
-        ]);
+        $this->pengaturanModel->update(1, [
+            'latitude_sekolah'  => (string) $this->request->getPost('latitude_sekolah'),
+            'longitude_sekolah' => (string) $this->request->getPost('longitude_sekolah'),
+            'radius_meter'      => (int) $this->request->getPost('radius_meter'),
+            'firebase_url'      => (string) $this->request->getPost('firebase_url')
+        ]); // updated_at diurus otomatis jika di set useTimestamps = true di pengaturan model
 
-        return redirect()->to('/admin/pengaturan')->with('success', 'Pengaturan sistem berhasil diperbarui.');
+        return redirect()->back()->with('success', 'Konfigurasi sistem berhasil diperbarui.');
     }
 }

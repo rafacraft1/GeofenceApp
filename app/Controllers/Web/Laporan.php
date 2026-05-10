@@ -3,69 +3,84 @@
 namespace App\Controllers\Web;
 
 use App\Controllers\BaseController;
+use App\Models\SiswaModel;
+use App\Models\AbsensiModel;
+use App\Models\KelasModel;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class Laporan extends BaseController
 {
+    protected SiswaModel $siswaModel;
+    protected AbsensiModel $absensiModel;
+    protected KelasModel $kelasModel;
+
+    public function __construct()
+    {
+        $this->siswaModel   = new SiswaModel();
+        $this->absensiModel = new AbsensiModel();
+        $this->kelasModel   = new KelasModel();
+    }
+
     private function getRekapData(string $bulanMulai, string $bulanSelesai, string $tahun, string $kelasId): array
     {
-        $builderSiswa = $this->db->table('siswa')
-            ->select('siswa.id_siswa, siswa.nis, siswa.nama_siswa, kelas.nama_kelas')
+        // 1. Ambil Data Siswa beserta Kelas
+        $this->siswaModel->select('siswa.id_siswa, siswa.nis, siswa.nama_siswa, kelas.nama_kelas')
             ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
 
         if (!empty($kelasId)) {
-            $builderSiswa->where('siswa.kelas_id', $kelasId);
+            $this->siswaModel->where('siswa.kelas_id', $kelasId);
         }
 
-        $listSiswa = $builderSiswa->orderBy('kelas.nama_kelas', 'ASC')
+        $listSiswa = $this->siswaModel->orderBy('kelas.nama_kelas', 'ASC')
             ->orderBy('siswa.nama_siswa', 'ASC')
-            ->get()->getResultArray();
+            ->findAll();
 
-        $builderAbsen = $this->db->table('absensi')
-            ->select('siswa_id, status, COUNT(id_absensi) as total')
-            ->where('MONTH(tanggal) >=', $bulanMulai)
-            ->where('MONTH(tanggal) <=', $bulanSelesai)
-            ->where('YEAR(tanggal)', $tahun);
+        // 2. Ambil Agregasi Data Absensi (Hitung total status per siswa)
+        $this->absensiModel->select('absensi.siswa_id, absensi.status, COUNT(absensi.id_absensi) as total')
+            ->where('MONTH(absensi.tanggal) >=', $bulanMulai)
+            ->where('MONTH(absensi.tanggal) <=', $bulanSelesai)
+            ->where('YEAR(absensi.tanggal)', $tahun);
 
         if (!empty($kelasId)) {
-            $builderAbsen->join('siswa', 'siswa.id_siswa = absensi.siswa_id')
+            $this->absensiModel->join('siswa', 'siswa.id_siswa = absensi.siswa_id')
                 ->where('siswa.kelas_id', $kelasId);
         }
 
-        $dataAbsen = $builderAbsen->groupBy('siswa_id, status')->get()->getResultArray();
+        $dataAbsen = $this->absensiModel->groupBy('absensi.siswa_id, absensi.status')->findAll();
 
+        // 3. Mapping Data Absensi ke Memori (Efisiensi O(1) Lookups)
+        $absenMap = [];
+        foreach ($dataAbsen as $row) {
+            $absenMap[$row['siswa_id']][$row['status']] = (int) $row['total'];
+        }
+
+        // 4. Penggabungan Data Final
         $rekap = [];
-        foreach ($listSiswa as $s) {
-            $rekap[$s['id_siswa']] = [
-                'nis'        => $s['nis'],
-                'nama_siswa' => $s['nama_siswa'],
-                'nama_kelas' => $s['nama_kelas'] ?? '-',
-                'Hadir'      => 0,
-                'Terlambat'  => 0,
-                'Sakit'      => 0,
-                'Izin'       => 0,
-                'Alpa'       => 0,
-                'TotalHari'  => 0,
-                'Persentase' => 0,
+        foreach ($listSiswa as $siswa) {
+            $id        = $siswa['id_siswa'];
+            $hadir     = $absenMap[$id]['Hadir'] ?? 0;
+            $terlambat = $absenMap[$id]['Terlambat'] ?? 0;
+            $sakit     = $absenMap[$id]['Sakit'] ?? 0;
+            $izin      = $absenMap[$id]['Izin'] ?? 0;
+            $alpa      = $absenMap[$id]['Alpa'] ?? 0;
+
+            $totalKehadiran = $hadir + $terlambat;
+            $totalHari      = $totalKehadiran + $sakit + $izin + $alpa;
+            $persentase     = ($totalHari > 0) ? round(($totalKehadiran / $totalHari) * 100, 2) : 0;
+
+            $rekap[] = [
+                'nis'        => $siswa['nis'],
+                'nama_siswa' => $siswa['nama_siswa'],
+                'nama_kelas' => $siswa['nama_kelas'] ?? '-',
+                'Hadir'      => $hadir,
+                'Terlambat'  => $terlambat,
+                'Sakit'      => $sakit,
+                'Izin'       => $izin,
+                'Alpa'       => $alpa,
+                'TotalHari'  => $totalHari,
+                'Persentase' => $persentase
             ];
-        }
-
-        foreach ($dataAbsen as $ab) {
-            $sId = $ab['siswa_id'];
-            $status = $ab['status'];
-            if (isset($rekap[$sId]) && isset($rekap[$sId][$status])) {
-                $rekap[$sId][$status] = (int) $ab['total'];
-            }
-        }
-
-        foreach ($rekap as $id => $data) {
-            $hadirAktif = $data['Hadir'] + $data['Terlambat'];
-            $absenAktif = $data['Sakit'] + $data['Izin'] + $data['Alpa'];
-            $totalHari  = $hadirAktif + $absenAktif;
-
-            $rekap[$id]['TotalHari']  = $totalHari;
-            $rekap[$id]['Persentase'] = $totalHari > 0 ? round(($hadirAktif / $totalHari) * 100) : 0;
         }
 
         return $rekap;
@@ -73,22 +88,21 @@ class Laporan extends BaseController
 
     public function index()
     {
-        $bulanMulai   = (string) ($this->request->getGet('bulan_mulai') ?? date('m'));
-        $bulanSelesai = (string) ($this->request->getGet('bulan_selesai') ?? $bulanMulai);
-        $tahun        = (string) ($this->request->getGet('tahun') ?? date('Y'));
-        $kelasId      = (string) ($this->request->getGet('kelas') ?? '');
+        $bulanMulai   = $this->request->getGet('bulan_mulai') ?? date('m');
+        $bulanSelesai = $this->request->getGet('bulan_selesai') ?? date('m');
+        $tahun        = $this->request->getGet('tahun') ?? date('Y');
+        $kelasId      = $this->request->getGet('kelas_id');
 
-        $listKelas = $this->db->table('kelas')->orderBy('nama_kelas', 'ASC')->get()->getResultArray();
-        $rekapData = $this->getRekapData($bulanMulai, $bulanSelesai, $tahun, $kelasId);
+        $rekapData = $this->getRekapData($bulanMulai, $bulanSelesai, $tahun, (string)$kelasId);
 
         $data = [
-            'title'        => 'Rekapitulasi Kehadiran',
-            'listKelas'    => $listKelas,
-            'bulanMulai'   => $bulanMulai,
-            'bulanSelesai' => $bulanSelesai,
-            'tahun'        => $tahun,
-            'kelasId'      => $kelasId,
-            'rekapData'    => array_values($rekapData)
+            'title'         => 'Laporan Kehadiran',
+            'rekapData'     => $rekapData,
+            'list_kelas'    => $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll(),
+            'bulan_mulai'   => $bulanMulai,
+            'bulan_selesai' => $bulanSelesai,
+            'tahun'         => $tahun,
+            'kelas_aktif'   => $kelasId
         ];
 
         return view('web/laporan/index', $data);
@@ -96,34 +110,21 @@ class Laporan extends BaseController
 
     public function export()
     {
-        $bulanMulai   = (string) $this->request->getGet('bulan_mulai');
-        $bulanSelesai = (string) $this->request->getGet('bulan_selesai');
-        $tahun        = (string) $this->request->getGet('tahun');
-        $kelasId      = (string) $this->request->getGet('kelas');
+        $bulanMulai   = $this->request->getGet('bulan_mulai') ?? date('m');
+        $bulanSelesai = $this->request->getGet('bulan_selesai') ?? date('m');
+        $tahun        = $this->request->getGet('tahun') ?? date('Y');
+        $kelasId      = $this->request->getGet('kelas_id');
 
-        $rekapData = $this->getRekapData($bulanMulai, $bulanSelesai, $tahun, $kelasId);
-
-        $namaKelasStr = 'Semua_Kelas';
-        if (!empty($kelasId)) {
-            $kelasInfo = $this->db->table('kelas')->where('id_kelas', $kelasId)->get()->getRowArray();
-            if ($kelasInfo) $namaKelasStr = str_replace(' ', '_', (string) $kelasInfo['nama_kelas']);
-        }
-
-        $namaBulanMulai   = date('F', mktime(0, 0, 0, (int)$bulanMulai, 10));
-        $namaBulanSelesai = date('F', mktime(0, 0, 0, (int)$bulanSelesai, 10));
-
-        $periodeStr = ($bulanMulai === $bulanSelesai) ? $namaBulanMulai : "{$namaBulanMulai}_sd_{$namaBulanSelesai}";
-        $fileName   = "Rekap_Absensi_{$namaKelasStr}_{$periodeStr}_{$tahun}.xlsx";
+        $rekapData = $this->getRekapData($bulanMulai, $bulanSelesai, $tahun, (string)$kelasId);
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
 
         $sheet->setCellValue('A1', 'REKAPITULASI KEHADIRAN SISWA');
-        $sheet->setCellValue('A2', "Periode: $namaBulanMulai - $namaBulanSelesai $tahun");
-        $sheet->mergeCells('A1:K1');
-        $sheet->mergeCells('A2:K2');
+        $sheet->setCellValue('A2', "PERIODE: Bulan $bulanMulai s/d $bulanSelesai Tahun $tahun");
+        $sheet->getStyle('A1:A2')->getFont()->setBold(true);
 
-        $headers = ['No', 'NIS', 'Nama Lengkap', 'Kelas', 'Hadir', 'Terlambat', 'Sakit', 'Izin', 'Alpa', 'Total Hari', '% Kehadiran'];
+        $headers = ['No', 'NIS', 'Nama Lengkap', 'Kelas', 'Hadir', 'Terlambat', 'Sakit', 'Izin', 'Alpa', 'Total Hari', 'Persentase'];
         $col = 'A';
         foreach ($headers as $h) {
             $sheet->setCellValue($col . '4', $h);
@@ -154,7 +155,7 @@ class Laporan extends BaseController
 
         $writer = new Xlsx($spreadsheet);
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        header('Content-Disposition: attachment;filename="' . $fileName . '"');
+        header('Content-Disposition: attachment;filename="Rekap_Absensi_' . $tahun . '_' . $bulanMulai . '-' . $bulanSelesai . '.xlsx"');
         header('Cache-Control: max-age=0');
         $writer->save('php://output');
         exit;

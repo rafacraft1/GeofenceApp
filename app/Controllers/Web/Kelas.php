@@ -4,36 +4,45 @@ namespace App\Controllers\Web;
 
 use App\Controllers\BaseController;
 use App\Models\KelasModel;
+use App\Models\RoleModel;
+use App\Models\UserModel;
+use App\Models\SiswaModel;
 
 class Kelas extends BaseController
 {
     protected KelasModel $kelasModel;
+    protected RoleModel $roleModel;
+    protected UserModel $userModel;
+    protected SiswaModel $siswaModel;
 
     public function __construct()
     {
         $this->kelasModel = new KelasModel();
+        $this->roleModel  = new RoleModel();
+        $this->userModel  = new UserModel();
+        $this->siswaModel = new SiswaModel();
     }
 
     public function index()
     {
-        // 1. Cari ID Role untuk 'Guru'
-        $roleGuru = $this->db->table('roles')->where('nama_role', 'Guru')->get()->getRowArray();
+        // Menggunakan Model untuk mengambil Role
+        $roleGuru = $this->roleModel->where('nama_role', 'Guru')->first();
 
         $listGuru = [];
         if ($roleGuru) {
-            $listGuru = $this->db->table('users')
+            $listGuru = $this->userModel
                 ->where('role_id', $roleGuru['id_role'])
                 ->orderBy('nama_lengkap', 'ASC')
-                ->get()->getResultArray();
+                ->findAll();
         }
 
-        // 2. Ambil data kelas beserta hitung jumlah siswanya (Optimasi LEFT JOIN)
-        $kelas = $this->db->table('kelas')
+        // Menggunakan KelasModel untuk optimasi LEFT JOIN
+        $kelas = $this->kelasModel
             ->select('kelas.*, COUNT(siswa.id_siswa) as jumlah_siswa')
             ->join('siswa', 'siswa.kelas_id = kelas.id_kelas', 'left')
             ->groupBy('kelas.id_kelas')
             ->orderBy('nama_kelas', 'ASC')
-            ->get()->getResultArray();
+            ->findAll();
 
         $data = [
             'title'    => 'Manajemen Kelas',
@@ -47,15 +56,21 @@ class Kelas extends BaseController
     public function store()
     {
         $idKelas   = $this->request->getPost('id_kelas');
-        $namaKelas = strtoupper(trim((string) $this->request->getPost('nama_kelas')));
-        $waliKelas = (string) $this->request->getPost('wali_kelas');
+        $namaKelas = trim((string) $this->request->getPost('nama_kelas'));
+        $waliKelas = trim((string) $this->request->getPost('wali_kelas'));
 
-        if (empty($namaKelas)) {
-            return redirect()->back()->with('error', 'Nama kelas wajib diisi!');
+        $aturanValidasi = [
+            'nama_kelas' => 'required',
+            'wali_kelas' => 'required'
+        ];
+
+        if (!$this->validate($aturanValidasi)) {
+            return redirect()->back()->with('error', 'Nama kelas dan Wali kelas wajib diisi.');
         }
 
         if (!empty($idKelas)) {
-            $cekDuplikat = $this->kelasModel->where('nama_kelas', $namaKelas)
+            $cekDuplikat = $this->kelasModel
+                ->where('nama_kelas', $namaKelas)
                 ->where('id_kelas !=', $idKelas)
                 ->first();
 
@@ -63,10 +78,10 @@ class Kelas extends BaseController
                 return redirect()->back()->with('error', 'Gagal update: Nama kelas "' . $namaKelas . '" sudah digunakan.');
             }
 
+            // updated_at otomatis dihandle oleh CI4 Model
             $this->kelasModel->update($idKelas, [
                 'nama_kelas' => $namaKelas,
-                'wali_kelas' => $waliKelas,
-                'updated_at' => date('Y-m-d H:i:s')
+                'wali_kelas' => $waliKelas
             ]);
 
             $pesan = "Data kelas $namaKelas berhasil diperbarui.";
@@ -77,10 +92,10 @@ class Kelas extends BaseController
                 return redirect()->back()->with('error', 'Gagal: Kelas "' . $namaKelas . '" sudah terdaftar.');
             }
 
-            $this->kelasModel->save([
+            // created_at otomatis dihandle oleh CI4 Model
+            $this->kelasModel->insert([
                 'nama_kelas' => $namaKelas,
-                'wali_kelas' => $waliKelas,
-                'created_at' => date('Y-m-d H:i:s')
+                'wali_kelas' => $waliKelas
             ]);
 
             $pesan = "Kelas baru $namaKelas berhasil ditambahkan.";
@@ -91,15 +106,18 @@ class Kelas extends BaseController
 
     public function delete(string $id)
     {
-        $this->db->transStart();
-        $this->db->table('siswa')->where('kelas_id', $id)->delete();
-        $this->kelasModel->delete($id);
-        $this->db->transComplete();
+        $this->kelasModel->db->transStart();
 
-        if ($this->db->transStatus() === false) {
+        // Hapus siswa terkait menggunakan Model
+        $this->siswaModel->where('kelas_id', $id)->delete();
+        $this->kelasModel->delete($id);
+
+        $this->kelasModel->db->transComplete();
+
+        if ($this->kelasModel->db->transStatus() === false) {
             return redirect()->to('/admin/kelas')->with('error', 'Gagal menghapus kelas.');
         }
 
-        return redirect()->to('/admin/kelas')->with('success', 'Data kelas dan seluruh siswa di dalamnya berhasil dihapus.');
+        return redirect()->to('/admin/kelas')->with('success', 'Kelas beserta seluruh siswa di dalamnya berhasil dihapus.');
     }
 }
