@@ -3,10 +3,18 @@
 namespace App\Controllers\Web;
 
 use App\Controllers\BaseController;
+use App\Models\SiswaModel;
 use CodeIgniter\I18n\Time;
 
 class Dashboard extends BaseController
 {
+    protected SiswaModel $siswaModel;
+
+    public function __construct()
+    {
+        $this->siswaModel = new SiswaModel();
+    }
+
     public function index()
     {
         $hariIni = Time::now('Asia/Jakarta')->toDateString();
@@ -14,7 +22,8 @@ class Dashboard extends BaseController
         // 1. Mengambil Statistik Utama Hari Ini
         $data = [
             'title'          => 'Dashboard Analytics',
-            'total_siswa'    => $this->db->table('siswa')->countAllResults(),
+            // Refactor: Menggunakan SiswaModel
+            'total_siswa'    => $this->siswaModel->countAllResults(),
             'hadir_hari_ini' => $this->db->table('absensi')->where('tanggal', $hariIni)->whereIn('status', ['Hadir', 'Terlambat'])->countAllResults(),
             'alpa_hari_ini'  => $this->db->table('absensi')->where('tanggal', $hariIni)->where('status', 'Alpa')->countAllResults(),
             'fraud_hari_ini' => $this->db->table('absensi')->where('tanggal', $hariIni)->groupStart()->where('status', 'Manipulasi')->orWhere('is_fake_gps', 1)->groupEnd()->countAllResults(),

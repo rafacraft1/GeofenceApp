@@ -3,15 +3,16 @@
 namespace App\Controllers\Api;
 
 use CodeIgniter\RESTful\ResourceController;
+use App\Models\SiswaModel;
 
 class ProfileApi extends ResourceController
 {
     protected $format = 'json';
-    protected \CodeIgniter\Database\BaseConnection $db;
+    protected SiswaModel $siswaModel;
 
     public function __construct()
     {
-        $this->db = \Config\Database::connect();
+        $this->siswaModel = new SiswaModel();
     }
 
     private function getSiswaAuth()
@@ -21,7 +22,7 @@ class ProfileApi extends ResourceController
 
         if (empty($token)) return null;
 
-        return $this->db->table('siswa')->where('api_token', $token)->get()->getRowArray();
+        return $this->siswaModel->where('api_token', $token)->first();
     }
 
     public function uploadFoto()
@@ -33,18 +34,23 @@ class ProfileApi extends ResourceController
 
         $foto = $this->request->getFile('foto');
 
+        // Validasi tambahan untuk keamanan upload dari API
         if ($foto && $foto->isValid() && !$foto->hasMoved()) {
-            $namaFoto = $foto->getRandomName();
-            $foto->move(FCPATH . 'uploads/siswa', $namaFoto);
 
-            // Hapus foto lama jika ada
-            if (!empty($siswa['foto_profil']) && file_exists(FCPATH . 'uploads/siswa/' . $siswa['foto_profil'])) {
-                unlink(FCPATH . 'uploads/siswa/' . $siswa['foto_profil']);
+            if (!$foto->getMimeType() || !in_array($foto->getMimeType(), ['image/jpg', 'image/jpeg', 'image/png'])) {
+                return $this->failValidationErrors('Hanya file JPG/PNG yang diizinkan.');
             }
 
-            $this->db->table('siswa')->where('id_siswa', $siswa['id_siswa'])->update([
-                'foto_profil' => $namaFoto,
-                'updated_at'  => date('Y-m-d H:i:s')
+            $namaFoto = $foto->getRandomName();
+            $foto->move('uploads/siswa', $namaFoto);
+
+            // Hapus foto lama jika ada
+            if (!empty($siswa['foto_profil']) && file_exists('uploads/siswa/' . $siswa['foto_profil'])) {
+                unlink('uploads/siswa/' . $siswa['foto_profil']);
+            }
+
+            $this->siswaModel->update($siswa['id_siswa'], [
+                'foto_profil' => $namaFoto
             ]);
 
             return $this->respond([

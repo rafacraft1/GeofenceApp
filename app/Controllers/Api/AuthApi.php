@@ -3,15 +3,16 @@
 namespace App\Controllers\Api;
 
 use CodeIgniter\RESTful\ResourceController;
+use App\Models\SiswaModel;
 
 class AuthApi extends ResourceController
 {
     protected $format = 'json';
-    protected \CodeIgniter\Database\BaseConnection $db;
+    protected SiswaModel $siswaModel;
 
     public function __construct()
     {
-        $this->db = \Config\Database::connect();
+        $this->siswaModel = new SiswaModel();
     }
 
     public function login()
@@ -24,7 +25,8 @@ class AuthApi extends ResourceController
             return $this->failValidationErrors('NIS dan Password wajib diisi.');
         }
 
-        $siswa = $this->db->table('siswa')->where('nis', $nis)->get()->getRowArray();
+        // Menggunakan SiswaModel (Otomatis mengembalikan Array)
+        $siswa = $this->siswaModel->where('nis', $nis)->first();
 
         if (!$siswa) {
             return $this->failNotFound('Akun dengan NIS tersebut tidak ditemukan.');
@@ -44,11 +46,11 @@ class AuthApi extends ResourceController
             // Generate Token API baru
             $token = bin2hex(random_bytes(32));
 
-            $this->db->table('siswa')->where('id_siswa', $siswa['id_siswa'])->update([
+            // update() pada model otomatis menangani updated_at
+            $this->siswaModel->update($siswa['id_siswa'], [
                 'api_token'  => $token,
                 'device_id'  => $deviceId,
-                'last_login' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
+                'last_login' => date('Y-m-d H:i:s')
             ]);
 
             return $this->respond([

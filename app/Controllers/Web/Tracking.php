@@ -3,14 +3,19 @@
 namespace App\Controllers\Web;
 
 use App\Controllers\BaseController;
+use App\Models\SiswaModel;
 
 class Tracking extends BaseController
 {
-    // Menggunakan strict type-hinting dengan union type string|null untuk parameter
+    protected SiswaModel $siswaModel;
+
+    public function __construct()
+    {
+        $this->siswaModel = new SiswaModel();
+    }
+
     public function index(string|null $targetId = null)
     {
-        // $this->db sudah diinisialisasi di BaseController, tidak perlu \Config\Database::connect()
-
         $kelasFilter = $this->request->getGet('kelas_id');
 
         // Ambil konfigurasi (Koordinat Sekolah & URL Firebase)
@@ -19,19 +24,17 @@ class Tracking extends BaseController
         // Ambil Daftar Kelas (Untuk Dropdown Filter)
         $listKelas = $this->db->table('kelas')->orderBy('nama_kelas', 'ASC')->get()->getResultArray();
 
-        // Ambil seluruh data siswa untuk Sidebar (Join dengan kelas)
-        $builder = $this->db->table('siswa')
-            ->select('siswa.id_siswa, siswa.nis, siswa.nama_siswa, kelas.nama_kelas')
+        // Refactor: Ambil seluruh data siswa untuk Sidebar menggunakan SiswaModel
+        $this->siswaModel->select('siswa.id_siswa, siswa.nis, siswa.nama_siswa, kelas.nama_kelas')
             ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
 
         if (!empty($kelasFilter)) {
-            $builder->where('siswa.kelas_id', $kelasFilter);
+            $this->siswaModel->where('siswa.kelas_id', $kelasFilter);
         }
 
-        $listSiswa = $builder->orderBy('kelas.nama_kelas', 'ASC')
+        $listSiswa = $this->siswaModel->orderBy('kelas.nama_kelas', 'ASC')
             ->orderBy('siswa.nama_siswa', 'ASC')
-            ->get()
-            ->getResultArray();
+            ->findAll();
 
         $data = [
             'title'       => 'Radar Live Tracking',

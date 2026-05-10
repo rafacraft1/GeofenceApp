@@ -34,7 +34,7 @@ class SiswaModel extends Model
     /**
      * Mengambil data siswa beserta nama kelasnya
      */
-    public function getSiswaWithKelas(string $id = null)
+    public function getSiswaWithKelas(?string $id = null)
     {
         $this->select('siswa.*, kelas.nama_kelas');
         $this->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
