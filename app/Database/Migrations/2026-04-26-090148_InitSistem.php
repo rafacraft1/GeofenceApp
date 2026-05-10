@@ -33,7 +33,7 @@ class InitSistem extends Migration
         $this->forge->addField([
             'id_siswa'    => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
             'kelas_id'    => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true],
-            'nis'         => ['type' => 'VARCHAR', 'constraint' => '20', 'unique' => true],
+            'nis'         => ['type' => 'VARCHAR', 'constraint' => '20', 'unique' => true], // Otomatis menjadi Index (Unique)
             'nama_siswa'  => ['type' => 'VARCHAR', 'constraint' => '100'],
             'password'    => ['type' => 'VARCHAR', 'constraint' => '255'],
             'foto_profil' => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
@@ -47,7 +47,7 @@ class InitSistem extends Migration
             'updated_at'  => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id_siswa', true);
-        $this->forge->addKey('api_token');
+        $this->forge->addKey('api_token'); // Index pencarian API Token
         $this->forge->addKey('kelas_id');
         // RESTRICT digunakan agar kelas tidak sengaja terhapus jika masih ada siswa di dalamnya
         $this->forge->addForeignKey('kelas_id', 'kelas', 'id_kelas', 'CASCADE', 'RESTRICT');
@@ -101,8 +101,9 @@ class InitSistem extends Migration
             'updated_at'  => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id_absensi', true);
-        $this->forge->addKey('siswa_id');
-        $this->forge->addKey('tanggal');
+        $this->forge->addKey('siswa_id'); // Index siswa
+        $this->forge->addKey('tanggal');  // Index tanggal
+        $this->forge->addKey('status');   // PENGEMBANGAN: Index baru untuk optimasi Dashboard
         $this->forge->addForeignKey('siswa_id', 'siswa', 'id_siswa', 'CASCADE', 'CASCADE');
         $this->forge->createTable('absensi');
 
