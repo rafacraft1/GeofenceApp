@@ -3,20 +3,25 @@
 namespace App\Controllers\Web;
 
 use App\Controllers\BaseController;
+use App\Models\LogFraudModel;
 
 class LogFraud extends BaseController
 {
-    // $this->db sudah diinisialisasi otomatis oleh BaseController
+    protected LogFraudModel $logFraudModel;
+
+    public function __construct()
+    {
+        $this->logFraudModel = new LogFraudModel();
+    }
 
     public function index()
     {
-        $logFraud = $this->db->table('log_fraud')
+        $logFraud = $this->logFraudModel
             ->select('log_fraud.*, siswa.nama_siswa, siswa.nis, kelas.nama_kelas')
             ->join('siswa', 'siswa.id_siswa = log_fraud.siswa_id')
             ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left')
             ->orderBy('log_fraud.created_at', 'DESC')
-            ->get()
-            ->getResultArray();
+            ->findAll();
 
         $data = [
             'title'    => 'Log Keamanan & Pelanggaran',

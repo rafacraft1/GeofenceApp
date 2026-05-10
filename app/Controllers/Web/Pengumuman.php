@@ -3,18 +3,25 @@
 namespace App\Controllers\Web;
 
 use App\Controllers\BaseController;
+use App\Models\PengumumanModel;
+use App\Models\SiswaModel;
 
 class Pengumuman extends BaseController
 {
-    // $this->db sudah diinisialisasi otomatis oleh BaseController
+    protected PengumumanModel $pengumumanModel;
+    protected SiswaModel $siswaModel;
+
+    public function __construct()
+    {
+        $this->pengumumanModel = new PengumumanModel();
+        $this->siswaModel      = new SiswaModel();
+    }
 
     public function index()
     {
-        $pengumuman = $this->db->table('pengumuman')->orderBy('created_at', 'DESC')->get()->getResultArray();
-
         $data = [
             'title'      => 'Broadcast Pengumuman',
-            'pengumuman' => $pengumuman
+            'pengumuman' => $this->pengumumanModel->orderBy('created_at', 'DESC')->findAll()
         ];
 
         return view('web/pengumuman', $data);
@@ -32,23 +39,22 @@ class Pengumuman extends BaseController
             return redirect()->back()->withInput()->with('error', 'Gagal: Pastikan judul dan isi pengumuman terisi dengan benar.');
         }
 
-        $judul = $this->request->getPost('judul');
-        $isi   = $this->request->getPost('isi');
+        $judul = (string) $this->request->getPost('judul');
+        $isi   = (string) $this->request->getPost('isi');
 
-        $this->db->table('pengumuman')->insert([
-            'judul'      => $judul,
-            'isi'        => $isi,
-            'tipe'       => $this->request->getPost('tipe'),
-            'created_at' => date('Y-m-d H:i:s'),
-            'updated_at' => date('Y-m-d H:i:s')
+        $this->pengumumanModel->insert([
+            'judul' => $judul,
+            'isi'   => $isi,
+            'tipe'  => (string) $this->request->getPost('tipe')
         ]);
 
-        // TRIGGER PUSH NOTIFICATION (Fase 5)
-        $allTokens = $this->db->table('siswa')->select('fcm_token')->where('fcm_token IS NOT NULL')->get()->getResultArray();
+        // TRIGGER PUSH NOTIFICATION
+        $allTokens = $this->siswaModel->select('fcm_token')->where('fcm_token IS NOT NULL')->findAll();
         $tokenList = array_column($allTokens, 'fcm_token');
 
         if (!empty($tokenList)) {
-            send_fcm_notification($tokenList, "📢 " . $judul, substr(strip_tags((string) $isi), 0, 100) . "...");
+            helper('fcm');
+            send_fcm_notification($tokenList, "📢 " . $judul, substr(strip_tags($isi), 0, 100) . "...");
         }
 
         return redirect()->to('/admin/pengumuman')->with('success', 'Pengumuman berhasil disiarkan!');
@@ -56,7 +62,7 @@ class Pengumuman extends BaseController
 
     public function delete(string $id)
     {
-        $this->db->table('pengumuman')->where('id_pengumuman', $id)->delete();
+        $this->pengumumanModel->delete($id);
         return redirect()->to('/admin/pengumuman')->with('success', 'Pengumuman berhasil ditarik/dihapus.');
     }
 }

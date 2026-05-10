@@ -10,6 +10,7 @@ use App\Models\LogFraudModel;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
 
 class Siswa extends Controller
 {
@@ -87,7 +88,6 @@ class Siswa extends Controller
             }
 
             $namaFoto = $foto->getRandomName();
-            // Keamanan: Gunakan FCPATH
             $foto->move(FCPATH . 'uploads/siswa', $namaFoto);
         }
 
@@ -128,7 +128,6 @@ class Siswa extends Controller
             }
 
             $namaFoto = $foto->getRandomName();
-            // Keamanan: Gunakan FCPATH
             $foto->move(FCPATH . 'uploads/siswa', $namaFoto);
 
             if (!empty($siswaLama['foto_profil']) && file_exists(FCPATH . 'uploads/siswa/' . $siswaLama['foto_profil'])) {
@@ -177,16 +176,58 @@ class Siswa extends Controller
     public function downloadTemplate()
     {
         $spreadsheet = new Spreadsheet();
+
+        // Ambil daftar kelas untuk referensi dropdown
+        $listKelas = $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll();
+        $totalKelas = count($listKelas);
+
+        if ($totalKelas > 0) {
+            $refSheet = $spreadsheet->createSheet();
+            $refSheet->setTitle('DataKelas');
+            $refRow = 1;
+            foreach ($listKelas as $k) {
+                $refSheet->setCellValue('A' . $refRow++, $k['nama_kelas']);
+            }
+            $spreadsheet->getSheetByName('DataKelas')->setSheetState(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet::SHEETSTATE_VERYHIDDEN);
+        }
+
+        $spreadsheet->setActiveSheetIndex(0);
         $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Data Siswa');
 
         $sheet->setCellValue('A1', 'TEMPLATE IMPORT DATA SISWA');
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(12);
+        $sheet->setCellValue('A2', 'Pilih kelas melalui dropdown di kolom C. Jangan mengetik manual di kolom Kelas.');
+        $sheet->getStyle('A2')->getFont()->setItalic(true)->getColor()->setARGB('FFD97706');
+
         $sheet->setCellValue('A3', 'NIS');
         $sheet->setCellValue('B3', 'NAMA LENGKAP');
-        $sheet->setCellValue('C3', 'ID KELAS (Lihat di menu Manajemen Kelas)');
+        $sheet->setCellValue('C3', 'KELAS (Klik untuk pilih)');
+        $sheet->getStyle('A3:C3')->getFont()->setBold(true);
+        $sheet->getStyle('A3:C3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFE0E0E0');
+
+        if ($totalKelas > 0) {
+            $validation = $sheet->getDataValidation('C4:C500');
+            $validation->setType(DataValidation::TYPE_LIST);
+            $validation->setErrorStyle(DataValidation::STYLE_STOP);
+            $validation->setAllowBlank(false);
+            $validation->setShowInputMessage(true);
+            $validation->setShowErrorMessage(true);
+            $validation->setShowDropDown(true);
+            $validation->setErrorTitle('Input Salah');
+            $validation->setError('Silakan pilih kelas yang tersedia dari daftar!');
+            $validation->setPromptTitle('Pilih Kelas');
+            $validation->setPrompt('Klik panah di samping untuk memilih kelas.');
+            $validation->setFormula1('DataKelas!$A$1:$A$' . $totalKelas);
+        }
+
+        foreach (range('A', 'C') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
 
         $writer = new Xlsx($spreadsheet);
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        header('Content-Disposition: attachment;filename="Template_Siswa.xlsx"');
+        header('Content-Disposition: attachment;filename="Template_Import_Siswa_V2.xlsx"');
         header('Cache-Control: max-age=0');
         $writer->save('php://output');
         exit;
@@ -218,7 +259,7 @@ class Siswa extends Controller
         $row = 2;
         foreach ($dataSiswa as $index => $siswa) {
             $sheet->setCellValue('A' . $row, $index + 1);
-            $sheet->setCellValue('B' . $row, $siswa['nis']);
+            $sheet->setCellValueExplicit('B' . $row, $siswa['nis'], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
             $sheet->setCellValue('C' . $row, $siswa['nama_siswa']);
             $sheet->setCellValue('D' . $row, $siswa['nama_kelas']);
             $row++;
@@ -244,16 +285,28 @@ class Siswa extends Controller
         $dataSiswa = $spreadsheet->getActiveSheet()->toArray();
 
         $inserted = 0;
-        $skipped = 0;
+        $skipped  = 0;
+
+        $allKelas = $this->kelasModel->findAll();
+        $kelasMap = [];
+        foreach ($allKelas as $k) {
+            $kelasMap[strtolower(trim((string)$k['nama_kelas']))] = $k['id_kelas'];
+        }
 
         foreach ($dataSiswa as $index => $row) {
-            if ($index < 4) continue;
+            if ($index < 3) continue;
 
-            $nis = isset($row[0]) ? trim($row[0]) : '';
-            $nama = isset($row[1]) ? trim($row[1]) : '';
-            $kelasId = isset($row[2]) ? (int)trim($row[2]) : 0;
+            $nis       = isset($row[0]) ? trim((string)$row[0]) : '';
+            $nama      = isset($row[1]) ? trim((string)$row[1]) : '';
+            $namaKelas = isset($row[2]) ? strtolower(trim((string)$row[2])) : '';
 
-            if (empty($nis) || empty($nama) || empty($kelasId)) continue;
+            if (empty($nis) || empty($nama) || empty($namaKelas)) continue;
+
+            if (!isset($kelasMap[$namaKelas])) {
+                $skipped++;
+                continue;
+            }
+            $kelasId = $kelasMap[$namaKelas];
 
             $cek = $this->siswaModel->where('nis', $nis)->countAllResults();
             if ($cek > 0) {
@@ -270,7 +323,7 @@ class Siswa extends Controller
             $inserted++;
         }
 
-        return redirect()->to('/admin/siswa')->with('success', "Berhasil import $inserted data baru. $skipped data dilewati (NIS duplikat).");
+        return redirect()->to('/admin/siswa')->with('success', "Berhasil import $inserted data siswa. $skipped baris dilewati (NIS duplikat atau Nama Kelas tidak valid).");
     }
 
     public function detail(string $idSiswa)

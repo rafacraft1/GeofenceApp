@@ -88,21 +88,23 @@ class Laporan extends BaseController
 
     public function index()
     {
+        // Sesuaikan parameter GET dengan name="kelas" yang ada di view
         $bulanMulai   = $this->request->getGet('bulan_mulai') ?? date('m');
         $bulanSelesai = $this->request->getGet('bulan_selesai') ?? date('m');
         $tahun        = $this->request->getGet('tahun') ?? date('Y');
-        $kelasId      = $this->request->getGet('kelas_id');
+        $kelasId      = $this->request->getGet('kelas') ?? '';
 
         $rekapData = $this->getRekapData($bulanMulai, $bulanSelesai, $tahun, (string)$kelasId);
 
+        // Selaraskan key array dengan camelCase di View
         $data = [
-            'title'         => 'Laporan Kehadiran',
-            'rekapData'     => $rekapData,
-            'list_kelas'    => $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll(),
-            'bulan_mulai'   => $bulanMulai,
-            'bulan_selesai' => $bulanSelesai,
-            'tahun'         => $tahun,
-            'kelas_aktif'   => $kelasId
+            'title'        => 'Laporan Kehadiran',
+            'rekapData'    => $rekapData,
+            'listKelas'    => $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll(),
+            'bulanMulai'   => $bulanMulai,
+            'bulanSelesai' => $bulanSelesai,
+            'tahun'        => $tahun,
+            'kelasId'      => $kelasId
         ];
 
         return view('web/laporan/index', $data);
@@ -113,7 +115,7 @@ class Laporan extends BaseController
         $bulanMulai   = $this->request->getGet('bulan_mulai') ?? date('m');
         $bulanSelesai = $this->request->getGet('bulan_selesai') ?? date('m');
         $tahun        = $this->request->getGet('tahun') ?? date('Y');
-        $kelasId      = $this->request->getGet('kelas_id');
+        $kelasId      = $this->request->getGet('kelas') ?? '';
 
         $rekapData = $this->getRekapData($bulanMulai, $bulanSelesai, $tahun, (string)$kelasId);
 
