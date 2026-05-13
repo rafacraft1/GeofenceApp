@@ -133,6 +133,7 @@ app/Config/firebase_credentials.json
 # =========================================================
 public/uploads/absensi/*
 public/uploads/siswa/*
+public/uploads/izin/*
 
 # KECUALI file .gitkeep (agar struktur folder tetap terbawa ke server)
 !public/uploads/absensi/.gitkeep
