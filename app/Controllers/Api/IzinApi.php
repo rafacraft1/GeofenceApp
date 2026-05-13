@@ -29,7 +29,7 @@ class IzinApi extends ResourceController
         $aturanValidasi = [
             'tanggal_mulai'   => 'required|valid_date[Y-m-d]',
             'tanggal_selesai' => 'required|valid_date[Y-m-d]',
-            'jenis'           => 'required|in_list[Sakit,Izin]',
+            'jenis'           => 'required|in_list[Sakit,Izin,Dispensasi]',
             'alasan'          => 'required|min_length[5]',
             'bukti_foto'      => [
                 'rules'  => 'uploaded[bukti_foto]|is_image[bukti_foto]|mime_in[bukti_foto,image/jpg,image/jpeg,image/png]|max_size[bukti_foto,2048]',
@@ -59,7 +59,6 @@ class IzinApi extends ResourceController
 
         if ($fileBukti && $fileBukti->isValid() && !$fileBukti->hasMoved()) {
             $namaBukti = $fileBukti->getRandomName();
-            // Menggunakan FCPATH untuk menjamin lokasi upload absolut dan aman
             $fileBukti->move(FCPATH . 'uploads/izin', $namaBukti);
 
             try {
@@ -78,7 +77,6 @@ class IzinApi extends ResourceController
                     'message' => 'Pengajuan berhasil dikirim dan menunggu persetujuan admin.'
                 ]);
             } catch (\Exception $e) {
-                // Rollback File: Hapus file yang sudah terupload jika insert database gagal
                 if (file_exists(FCPATH . 'uploads/izin/' . $namaBukti)) {
                     unlink(FCPATH . 'uploads/izin/' . $namaBukti);
                 }
@@ -87,5 +85,21 @@ class IzinApi extends ResourceController
         }
 
         return $this->failValidationErrors('Gagal memproses file foto bukti.');
+    }
+
+    // --- TAMBAHAN BARU: Fungsi untuk mengambil riwayat izin siswa ---
+    public function riwayat()
+    {
+        $siswa = $this->getSiswaAuth();
+
+        $riwayat = $this->izinModel
+            ->where('siswa_id', $siswa['id_siswa'])
+            ->orderBy('created_at', 'DESC')
+            ->findAll();
+
+        return $this->respond([
+            'status' => 200,
+            'data'   => $riwayat
+        ]);
     }
 }

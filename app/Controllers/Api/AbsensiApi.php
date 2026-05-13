@@ -81,7 +81,6 @@ class AbsensiApi extends ResourceController
 
     public function masuk()
     {
-        // Panggil melalui getter yang sudah di-bypass IDE
         $siswa = $this->getSiswaAuth();
 
         $aturanValidasi = [
@@ -102,6 +101,22 @@ class AbsensiApi extends ResourceController
         $jadwal = $this->getJadwalHariIni($tanggalSekarang, (string)$kodeHari);
         if ($jadwal['is_libur']) return $this->failForbidden('Hari ini libur: ' . $jadwal['keterangan']);
 
+        // --- ATURAN BATAS WAKTU ABSEN MASUK ---
+        $waktuMasuk = Time::parse($tanggalSekarang . ' ' . $jadwal['jam_masuk'], 'Asia/Jakarta');
+        $waktuPulang = Time::parse($tanggalSekarang . ' ' . $jadwal['jam_pulang'], 'Asia/Jakarta');
+
+        $batasAwalMasuk = $waktuMasuk->subMinutes(30);
+        $batasAkhirMasuk = $waktuPulang->subMinutes(30);
+
+        if ($sekarang->isBefore($batasAwalMasuk)) {
+            return $this->failForbidden('Belum waktunya presensi masuk. Absen dibuka pukul ' . $batasAwalMasuk->toTimeString());
+        }
+
+        if ($sekarang->isAfter($batasAkhirMasuk)) {
+            return $this->failForbidden('Batas waktu presensi masuk hari ini telah habis.');
+        }
+        // --------------------------------------
+
         $absenHariIni = $this->absensiModel->where(['siswa_id' => $siswa['id_siswa'], 'tanggal' => $tanggalSekarang])->first();
         if ($absenHariIni) return $this->failResourceExists('Anda sudah presensi masuk hari ini.');
 
@@ -120,10 +135,9 @@ class AbsensiApi extends ResourceController
         if (!$validasi['is_valid']) {
             $status     = 'Manipulasi';
             $keterangan = $validasi['message'];
-        } elseif ($sekarang->toTimeString() > $jadwal['jam_masuk']) {
+        } elseif ($sekarang->isAfter($waktuMasuk)) {
             $status     = 'Terlambat';
-            $waktuMasuk = Time::parse($jadwal['jam_masuk']);
-            $menitTelat = $sekarang->difference($waktuMasuk)->getMinutes();
+            $menitTelat = abs($sekarang->difference($waktuMasuk)->getMinutes());
             $keterangan = "Terlambat {$menitTelat} Menit";
         }
 
@@ -156,7 +170,6 @@ class AbsensiApi extends ResourceController
 
     public function pulang()
     {
-        // Panggil melalui getter yang sudah di-bypass IDE
         $siswa = $this->getSiswaAuth();
 
         $aturanValidasi = [
@@ -171,11 +184,30 @@ class AbsensiApi extends ResourceController
 
         $sekarang        = Time::now('Asia/Jakarta');
         $tanggalSekarang = $sekarang->toDateString();
+        $kodeHari        = $sekarang->getDayOfWeek();
+
+        // Mengambil jadwal untuk memvalidasi jam pulang
+        $jadwal = $this->getJadwalHariIni($tanggalSekarang, (string)$kodeHari);
+        if ($jadwal['is_libur']) return $this->failForbidden('Hari ini libur: ' . $jadwal['keterangan']);
 
         $absen = $this->absensiModel->where(['siswa_id' => $siswa['id_siswa'], 'tanggal' => $tanggalSekarang])->first();
 
+        // Validasi: Tidak absen masuk = tidak bisa absen pulang
         if (!$absen) return $this->failNotFound('Anda belum melakukan presensi masuk hari ini.');
         if ($absen['jam_pulang'] !== null) return $this->failResourceExists('Anda sudah presensi pulang hari ini.');
+
+        // --- ATURAN BATAS WAKTU ABSEN PULANG ---
+        $waktuPulang = Time::parse($tanggalSekarang . ' ' . $jadwal['jam_pulang'], 'Asia/Jakarta');
+        $batasAkhirPulang = Time::parse($tanggalSekarang . ' 23:00:00', 'Asia/Jakarta');
+
+        if ($sekarang->isBefore($waktuPulang)) {
+            return $this->failForbidden('Belum waktunya presensi pulang. Jadwal pulang pukul ' . $waktuPulang->toTimeString());
+        }
+
+        if ($sekarang->isAfter($batasAkhirPulang)) {
+            return $this->failForbidden('Batas waktu presensi pulang (23:00) telah habis.');
+        }
+        // ---------------------------------------
 
         $lat  = (float) $this->request->getPost('latitude');
         $lon  = (float) $this->request->getPost('longitude');
@@ -200,7 +232,6 @@ class AbsensiApi extends ResourceController
 
     public function riwayat()
     {
-        // Panggil melalui getter yang sudah di-bypass IDE
         $siswa = $this->getSiswaAuth();
 
         $riwayat = $this->absensiModel

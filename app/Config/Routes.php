@@ -106,6 +106,7 @@ $routes->group('api/v1', ['filter' => 'throttle', 'namespace' => 'App\Controller
         $routes->post('tracking/update', 'TrackingApi::updateLokasi');
         $routes->post('profile/upload-foto', 'ProfileApi::uploadFoto');
         $routes->post('izin/ajukan', 'IzinApi::ajukan');
+        $routes->get('izin/riwayat', 'IzinApi::riwayat');
         $routes->post('fcm/updateToken', 'FcmApi::updateToken');
     });
 });
