@@ -41,7 +41,12 @@ $routes->group('admin', ['filter' => 'webAuth', 'namespace' => 'App\Controllers\
     $routes->post('absensi/inputManual', 'Absensi::inputManual');
     $routes->get('tracking', 'Tracking::index');
     $routes->get('tracking/siswa/(:num)', 'Tracking::index/$1');
-    $routes->get('tracking/getLocation/(:num)', 'Tracking::getLocation/$1');
+    $routes->get('tracking/getLocation/(:segment)', 'Tracking::getLocation/$1');
+
+    // ===============================================================
+    // PERBAIKAN 1: PING Siswa diarahkan ke Controller Web Tracking
+    // ===============================================================
+    $routes->post('tracking/pingSiswa/(:segment)', 'Tracking::pingSiswa/$1');
 
     // Fitur Operasional & Laporan
     $routes->get('izin', 'Izin::index');
@@ -52,23 +57,17 @@ $routes->group('admin', ['filter' => 'webAuth', 'namespace' => 'App\Controllers\
     $routes->get('laporan/export', 'Laporan::export');
 
     // --- MENU KRUSIAL (KHUSUS ADMIN UTAMA) ---
-    // Dilindungi lapis kedua oleh filter 'adminOnly'
     $routes->group('', ['filter' => 'adminOnly'], function ($routes) {
-
-        // Manajemen Pengguna (Baru)
         $routes->get('user', 'User::index');
         $routes->post('user/store', 'User::store');
         $routes->post('user/delete/(:num)', 'User::delete/$1');
-        // Rute Reset Password ke Default (guru1234)
         $routes->post('user/reset/(:num)', 'User::reset/$1');
 
-        // Manajemen Kelas
         $routes->get('kelas', 'Kelas::index');
         $routes->post('kelas/store', 'Kelas::store');
         $routes->post('kelas/update/(:num)', 'Kelas::update/$1');
         $routes->post('kelas/delete/(:num)', 'Kelas::delete/$1');
 
-        // Pengaturan, Jadwal, Libur, Pengumuman
         $routes->get('pengaturan', 'Pengaturan::index');
         $routes->post('pengaturan/save', 'Pengaturan::save');
 
@@ -83,9 +82,6 @@ $routes->group('admin', ['filter' => 'webAuth', 'namespace' => 'App\Controllers\
         $routes->post('pengumuman/store', 'Pengumuman::store');
         $routes->post('pengumuman/delete/(:num)', 'Pengumuman::delete/$1');
     });
-
-    // API Ping Web (Biarkan diluar karena hanya untuk endpoint internal)
-    $routes->post('tracking/pingSiswa/(:num)', '\App\Controllers\Api\TrackingApi::pingSiswa/$1');
 });
 
 // ========================================================================
@@ -103,7 +99,12 @@ $routes->group('api/v1', ['filter' => 'throttle', 'namespace' => 'App\Controller
         $routes->post('absen/masuk', 'AbsensiApi::masuk');
         $routes->post('absen/pulang', 'AbsensiApi::pulang');
         $routes->get('absen/riwayat', 'AbsensiApi::riwayat');
-        $routes->post('tracking/update', 'TrackingApi::updateLokasi');
+
+        // ===============================================================
+        // PERBAIKAN 2: Route disesuaikan dengan permintaan dari Flutter
+        // ===============================================================
+        $routes->post('tracking/updateLokasi', 'TrackingApi::updateLokasi');
+
         $routes->post('profile/upload-foto', 'ProfileApi::uploadFoto');
         $routes->post('izin/ajukan', 'IzinApi::ajukan');
         $routes->get('izin/riwayat', 'IzinApi::riwayat');

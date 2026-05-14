@@ -23,6 +23,9 @@ class Tracking extends BaseController
         $this->absensiModel    = new AbsensiModel();
     }
 
+    /**
+     * Menampilkan halaman utama Radar Tracking
+     */
     public function index(string|null $targetId = null)
     {
         $kelasFilter = $this->request->getGet('kelas_id');
@@ -54,47 +57,78 @@ class Tracking extends BaseController
     }
 
     /**
-     * Endpoint API Internal untuk AJAX Frontend
+     * Endpoint API Internal untuk mendapatkan lokasi real-time siswa (AJAX)
      */
     public function getLocation(string $idSiswa)
     {
         $siswa = $this->siswaModel->find($idSiswa);
 
-        // PERBAIKAN: Baca dari kolom pergerakan live, BUKAN dari tabel absensi
+        // KUNCI REAL-TIME: Mengambil dari koordinat live di tabel siswa
         if ($siswa && !empty($siswa['lat_terakhir']) && !empty($siswa['long_terakhir'])) {
             return $this->response->setJSON([
                 'status'      => 200,
                 'lat'         => (float) $siswa['lat_terakhir'],
                 'lng'         => (float) $siswa['long_terakhir'],
                 'nama'        => $siswa['nama_siswa'],
-                'last_update' => $siswa['updated_at'] // Waktu live terakhir
+                'last_update' => $siswa['updated_at'] // Waktu pembaruan radar terakhir
             ]);
         }
 
-        return $this->response->setJSON(['status' => 404, 'message' => 'Belum ada sinyal radar dari perangkat siswa.']);
+        return $this->response->setJSON([
+            'status'  => 404,
+            'message' => 'Belum ada sinyal radar dari perangkat siswa.'
+        ]);
     }
 
     /**
-     * Endpoint API Internal untuk Ping Paksa (Firebase Cloud Messaging)
+     * Endpoint API Internal untuk melakukan PING paksa ke perangkat siswa (FCM HTTP v1)
      */
     public function pingSiswa(string $idSiswa)
     {
         helper('fcm');
         $siswa = $this->siswaModel->find($idSiswa);
 
-        if ($siswa && !empty($siswa['fcm_token'])) {
-            $result = send_fcm_notification(
-                (string) $siswa['fcm_token'],
-                "PING_LOCATION",
-                "Admin meminta pembaruan lokasi radar.",
-                ['action' => 'fetch_location']
-            );
-
-            if ($result) {
-                return $this->response->setJSON(['status' => 200, 'message' => 'Sinyal PING berhasil dikirim ke perangkat.']);
-            }
+        if (!$siswa) {
+            return $this->response->setJSON(['status' => 404, 'message' => 'Data siswa tidak ditemukan.']);
         }
 
-        return $this->response->setJSON(['status' => 400, 'message' => 'Gagal PING. Perangkat offline atau tidak terikat.']);
+        // 1. Validasi Keberadaan Token
+        if (empty($siswa['fcm_token'])) {
+            return $this->response->setJSON([
+                'status'  => 400,
+                'message' => 'Token FCM Kosong! Pastikan siswa sudah login di aplikasi terbaru.'
+            ]);
+        }
+
+        // 2. Eksekusi Pengiriman via Helper (HTTP v1)
+        $result = send_fcm_notification(
+            (string) $siswa['fcm_token'],
+            "PING_LOCATION",
+            "Admin meminta pembaruan lokasi radar.",
+            ['action' => 'fetch_location'] // Payload yang ditunggu oleh main.dart Flutter
+        );
+
+        if ($result === false) {
+            return $this->response->setJSON([
+                'status'  => 500,
+                'message' => 'Gagal menghubungi server Google. Cek koneksi internet server.'
+            ]);
+        }
+
+        $responseJson = json_decode($result, true);
+
+        // 3. Analisa Respon Google Firebase
+        if (isset($responseJson['error'])) {
+            $errorMsg = $responseJson['error']['message'] ?? 'Unknown Firebase Error';
+            return $this->response->setJSON([
+                'status'  => 400,
+                'message' => 'FIREBASE ERROR: ' . $errorMsg
+            ]);
+        }
+
+        return $this->response->setJSON([
+            'status'  => 200,
+            'message' => 'Sinyal PING berhasil dikirim ke perangkat.'
+        ]);
     }
 }

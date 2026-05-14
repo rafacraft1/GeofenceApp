@@ -55,8 +55,8 @@ class InitDataSeeder extends Seeder
 
         // 4. Data Pengaturan Default
         $this->db->table('pengaturan')->insert([
-            'latitude_sekolah'  => '-6.20000000',
-            'longitude_sekolah' => '106.81666600',
+            'latitude_sekolah'  => '-7.42238748',
+            'longitude_sekolah' => '106.72535956',
             'radius_meter'      => 50,
             'firebase_url'      => null,
             'updated_at'        => date('Y-m-d H:i:s')
