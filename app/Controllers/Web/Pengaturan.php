@@ -26,23 +26,23 @@ class Pengaturan extends BaseController
 
     public function save()
     {
+        // firebase_url dihapus dari rules karena sudah menggunakan .env
         $rules = [
             'latitude_sekolah'  => 'required',
             'longitude_sekolah' => 'required',
-            'radius_meter'      => 'required|numeric',
-            'firebase_url'      => 'permit_empty|valid_url'
+            'radius_meter'      => 'required|numeric'
         ];
 
         if (!$this->validate($rules)) {
             return redirect()->back()->withInput()->with('error', 'Data tidak valid: ' . $this->validator->listErrors());
         }
 
+        // firebase_url dihapus dari proses update
         $this->pengaturanModel->update(1, [
             'latitude_sekolah'  => (string) $this->request->getPost('latitude_sekolah'),
             'longitude_sekolah' => (string) $this->request->getPost('longitude_sekolah'),
-            'radius_meter'      => (int) $this->request->getPost('radius_meter'),
-            'firebase_url'      => (string) $this->request->getPost('firebase_url')
-        ]); // updated_at diurus otomatis jika di set useTimestamps = true di pengaturan model
+            'radius_meter'      => (int) $this->request->getPost('radius_meter')
+        ]);
 
         return redirect()->back()->with('success', 'Konfigurasi sistem berhasil diperbarui.');
     }

@@ -13,7 +13,6 @@ class PengaturanModel extends Model
     protected $allowedFields    = [
         'latitude_sekolah',
         'longitude_sekolah',
-        'radius_meter',
-        'firebase_url'
+        'radius_meter'
     ];
 }

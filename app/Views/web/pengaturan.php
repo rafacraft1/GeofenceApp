@@ -3,32 +3,56 @@
 /**
  * @var array<string, mixed> $config
  */
+
+// Mengambil URL Firebase dari file .env (Mendukung key FIREBASE_DATABASE_URL atau FIREBASE_URL)
+$envFirebaseUrl = env('FIREBASE_DATABASE_URL') ?: env('FIREBASE_URL');
+$isFirebaseEmpty = empty($envFirebaseUrl);
 ?>
 <?= $this->extend('layout/admin') ?>
 
 <?= $this->section('content') ?>
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-    <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-2 h-[500px] lg:h-auto min-h-[500px]">
-        <div id="map" class="h-full w-full rounded-xl z-0 relative">
-            <div class="absolute top-4 left-1/2 transform -translate-x-1/2 z-[400] bg-white/90 backdrop-blur-sm px-5 py-2 rounded-full shadow-md border border-gray-200 pointer-events-none">
-                <span class="text-xs font-bold text-gray-700 flex items-center gap-2">
-                    <svg class="w-4 h-4 text-blue-600 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path>
-                    </svg>
-                    Klik area peta untuk memindahkan titik sekolah
-                </span>
-            </div>
+    <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-2 h-[500px] lg:h-auto min-h-[500px] relative">
+
+        <div class="absolute top-6 left-6 z-[400] pointer-events-none">
+            <?php if ($isFirebaseEmpty): ?>
+                <div class="bg-white/90 backdrop-blur-md border border-red-100 shadow-lg rounded-xl px-3 py-2 flex items-center gap-2">
+                    <span class="relative flex h-2.5 w-2.5">
+                        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                    </span>
+                    <span class="text-[10px] font-bold text-red-600 tracking-wide uppercase">Firebase Kosong</span>
+                </div>
+            <?php else: ?>
+                <div class="bg-white/90 backdrop-blur-md border border-emerald-100 shadow-lg rounded-xl px-3 py-2 flex items-center gap-2">
+                    <span class="relative flex h-2.5 w-2.5">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                    </span>
+                    <span class="text-[10px] font-bold text-emerald-600 tracking-wide uppercase">Firebase Aktif</span>
+                </div>
+            <?php endif; ?>
         </div>
+
+        <div id="map-hint" class="absolute top-6 left-1/2 transform -translate-x-1/2 z-[400] bg-slate-800/90 backdrop-blur-sm px-5 py-2.5 rounded-full shadow-xl border border-white/10 pointer-events-none transition-all duration-700 hidden md:block">
+            <span class="text-xs font-bold text-white flex items-center gap-2">
+                <svg class="w-4 h-4 text-blue-400 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path>
+                </svg>
+                Klik area peta untuk memindahkan titik sekolah
+            </span>
+        </div>
+
+        <div id="map" class="h-full w-full rounded-xl z-0"></div>
     </div>
 
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
         <h3 class="text-lg font-bold text-gray-800 mb-2">Konfigurasi Sistem</h3>
-        <p class="text-xs text-gray-500 mb-6">Tentukan lokasi sekolah, radius, dan koneksi Firebase.</p>
+        <p class="text-xs text-gray-500 mb-6">Tentukan lokasi koordinat sekolah dan batas radius pengawasan.</p>
 
-        <form action="<?= base_url('admin/pengaturan/save') ?>" method="POST" id="formPengaturan" class="space-y-5 flex-1 flex flex-col">
+        <form action="<?= base_url('admin/pengaturan/save') ?>" method="POST" id="formPengaturan" class="space-y-6 flex-1 flex flex-col">
             <?= csrf_field() ?>
-            <div class="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl">
+            <div class="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
                 <div>
                     <label class="text-[10px] font-bold text-gray-400 uppercase">Latitude</label>
                     <input type="text" id="lat" name="latitude_sekolah" value="<?= esc((string) ($config['latitude_sekolah'] ?? '')) ?>" class="w-full bg-transparent font-bold text-sm text-gray-800 outline-none" readonly>
@@ -39,21 +63,21 @@
                 </div>
             </div>
 
-            <div>
-                <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Radius Diizinkan (Meter)</label>
-                <div class="flex items-center gap-3">
+            <div class="pt-2">
+                <label class="block text-xs font-bold text-gray-600 uppercase mb-3">Radius Diizinkan (Meter)</label>
+                <div class="flex items-center gap-4">
                     <input type="range" id="radius-slider" min="10" max="500" step="5" value="<?= esc((string) ($config['radius_meter'] ?? 50)) ?>" class="flex-1 accent-blue-600 cursor-grab">
-                    <input type="number" id="radius" name="radius_meter" value="<?= esc((string) ($config['radius_meter'] ?? 50)) ?>" class="w-20 border border-gray-200 rounded-lg p-2 text-center text-sm font-bold text-blue-600 outline-none focus:border-blue-500 transition-colors">
+                    <input type="number" id="radius" name="radius_meter" value="<?= esc((string) ($config['radius_meter'] ?? 50)) ?>" class="w-24 border border-gray-200 rounded-xl p-2.5 text-center text-sm font-bold text-blue-600 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all bg-gray-50">
                 </div>
             </div>
 
-            <div class="pt-4 border-t border-gray-100">
-                <label class="block text-xs font-bold text-orange-600 uppercase mb-2">Firebase Database URL</label>
-                <input type="url" name="firebase_url" value="<?= esc((string) ($config['firebase_url'] ?? '')) ?>" placeholder="https://nama-project.asia-southeast1.firebasedatabase.app" required class="w-full border border-orange-200 rounded-xl p-3 text-[11px] font-mono outline-none focus:ring-2 focus:ring-orange-500 transition-all bg-orange-50/30">
-            </div>
-
             <div class="pt-4 mt-auto">
-                <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 active:scale-95 transition-all btn-submit">Simpan Pengaturan</button>
+                <button type="submit" class="w-full flex justify-center items-center gap-2 bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 active:scale-95 transition-all btn-submit">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    Simpan Pengaturan Peta
+                </button>
             </div>
         </form>
     </div>
@@ -66,10 +90,19 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        let latInput = document.getElementById('lat');
-        let lngInput = document.getElementById('long');
-        let radiusInput = document.getElementById('radius');
-        let radiusSlider = document.getElementById('radius-slider');
+        const latInput = document.getElementById('lat');
+        const lngInput = document.getElementById('long');
+        const radiusInput = document.getElementById('radius');
+        const radiusSlider = document.getElementById('radius-slider');
+        const mapHint = document.getElementById('map-hint');
+
+        // Logic Auto-Hide Instruksi
+        if (mapHint) {
+            setTimeout(() => {
+                mapHint.classList.add('opacity-0', '-translate-y-4');
+                setTimeout(() => mapHint.remove(), 700);
+            }, 6000); // Pesan hilang setelah 6 detik
+        }
 
         let center = [latInput.value || 0, lngInput.value || 0];
         let map = L.map('map', {
@@ -87,16 +120,14 @@
 
         let schoolIcon = L.divIcon({
             html: `
-                <div class="relative flex flex-col items-center justify-end w-full h-full group">
+                <div class="relative flex flex-col items-center justify-end w-full h-full">
                     <div class="absolute bottom-0 w-6 h-6 bg-blue-500 rounded-full animate-ping opacity-60"></div>
                     <div class="absolute bottom-[2px] w-5 h-5 bg-blue-600 rounded-full shadow-[0_0_15px_8px_rgba(37,99,235,0.4)] opacity-50 z-0"></div>
-
-                    <div class="relative z-10 flex flex-col items-center transform transition-transform duration-300 group-hover:-translate-y-2 origin-bottom cursor-grab">
-                        <svg class="w-14 h-16 text-blue-600 drop-shadow-2xl" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 22.5C12 22.5 4.5 14.5 4.5 9.5C4.5 5.35786 7.85786 2 12 2C16.1421 2 19.5 5.35786 19.5 9.5C19.5 14.5 12 22.5 12 22.5Z" fill="currentColor" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+                    <div class="relative z-10 flex flex-col items-center origin-bottom cursor-grab">
+                        <svg class="w-14 h-16 text-blue-600 drop-shadow-2xl" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 22.5C12 22.5 4.5 14.5 4.5 9.5C4.5 5.35786 7.85786 2 12 2C16.1421 2 19.5 5.35786 19.5 9.5C19.5 14.5 12 22.5 12 22.5Z" stroke="white" stroke-width="1.5"/>
                             <circle cx="12" cy="9.5" r="4.5" fill="white" />
                         </svg>
-                        
                         <div class="absolute top-[13px] text-blue-700">
                             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3L1 9L4 10.63V17C4 18.65 7.58 20 12 20C16.42 20 20 18.65 20 17V10.63L23 9L12 3ZM12 5.16L18.89 9L12 12.84L5.11 9L12 5.16ZM18 17C18 17.5 15.35 18 12 18C8.65 18 6 17.5 6 17V11.75L12 15.08L18 11.75V17Z"/></svg>
                         </div>
@@ -111,7 +142,6 @@
         let marker = L.marker(center, {
             icon: schoolIcon
         }).addTo(map);
-
         let circle = L.circle(center, {
             color: '#2563eb',
             fillColor: '#60a5fa',
@@ -139,19 +169,16 @@
             });
         }
 
-        radiusSlider.addEventListener('input', function(e) {
-            updateRadius(e.target.value);
-        });
+        radiusSlider.addEventListener('input', (e) => updateRadius(e.target.value));
+        radiusInput.addEventListener('change', (e) => updateRadius(e.target.value));
 
-        radiusInput.addEventListener('change', function(e) {
-            updateRadius(e.target.value);
+        document.getElementById('formPengaturan').addEventListener('submit', function() {
+            const btn = this.querySelector('.btn-submit');
+            if (btn) {
+                btn.classList.add('btn-loading');
+                btn.setAttribute('disabled', 'true');
+            }
         });
-
-        if (typeof $ !== 'undefined') {
-            $('#formPengaturan').on('submit', function() {
-                $(this).find('.btn-submit').addClass('btn-loading');
-            });
-        }
     });
 </script>
 <?= $this->endSection() ?>
