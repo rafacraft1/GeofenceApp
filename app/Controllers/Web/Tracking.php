@@ -28,16 +28,19 @@ class Tracking extends BaseController
      */
     public function index(string|null $targetId = null)
     {
-        $kelasFilter = $this->request->getGet('kelas_id');
+        $keyword = $this->request->getGet('keyword');
 
-        $config    = $this->pengaturanModel->find(1);
-        $listKelas = $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll();
+        $config = $this->pengaturanModel->find(1);
 
         $this->siswaModel->select('siswa.id_siswa, siswa.nis, siswa.nama_siswa, kelas.nama_kelas')
             ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
 
-        if (!empty($kelasFilter)) {
-            $this->siswaModel->where('siswa.kelas_id', $kelasFilter);
+        // Filter Pencarian Backend (Tetap dipertahankan untuk pencarian awal via URL)
+        if (!empty($keyword)) {
+            $this->siswaModel->groupStart()
+                ->like('siswa.nama_siswa', $keyword)
+                ->orLike('siswa.nis', $keyword)
+                ->groupEnd();
         }
 
         $listSiswa = $this->siswaModel->orderBy('kelas.nama_kelas', 'ASC')
@@ -45,43 +48,55 @@ class Tracking extends BaseController
             ->findAll();
 
         $data = [
-            'title'       => 'Radar Live Tracking',
-            'config'      => $config,
-            'list_siswa'  => $listSiswa,
-            'list_kelas'  => $listKelas,
-            'kelas_aktif' => $kelasFilter,
-            'target_id'   => $targetId
+            'title'      => 'Radar Live Tracking',
+            'config'     => $config,
+            'list_siswa' => $listSiswa,
+            'keyword'    => $keyword,
+            'target_id'  => $targetId
         ];
 
         return view('web/tracking', $data);
     }
 
     /**
-     * Endpoint API Internal untuk mendapatkan lokasi real-time siswa (AJAX)
+     * Endpoint API Internal untuk AJAX Frontend
      */
     public function getLocation(string $idSiswa)
     {
         $siswa = $this->siswaModel->find($idSiswa);
 
-        // KUNCI REAL-TIME: Mengambil dari koordinat live di tabel siswa
         if ($siswa && !empty($siswa['lat_terakhir']) && !empty($siswa['long_terakhir'])) {
             return $this->response->setJSON([
                 'status'      => 200,
                 'lat'         => (float) $siswa['lat_terakhir'],
                 'lng'         => (float) $siswa['long_terakhir'],
                 'nama'        => $siswa['nama_siswa'],
-                'last_update' => $siswa['updated_at'] // Waktu pembaruan radar terakhir
+                'last_update' => $siswa['updated_at']
             ]);
         }
 
-        return $this->response->setJSON([
-            'status'  => 404,
-            'message' => 'Belum ada sinyal radar dari perangkat siswa.'
-        ]);
+        $hariIni = \CodeIgniter\I18n\Time::now('Asia/Jakarta')->toDateString();
+        $absen = $this->absensiModel->where(['siswa_id' => $idSiswa, 'tanggal' => $hariIni])->first();
+
+        if ($absen && ($absen['lat_masuk'] || $absen['lat_pulang'])) {
+            $lat = $absen['lat_pulang'] ?? $absen['lat_masuk'];
+            $lng = $absen['long_pulang'] ?? $absen['long_masuk'];
+            $waktu = $absen['jam_pulang'] ?? $absen['jam_masuk'];
+
+            return $this->response->setJSON([
+                'status'      => 200,
+                'lat'         => (float) $lat,
+                'lng'         => (float) $lng,
+                'nama'        => $siswa['nama_siswa'],
+                'last_update' => $waktu
+            ]);
+        }
+
+        return $this->response->setJSON(['status' => 404, 'message' => 'Belum ada data lokasi terbaru.']);
     }
 
     /**
-     * Endpoint API Internal untuk melakukan PING paksa ke perangkat siswa (FCM HTTP v1)
+     * Endpoint API Internal untuk Ping Paksa
      */
     public function pingSiswa(string $idSiswa)
     {
@@ -92,43 +107,33 @@ class Tracking extends BaseController
             return $this->response->setJSON(['status' => 404, 'message' => 'Data siswa tidak ditemukan.']);
         }
 
-        // 1. Validasi Keberadaan Token
         if (empty($siswa['fcm_token'])) {
             return $this->response->setJSON([
                 'status'  => 400,
-                'message' => 'Token FCM Kosong! Pastikan siswa sudah login di aplikasi terbaru.'
+                'message' => 'Token FCM Kosong!'
             ]);
         }
 
-        // 2. Eksekusi Pengiriman via Helper (HTTP v1)
         $result = send_fcm_notification(
             (string) $siswa['fcm_token'],
             "PING_LOCATION",
             "Admin meminta pembaruan lokasi radar.",
-            ['action' => 'fetch_location'] // Payload yang ditunggu oleh main.dart Flutter
+            ['action' => 'fetch_location']
         );
 
         if ($result === false) {
-            return $this->response->setJSON([
-                'status'  => 500,
-                'message' => 'Gagal menghubungi server Google. Cek koneksi internet server.'
-            ]);
+            return $this->response->setJSON(['status' => 500, 'message' => 'Gagal menghubungi server Google.']);
         }
 
         $responseJson = json_decode($result, true);
 
-        // 3. Analisa Respon Google Firebase
         if (isset($responseJson['error'])) {
-            $errorMsg = $responseJson['error']['message'] ?? 'Unknown Firebase Error';
             return $this->response->setJSON([
                 'status'  => 400,
-                'message' => 'FIREBASE ERROR: ' . $errorMsg
+                'message' => 'FIREBASE ERROR: ' . $responseJson['error']['message']
             ]);
         }
 
-        return $this->response->setJSON([
-            'status'  => 200,
-            'message' => 'Sinyal PING berhasil dikirim ke perangkat.'
-        ]);
+        return $this->response->setJSON(['status' => 200, 'message' => 'Sinyal PING berhasil dikirim ke perangkat.']);
     }
 }

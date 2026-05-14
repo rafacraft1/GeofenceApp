@@ -3,8 +3,7 @@
 /**
  * @var array $config
  * @var array $list_siswa
- * @var array $list_kelas
- * @var string $kelas_aktif
+ * @var string|null $keyword
  * @var string|null $target_id
  */
 ?>
@@ -17,28 +16,28 @@
         <div class="p-4 border-b bg-gray-50/50">
             <h3 class="font-bold text-gray-800 text-sm mb-3">Monitoring Siswa</h3>
             <form action="<?= base_url('admin/tracking') ?>" method="GET">
-                <select name="kelas_id" onchange="this.form.submit()" class="w-full border-gray-200 rounded-xl p-2 text-xs outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                    <option value="">-- Semua Kelas --</option>
-                    <?php foreach ($list_kelas as $k): ?>
-                        <option value="<?= (string)$k['id_kelas'] ?>" <?= ($kelas_aktif == (string)$k['id_kelas']) ? 'selected' : '' ?>>
-                            <?= esc((string)$k['nama_kelas']) ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
+                <div class="relative">
+                    <input type="text" name="keyword" id="searchInput" value="<?= esc((string)($keyword ?? '')) ?>" placeholder="Cari Nama atau NIS..." autocomplete="off" class="w-full border-gray-200 rounded-xl p-2 pl-8 text-xs outline-none focus:ring-2 focus:ring-blue-500 bg-white transition-all">
+                    <svg class="w-4 h-4 absolute left-2.5 top-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </div>
             </form>
         </div>
 
-        <div class="flex-1 overflow-y-auto p-2 space-y-1">
+        <div class="flex-1 overflow-y-auto p-2 space-y-1" id="siswaList">
             <?php if (!empty($list_siswa)) : ?>
                 <?php foreach ($list_siswa as $s): ?>
                     <button onclick="focusSiswa(<?= esc((string)$s['id_siswa']) ?>, '<?= esc((string)$s['nama_siswa']) ?>')"
-                        class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-blue-50 transition-all text-left group border border-transparent hover:border-blue-100 focus:outline-none">
+                        class="siswa-item w-full flex items-center gap-3 p-3 rounded-xl hover:bg-blue-50 transition-all text-left group border border-transparent hover:border-blue-100 focus:outline-none"
+                        data-nama="<?= esc(strtolower((string)$s['nama_siswa'])) ?>"
+                        data-nis="<?= esc(strtolower((string)$s['nis'])) ?>">
                         <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-[10px] group-hover:bg-blue-600 group-hover:text-white transition-colors">
                             <?= esc(strtoupper(substr((string)$s['nama_siswa'], 0, 1))) ?>
                         </div>
                         <div>
                             <div class="text-xs font-bold text-gray-800 group-hover:text-blue-700"><?= esc((string)$s['nama_siswa']) ?></div>
-                            <div class="text-[10px] text-gray-500"><?= esc((string)$s['nama_kelas']) ?></div>
+                            <div class="text-[10px] text-gray-500"><?= esc((string)$s['nama_kelas']) ?> &bull; <?= esc((string)$s['nis']) ?></div>
                         </div>
                     </button>
                 <?php endforeach; ?>
@@ -60,10 +59,6 @@
             </div>
 
             <button id="btn-ping" onclick="pingSiswa()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-xl transition-all active:scale-95 hidden pointer-events-auto items-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                </svg>
                 PAKSA UPDATE LOKASI (PING)
             </button>
         </div>
@@ -94,26 +89,45 @@
             fillOpacity: 0.1,
             radius: <?= (string)$config['radius_meter'] ?>
         }).addTo(map);
+
+        // FITUR LIVE SEARCH
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                const filter = this.value.toLowerCase();
+                const items = document.querySelectorAll('.siswa-item');
+
+                items.forEach(item => {
+                    const nama = item.getAttribute('data-nama');
+                    const nis = item.getAttribute('data-nis');
+
+                    if (nama.includes(filter) || nis.includes(filter)) {
+                        item.style.display = 'flex';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+            });
+
+            searchInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') e.preventDefault();
+            });
+        }
     });
 
     function focusSiswa(idSiswa, nama) {
         if (intervalId) clearInterval(intervalId);
-
         currentTargetId = idSiswa;
         document.getElementById('target-name').textContent = nama.toUpperCase();
         document.getElementById('tracking-status').classList.remove('hidden');
-
-        let btnPing = document.getElementById('btn-ping');
-        btnPing.classList.remove('hidden');
-        btnPing.classList.add('flex');
-
+        document.getElementById('btn-ping').classList.remove('hidden');
+        document.getElementById('btn-ping').classList.add('flex');
         fetchLocation();
         intervalId = setInterval(fetchLocation, 5000);
     }
 
     function fetchLocation() {
         if (!currentTargetId) return;
-
         fetch(`<?= base_url('admin/tracking/getLocation/') ?>${currentTargetId}`)
             .then(response => response.json())
             .then(data => {
@@ -123,14 +137,12 @@
                     marker = window.L.marker(pos).addTo(map).bindPopup(`<b>${data.nama}</b><br>Terakhir: ${data.last_update}`).openPopup();
                     map.panTo(pos);
                 }
-            }).catch(err => console.log('Menunggu pembaruan radar...'));
+            }).catch(err => console.log('Menunggu pembaruan...'));
     }
 
     function pingSiswa() {
         if (!currentTargetId) return;
-
-        toastr.info("Mengirim sinyal ping ke perangkat...");
-
+        toastr.info("Mengirim sinyal ping...");
         fetch(`<?= base_url('admin/tracking/pingSiswa/') ?>${currentTargetId}`, {
                 method: 'POST',
                 headers: {
@@ -139,33 +151,16 @@
                 }
             })
             .then(async (res) => {
-                // Pengecekan cerdas: Pastikan respon dari server adalah JSON murni
                 const isJson = res.headers.get('content-type')?.includes('application/json');
                 const data = isJson ? await res.json() : null;
-
-                if (!res.ok) {
-                    const errorMsg = (data && data.message) || `Error Server: ${res.status}`;
-                    throw new Error(errorMsg);
-                }
-
-                if (!data) {
-                    throw new Error('Respon server tidak valid.');
-                }
-
+                if (!res.ok) throw new Error(data?.message || `Error: ${res.status}`);
                 return data;
             })
             .then(data => {
-                if (data.status === 200) {
-                    toastr.success(data.message);
-                } else {
-                    toastr.error(data.message || 'Gagal mengirim ping');
-                }
+                if (data.status === 200) toastr.success(data.message);
+                else toastr.error(data.message);
             })
-            .catch(err => {
-                console.error("Error Ping:", err);
-                // Menampilkan error secara eksplisit, bukan kotak kosong
-                toastr.error(err.message || 'Terjadi kesalahan sistem.');
-            });
+            .catch(err => toastr.error(err.message));
     }
 </script>
 <?= $this->endSection() ?>
