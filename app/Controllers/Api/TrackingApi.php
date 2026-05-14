@@ -35,13 +35,14 @@ class TrackingApi extends ResourceController
             return $this->failValidationErrors($this->validator->getErrors());
         }
 
-        // Pemicu update timestamps (Internal Monitoring)
-        // Kita force isi array data agar CI4 mentrigger event beforeUpdate/afterUpdate
+        // PERBAIKAN: Menyimpan koordinat live ke tabel siswa!
         $this->siswaModel->update($siswa['id_siswa'], [
-            'updated_at' => date('Y-m-d H:i:s')
+            'lat_terakhir'  => $this->request->getPost('lat'),
+            'long_terakhir' => $this->request->getPost('long'),
+            'updated_at'    => date('Y-m-d H:i:s')
         ]);
 
-        return $this->respond(['status' => 200, 'message' => 'Lokasi berhasil diperbarui.']);
+        return $this->respond(['status' => 200, 'message' => 'Lokasi live berhasil diperbarui.']);
     }
 
     public function pingSiswa(string $targetId)

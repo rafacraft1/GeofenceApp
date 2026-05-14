@@ -29,22 +29,24 @@ class InitSistem extends Migration
         $this->forge->addKey('id_kelas', true);
         $this->forge->createTable('kelas');
 
-        // 2. Tabel Siswa
+        // 2. Tabel Siswa (DIPERBARUI DENGAN KOLOM LIVE TRACKING)
         $this->forge->addField([
-            'id_siswa'    => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
-            'kelas_id'    => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true],
-            'nis'         => ['type' => 'VARCHAR', 'constraint' => '20', 'unique' => true], // Otomatis menjadi Index (Unique)
-            'nama_siswa'  => ['type' => 'VARCHAR', 'constraint' => '100'],
-            'password'    => ['type' => 'VARCHAR', 'constraint' => '255'],
-            'foto_profil' => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
-            'device_id'   => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
-            'api_token'   => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
-            'fcm_token'   => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
-            'last_login'  => ['type' => 'DATETIME', 'null' => true],
-            'is_blocked'  => ['type' => 'TINYINT', 'constraint' => 1, 'default' => 0],
-            'fraud_count' => ['type' => 'INT', 'constraint' => 11, 'default' => 0],
-            'created_at'  => ['type' => 'DATETIME', 'null' => true],
-            'updated_at'  => ['type' => 'DATETIME', 'null' => true],
+            'id_siswa'      => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
+            'kelas_id'      => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true],
+            'nis'           => ['type' => 'VARCHAR', 'constraint' => '20', 'unique' => true], // Otomatis menjadi Index (Unique)
+            'nama_siswa'    => ['type' => 'VARCHAR', 'constraint' => '100'],
+            'password'      => ['type' => 'VARCHAR', 'constraint' => '255'],
+            'foto_profil'   => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
+            'device_id'     => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
+            'api_token'     => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
+            'fcm_token'     => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
+            'lat_terakhir'  => ['type' => 'VARCHAR', 'constraint' => '100', 'null' => true], // TAMBAHAN
+            'long_terakhir' => ['type' => 'VARCHAR', 'constraint' => '100', 'null' => true], // TAMBAHAN
+            'last_login'    => ['type' => 'DATETIME', 'null' => true],
+            'is_blocked'    => ['type' => 'TINYINT', 'constraint' => 1, 'default' => 0],
+            'fraud_count'   => ['type' => 'INT', 'constraint' => 11, 'default' => 0],
+            'created_at'    => ['type' => 'DATETIME', 'null' => true],
+            'updated_at'    => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id_siswa', true);
         $this->forge->addKey('api_token'); // Index pencarian API Token
@@ -101,9 +103,9 @@ class InitSistem extends Migration
             'updated_at'  => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id_absensi', true);
-        $this->forge->addKey('siswa_id'); // Index siswa
-        $this->forge->addKey('tanggal');  // Index tanggal
-        $this->forge->addKey('status');   // PENGEMBANGAN: Index baru untuk optimasi Dashboard
+        $this->forge->addKey('siswa_id');
+        $this->forge->addKey('tanggal');
+        $this->forge->addKey('status');
         $this->forge->addForeignKey('siswa_id', 'siswa', 'id_siswa', 'CASCADE', 'CASCADE');
         $this->forge->createTable('absensi');
 
@@ -180,7 +182,6 @@ class InitSistem extends Migration
 
     public function down()
     {
-        // Bypass Foreign Key Checks saat menghapus (rollback)
         $this->db->query('SET FOREIGN_KEY_CHECKS=0');
 
         $this->forge->dropTable('log_fraud', true);

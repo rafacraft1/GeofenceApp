@@ -91,6 +91,7 @@
                 <th class="px-6 py-4">Siswa & Kelas</th>
                 <th class="px-4 py-4 text-center">Kehadiran</th>
                 <th class="px-3 py-4 text-center">Hadir</th>
+                <th class="px-3 py-4 text-center">Dispensasi</th>
                 <th class="px-3 py-4 text-center">Telat</th>
                 <th class="px-3 py-4 text-center">Sakit</th>
                 <th class="px-3 py-4 text-center">Izin</th>
@@ -117,6 +118,7 @@
                         </div>
                     </td>
                     <td class="px-3 py-4 text-center"><span class="text-emerald-700 font-bold text-xs"><?= (int) $row['Hadir'] ?></span></td>
+                    <td class="px-3 py-4 text-center"><span class="text-teal-700 font-bold text-xs"><?= (int) $row['Dispensasi'] ?></span></td>
                     <td class="px-3 py-4 text-center"><span class="text-amber-700 font-bold text-xs"><?= (int) $row['Terlambat'] ?></span></td>
                     <td class="px-3 py-4 text-center"><span class="text-blue-700 font-bold text-xs"><?= (int) $row['Sakit'] ?></span></td>
                     <td class="px-3 py-4 text-center"><span class="text-indigo-700 font-bold text-xs"><?= (int) $row['Izin'] ?></span></td>

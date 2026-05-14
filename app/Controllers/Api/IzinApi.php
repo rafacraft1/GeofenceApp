@@ -29,6 +29,7 @@ class IzinApi extends ResourceController
         $aturanValidasi = [
             'tanggal_mulai'   => 'required|valid_date[Y-m-d]',
             'tanggal_selesai' => 'required|valid_date[Y-m-d]',
+            // PERBAIKAN: Tambahkan Dispensasi ke dalam whitelist validasi
             'jenis'           => 'required|in_list[Sakit,Izin,Dispensasi]',
             'alasan'          => 'required|min_length[5]',
             'bukti_foto'      => [
@@ -87,7 +88,6 @@ class IzinApi extends ResourceController
         return $this->failValidationErrors('Gagal memproses file foto bukti.');
     }
 
-    // --- TAMBAHAN BARU: Fungsi untuk mengambil riwayat izin siswa ---
     public function riwayat()
     {
         $siswa = $this->getSiswaAuth();

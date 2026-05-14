@@ -7,7 +7,6 @@ use App\Models\SiswaModel;
 use App\Models\KelasModel;
 use App\Models\PengaturanModel;
 use App\Models\AbsensiModel;
-use CodeIgniter\I18n\Time;
 
 class Tracking extends BaseController
 {
@@ -59,26 +58,20 @@ class Tracking extends BaseController
      */
     public function getLocation(string $idSiswa)
     {
-        $hariIni = Time::now('Asia/Jakarta')->toDateString();
-        $siswa   = $this->siswaModel->find($idSiswa);
-        $absen   = $this->absensiModel->where(['siswa_id' => $idSiswa, 'tanggal' => $hariIni])->first();
+        $siswa = $this->siswaModel->find($idSiswa);
 
-        if ($siswa && $absen && $absen['lat_masuk']) {
-            // Memprioritaskan lokasi pulang jika sudah ada
-            $lat = $absen['lat_pulang'] ?? $absen['lat_masuk'];
-            $lng = $absen['long_pulang'] ?? $absen['long_masuk'];
-            $waktu = $absen['jam_pulang'] ?? $absen['jam_masuk'];
-
+        // PERBAIKAN: Baca dari kolom pergerakan live, BUKAN dari tabel absensi
+        if ($siswa && !empty($siswa['lat_terakhir']) && !empty($siswa['long_terakhir'])) {
             return $this->response->setJSON([
                 'status'      => 200,
-                'lat'         => (float) $lat,
-                'lng'         => (float) $lng,
+                'lat'         => (float) $siswa['lat_terakhir'],
+                'lng'         => (float) $siswa['long_terakhir'],
                 'nama'        => $siswa['nama_siswa'],
-                'last_update' => $waktu
+                'last_update' => $siswa['updated_at'] // Waktu live terakhir
             ]);
         }
 
-        return $this->response->setJSON(['status' => 404, 'message' => 'Belum ada data lokasi terbaru.']);
+        return $this->response->setJSON(['status' => 404, 'message' => 'Belum ada sinyal radar dari perangkat siswa.']);
     }
 
     /**

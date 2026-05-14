@@ -69,11 +69,13 @@
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col items-center">
         <h3 class="text-xs font-bold text-gray-700 mb-6 uppercase tracking-wider w-full text-left">Proporsi Kehadiran</h3>
         <div class="w-full h-48"><canvas id="distributionChart"></canvas></div>
-        <div class="mt-6 grid grid-cols-2 gap-x-4 gap-y-2 w-full text-[9px] font-bold text-gray-500">
-            <div class="flex items-center gap-2"><span class="w-2 h-2 bg-emerald-500 rounded-full"></span> HADIR</div>
-            <div class="flex items-center gap-2"><span class="w-2 h-2 bg-amber-400 rounded-full"></span> TERLAMBAT</div>
-            <div class="flex items-center gap-2"><span class="w-2 h-2 bg-blue-400 rounded-full"></span> IZIN/SAKIT</div>
-            <div class="flex items-center gap-2"><span class="w-2 h-2 bg-red-500 rounded-full"></span> ALPA</div>
+        <div class="mt-6 grid grid-cols-2 lg:grid-cols-3 gap-x-2 gap-y-3 w-full text-[9px] font-bold text-gray-500">
+            <div class="flex items-center gap-1.5"><span class="w-2 h-2 bg-emerald-500 rounded-full"></span> HADIR</div>
+            <div class="flex items-center gap-1.5"><span class="w-2 h-2 bg-teal-500 rounded-full"></span> DISPEN</div>
+            <div class="flex items-center gap-1.5"><span class="w-2 h-2 bg-amber-400 rounded-full"></span> TELAT</div>
+            <div class="flex items-center gap-1.5"><span class="w-2 h-2 bg-blue-400 rounded-full"></span> SAKIT</div>
+            <div class="flex items-center gap-1.5"><span class="w-2 h-2 bg-indigo-400 rounded-full"></span> IZIN</div>
+            <div class="flex items-center gap-1.5"><span class="w-2 h-2 bg-red-500 rounded-full"></span> ALPA</div>
         </div>
     </div>
 </div>
@@ -182,7 +184,7 @@
             });
         }
 
-        // 2. Bar Chart Trend
+        // 2. Bar Chart Trend (Dispensasi sudah digabung ke Hadir via Controller)
         new window.Chart(document.getElementById('attendanceChart'), {
             type: 'bar',
             data: {
@@ -221,14 +223,15 @@
             }
         });
 
-        // 3. Doughnut Chart Distribusi
+        // 3. Doughnut Chart Distribusi (Dispensasi Dipisah secara Visual)
         new window.Chart(document.getElementById('distributionChart'), {
             type: 'doughnut',
             data: {
-                labels: ['Hadir', 'Terlambat', 'Sakit', 'Izin', 'Alpa'],
+                labels: ['Hadir', 'Dispensasi', 'Terlambat', 'Sakit', 'Izin', 'Alpa'],
                 datasets: [{
                     data: <?= $chart_distribution ?>,
-                    backgroundColor: ['#10B981', '#FBBF24', '#60A5FA', '#818CF8', '#EF4444'],
+                    // Warna diselaraskan: Hijau, Teal, Kuning, Biru, Indigo, Merah
+                    backgroundColor: ['#10B981', '#14B8A6', '#FBBF24', '#60A5FA', '#818CF8', '#EF4444'],
                     borderWidth: 0,
                     cutout: '75%'
                 }]

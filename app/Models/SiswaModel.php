@@ -22,6 +22,8 @@ class SiswaModel extends Model
         'device_id',
         'api_token',
         'fcm_token',
+        'lat_terakhir',   // <-- TAMBAHAN UNTUK LIVE TRACKING
+        'long_terakhir',  // <-- TAMBAHAN UNTUK LIVE TRACKING
         'last_login',
         'is_blocked',
         'fraud_count'

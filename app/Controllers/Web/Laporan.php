@@ -55,17 +55,19 @@ class Laporan extends BaseController
             $absenMap[$row['siswa_id']][$row['status']] = (int) $row['total'];
         }
 
-        // 4. Penggabungan Data Final
+        // 4. Penggabungan Data Final & Implementasi Logika Dispensasi
         $rekap = [];
         foreach ($listSiswa as $siswa) {
-            $id        = $siswa['id_siswa'];
-            $hadir     = $absenMap[$id]['Hadir'] ?? 0;
-            $terlambat = $absenMap[$id]['Terlambat'] ?? 0;
-            $sakit     = $absenMap[$id]['Sakit'] ?? 0;
-            $izin      = $absenMap[$id]['Izin'] ?? 0;
-            $alpa      = $absenMap[$id]['Alpa'] ?? 0;
+            $id         = $siswa['id_siswa'];
+            $hadir      = $absenMap[$id]['Hadir'] ?? 0;
+            $terlambat  = $absenMap[$id]['Terlambat'] ?? 0;
+            $dispensasi = $absenMap[$id]['Dispensasi'] ?? 0; // Menarik data dispensasi
+            $sakit      = $absenMap[$id]['Sakit'] ?? 0;
+            $izin       = $absenMap[$id]['Izin'] ?? 0;
+            $alpa       = $absenMap[$id]['Alpa'] ?? 0;
 
-            $totalKehadiran = $hadir + $terlambat;
+            // KUNCI UTAMA: Dispensasi ditambahkan ke Total Kehadiran yang sah
+            $totalKehadiran = $hadir + $terlambat + $dispensasi;
             $totalHari      = $totalKehadiran + $sakit + $izin + $alpa;
             $persentase     = ($totalHari > 0) ? round(($totalKehadiran / $totalHari) * 100, 2) : 0;
 
@@ -74,6 +76,7 @@ class Laporan extends BaseController
                 'nama_siswa' => $siswa['nama_siswa'],
                 'nama_kelas' => $siswa['nama_kelas'] ?? '-',
                 'Hadir'      => $hadir,
+                'Dispensasi' => $dispensasi, // Dilempar ke View/Excel untuk rincian
                 'Terlambat'  => $terlambat,
                 'Sakit'      => $sakit,
                 'Izin'       => $izin,
@@ -88,7 +91,6 @@ class Laporan extends BaseController
 
     public function index()
     {
-        // Sesuaikan parameter GET dengan name="kelas" yang ada di view
         $bulanMulai   = $this->request->getGet('bulan_mulai') ?? date('m');
         $bulanSelesai = $this->request->getGet('bulan_selesai') ?? date('m');
         $tahun        = $this->request->getGet('tahun') ?? date('Y');
@@ -96,7 +98,6 @@ class Laporan extends BaseController
 
         $rekapData = $this->getRekapData($bulanMulai, $bulanSelesai, $tahun, (string)$kelasId);
 
-        // Selaraskan key array dengan camelCase di View
         $data = [
             'title'        => 'Laporan Kehadiran',
             'rekapData'    => $rekapData,
@@ -126,7 +127,8 @@ class Laporan extends BaseController
         $sheet->setCellValue('A2', "PERIODE: Bulan $bulanMulai s/d $bulanSelesai Tahun $tahun");
         $sheet->getStyle('A1:A2')->getFont()->setBold(true);
 
-        $headers = ['No', 'NIS', 'Nama Lengkap', 'Kelas', 'Hadir', 'Terlambat', 'Sakit', 'Izin', 'Alpa', 'Total Hari', 'Persentase'];
+        // Header diperbarui dengan menyisipkan kolom Dispensasi
+        $headers = ['No', 'NIS', 'Nama Lengkap', 'Kelas', 'Hadir', 'Dispensasi', 'Terlambat', 'Sakit', 'Izin', 'Alpa', 'Total Hari', 'Persentase'];
         $col = 'A';
         foreach ($headers as $h) {
             $sheet->setCellValue($col . '4', $h);
@@ -142,16 +144,17 @@ class Laporan extends BaseController
             $sheet->setCellValue('C' . $row, $data['nama_siswa']);
             $sheet->setCellValue('D' . $row, $data['nama_kelas']);
             $sheet->setCellValue('E' . $row, $data['Hadir']);
-            $sheet->setCellValue('F' . $row, $data['Terlambat']);
-            $sheet->setCellValue('G' . $row, $data['Sakit']);
-            $sheet->setCellValue('H' . $row, $data['Izin']);
-            $sheet->setCellValue('I' . $row, $data['Alpa']);
-            $sheet->setCellValue('J' . $row, $data['TotalHari']);
-            $sheet->setCellValue('K' . $row, $data['Persentase'] . '%');
+            $sheet->setCellValue('F' . $row, $data['Dispensasi']); // Kolom baru di Excel
+            $sheet->setCellValue('G' . $row, $data['Terlambat']);
+            $sheet->setCellValue('H' . $row, $data['Sakit']);
+            $sheet->setCellValue('I' . $row, $data['Izin']);
+            $sheet->setCellValue('J' . $row, $data['Alpa']);
+            $sheet->setCellValue('K' . $row, $data['TotalHari']);
+            $sheet->setCellValue('L' . $row, $data['Persentase'] . '%');
             $row++;
         }
 
-        foreach (range('A', 'K') as $columnID) {
+        foreach (range('A', 'L') as $columnID) {
             $sheet->getColumnDimension($columnID)->setAutoSize(true);
         }
 

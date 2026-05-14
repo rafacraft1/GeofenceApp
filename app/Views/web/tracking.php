@@ -81,7 +81,6 @@
     let intervalId = null;
 
     document.addEventListener('DOMContentLoaded', function() {
-        // Menggunakan window.L secara eksplisit
         map = window.L.map('map').setView([<?= (string)$config['latitude_sekolah'] ?>, <?= (string)$config['longitude_sekolah'] ?>], 15);
         window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
@@ -139,10 +138,33 @@
                     '<?= csrf_header() ?>': '<?= csrf_hash() ?>'
                 }
             })
-            .then(res => res.json())
-            .then(res => {
-                if (res.status === 200) toastr.success(res.message);
-                else toastr.error(res.message);
+            .then(async (res) => {
+                // Pengecekan cerdas: Pastikan respon dari server adalah JSON murni
+                const isJson = res.headers.get('content-type')?.includes('application/json');
+                const data = isJson ? await res.json() : null;
+
+                if (!res.ok) {
+                    const errorMsg = (data && data.message) || `Error Server: ${res.status}`;
+                    throw new Error(errorMsg);
+                }
+
+                if (!data) {
+                    throw new Error('Respon server tidak valid.');
+                }
+
+                return data;
+            })
+            .then(data => {
+                if (data.status === 200) {
+                    toastr.success(data.message);
+                } else {
+                    toastr.error(data.message || 'Gagal mengirim ping');
+                }
+            })
+            .catch(err => {
+                console.error("Error Ping:", err);
+                // Menampilkan error secara eksplisit, bukan kotak kosong
+                toastr.error(err.message || 'Terjadi kesalahan sistem.');
             });
     }
 </script>
