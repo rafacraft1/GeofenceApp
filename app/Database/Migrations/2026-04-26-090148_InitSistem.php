@@ -178,12 +178,40 @@ class InitSistem extends Migration
         $this->forge->addKey('siswa_id');
         $this->forge->addForeignKey('siswa_id', 'siswa', 'id_siswa', 'CASCADE', 'CASCADE');
         $this->forge->createTable('log_fraud');
+
+        // ========================================================
+        // 11. TABEL MENUS (Master Data Modul untuk RBAC Dinamis)
+        // ========================================================
+        $this->forge->addField([
+            'id_menu'    => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
+            'nama_menu'  => ['type' => 'VARCHAR', 'constraint' => '100'],
+            'url'        => ['type' => 'VARCHAR', 'constraint' => '100', 'unique' => true],
+            'icon'       => ['type' => 'VARCHAR', 'constraint' => '100', 'null' => true],
+            'urutan'     => ['type' => 'INT', 'constraint' => 11, 'default' => 0],
+            'is_active'  => ['type' => 'TINYINT', 'constraint' => 1, 'default' => 1],
+        ]);
+        $this->forge->addKey('id_menu', true);
+        $this->forge->createTable('menus');
+
+        // ========================================================
+        // 12. TABEL ROLE_MENUS (Relasi Role dan Menu)
+        // ========================================================
+        $this->forge->addField([
+            'id_role' => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true],
+            'id_menu' => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true],
+        ]);
+        $this->forge->addKey(['id_role', 'id_menu'], true); // Composite Key
+        $this->forge->addForeignKey('id_role', 'roles', 'id_role', 'CASCADE', 'CASCADE');
+        $this->forge->addForeignKey('id_menu', 'menus', 'id_menu', 'CASCADE', 'CASCADE');
+        $this->forge->createTable('role_menus');
     }
 
     public function down()
     {
         $this->db->query('SET FOREIGN_KEY_CHECKS=0');
 
+        $this->forge->dropTable('role_menus', true);
+        $this->forge->dropTable('menus', true);
         $this->forge->dropTable('log_fraud', true);
         $this->forge->dropTable('pengajuan_izin', true);
         $this->forge->dropTable('hari_libur', true);
