@@ -285,6 +285,20 @@
                 }
             });
         });
+
+        // Fitur otomatis scroll ke menu yang sedang aktif di sidebar
+        $(document).ready(function() {
+            let activeMenu = document.querySelector('#sidebar nav a.bg-blue-600');
+            if (activeMenu) {
+                // Memberikan delay sedikti memastikan DOM telah render dengan utuh
+                setTimeout(() => {
+                    activeMenu.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center'
+                    });
+                }, 100);
+            }
+        });
     </script>
     <?= $this->renderSection('scripts') ?>
 </body>
