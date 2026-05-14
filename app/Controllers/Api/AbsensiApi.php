@@ -94,7 +94,9 @@ class AbsensiApi extends ResourceController
 
         $sekarang        = Time::now('Asia/Jakarta');
         $tanggalSekarang = $sekarang->toDateString();
-        $kodeHari        = $sekarang->getDayOfWeek();
+
+        // PERBAIKAN: Gunakan format('N') agar konsisten dengan database dan WaktuApi (1=Senin, 7=Minggu)
+        $kodeHari        = $sekarang->format('N');
 
         $jadwal = $this->getJadwalHariIni($tanggalSekarang, (string)$kodeHari);
         if ($jadwal['is_libur']) return $this->failForbidden('Hari ini libur: ' . $jadwal['keterangan']);
@@ -225,7 +227,9 @@ class AbsensiApi extends ResourceController
 
         $sekarang        = Time::now('Asia/Jakarta');
         $tanggalSekarang = $sekarang->toDateString();
-        $kodeHari        = $sekarang->getDayOfWeek();
+
+        // PERBAIKAN: Gunakan format('N') di Absen Pulang juga
+        $kodeHari        = $sekarang->format('N');
 
         $jadwal = $this->getJadwalHariIni($tanggalSekarang, (string)$kodeHari);
         if ($jadwal['is_libur']) return $this->failForbidden('Hari ini libur: ' . $jadwal['keterangan']);
