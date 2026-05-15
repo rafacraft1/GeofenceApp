@@ -25,13 +25,22 @@ class UserModel extends Model
     protected $updatedField     = 'updated_at';
 
     /**
-     * Mengambil data user beserta nama role-nya menggunakan JOIN
+     * Mengambil data user beserta nama role-nya menggunakan JOIN.
+     * Jika $username diisi, kembalikan 1 baris data spesifik.
+     * Jika $username kosong (''), kembalikan seluruh data user.
      */
-    public function getUserWithRole(string $username)
+    public function getUserWithRole(string $username = '')
     {
-        return $this->select('users.*, roles.nama_role')
+        $builder = $this->select('users.*, roles.nama_role')
             ->join('roles', 'roles.id_role = users.role_id')
-            ->where('username', $username)
-            ->first();
+            ->orderBy('users.role_id', 'ASC');
+
+        if ($username !== '') {
+            // Mode pencarian spesifik untuk Login/Auth
+            return $builder->where('username', $username)->first();
+        }
+
+        // Mode pengambilan massal untuk halaman Manajemen User
+        return $builder->findAll();
     }
 }

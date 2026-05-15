@@ -1,8 +1,8 @@
 <?php
 
 /**
- * @var array $config
- * @var array $list_siswa
+ * @var array<string, mixed> $config
+ * @var array<int, array<string, mixed>> $list_siswa
  * @var string|null $keyword
  * @var string|null $target_id
  */
@@ -28,8 +28,9 @@
         <div class="flex-1 overflow-y-auto p-2 space-y-1" id="siswaList">
             <?php if (!empty($list_siswa)) : ?>
                 <?php foreach ($list_siswa as $s): ?>
-                    <button onclick="focusSiswa(<?= esc((string)$s['id_siswa']) ?>, '<?= esc((string)$s['nama_siswa']) ?>')"
-                        class="siswa-item w-full flex items-center gap-3 p-3 rounded-xl hover:bg-blue-50 transition-all text-left group border border-transparent hover:border-blue-100 focus:outline-none"
+                    <button id="btn-siswa-<?= esc((string)$s['id_siswa']) ?>"
+                        onclick="focusSiswa(<?= esc((string)$s['id_siswa']) ?>, '<?= esc((string)$s['nama_siswa']) ?>')"
+                        class="siswa-item w-full flex items-center gap-3 p-3 rounded-xl hover:bg-blue-50 transition-all text-left group border border-transparent focus:outline-none"
                         data-nama="<?= esc(strtolower((string)$s['nama_siswa'])) ?>"
                         data-nis="<?= esc(strtolower((string)$s['nis'])) ?>">
                         <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-[10px] group-hover:bg-blue-600 group-hover:text-white transition-colors">
@@ -113,16 +114,52 @@
                 if (e.key === 'Enter') e.preventDefault();
             });
         }
+
+        // ========================================================
+        // PERBAIKAN 2: AUTO-FOCUS JIKA ADA TARGET ID DARI URL
+        // ========================================================
+        const initialTargetId = '<?= esc((string)($target_id ?? '')) ?>';
+        if (initialTargetId) {
+            // Beri sedikit delay agar Leaflet Map selesai dirender sebelum melakukan auto-click
+            setTimeout(() => {
+                const targetBtn = document.getElementById('btn-siswa-' + initialTargetId);
+                if (targetBtn) {
+                    // Scroll daftar siswa di sidebar agar nama siswa tersebut terlihat
+                    targetBtn.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center'
+                    });
+                    // Simulasikan klik untuk memicu tracking
+                    targetBtn.click();
+                }
+            }, 500);
+        }
     });
 
     function focusSiswa(idSiswa, nama) {
         if (intervalId) clearInterval(intervalId);
         currentTargetId = idSiswa;
+
+        // Visual Feedback: Beri warna pada siswa yang sedang aktif di sidebar
+        document.querySelectorAll('.siswa-item').forEach(el => {
+            el.classList.remove('bg-blue-50', 'border-blue-200');
+            el.classList.add('border-transparent');
+        });
+        const activeBtn = document.getElementById('btn-siswa-' + idSiswa);
+        if (activeBtn) {
+            activeBtn.classList.remove('border-transparent');
+            activeBtn.classList.add('bg-blue-50', 'border-blue-200');
+        }
+
         document.getElementById('target-name').textContent = nama.toUpperCase();
         document.getElementById('tracking-status').classList.remove('hidden');
         document.getElementById('btn-ping').classList.remove('hidden');
         document.getElementById('btn-ping').classList.add('flex');
+
+        // Panggil fetch pertama kali
         fetchLocation();
+
+        // Set interval untuk refresh otomatis tiap 5 detik
         intervalId = setInterval(fetchLocation, 5000);
     }
 
@@ -134,8 +171,17 @@
                 if (data.status === 200 && data.lat) {
                     const pos = [data.lat, data.lng];
                     if (marker) map.removeLayer(marker);
-                    marker = window.L.marker(pos).addTo(map).bindPopup(`<b>${data.nama}</b><br>Terakhir: ${data.last_update}`).openPopup();
-                    map.panTo(pos);
+
+                    // Gunakan flyTo untuk animasi pergerakan kamera yang halus
+                    map.flyTo(pos, 18, {
+                        animate: true,
+                        duration: 1.5
+                    });
+
+                    marker = window.L.marker(pos).addTo(map).bindPopup(`<b>${data.nama}</b><br>Terakhir Update: ${data.last_update}`).openPopup();
+                } else if (data.status === 404) {
+                    toastr.warning(data.message, "Info");
+                    clearInterval(intervalId); // Hentikan tracking jika data tidak ada
                 }
             }).catch(err => console.log('Menunggu pembaruan...'));
     }

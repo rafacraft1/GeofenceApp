@@ -47,7 +47,12 @@
                     <?php foreach ($users as $u): ?>
                         <tr class="hover:bg-gray-50 transition-colors">
                             <td class="px-6 py-4">
-                                <div class="font-bold text-gray-800"><?= esc((string) $u['nama_lengkap']) ?></div>
+                                <div class="font-bold text-gray-800 flex items-center gap-2">
+                                    <?= esc((string) $u['nama_lengkap']) ?>
+                                    <?php if ((int)$u['id_user'] === 1): ?>
+                                        <i class="fas fa-check-circle text-blue-500" title="Super Administrator"></i>
+                                    <?php endif; ?>
+                                </div>
                             </td>
                             <td class="px-6 py-4">
                                 <div class="text-gray-600 font-medium"><?= esc((string) $u['username']) ?></div>
@@ -76,12 +81,18 @@
                                         </button>
                                     </form>
 
-                                    <form action="<?= base_url('admin/user/delete/' . $u['id_user']) ?>" method="POST" class="inline">
-                                        <?= csrf_field() ?>
-                                        <button type="submit" class="p-2.5 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 rounded-xl transition-colors shadow-sm btn-confirm" data-text="Hapus akun ini secara permanen?" data-btn="Ya, Hapus" title="Hapus Akun">
-                                            <i class="fas fa-trash-alt"></i>
+                                    <?php if ((int)$u['id_user'] === 1): ?>
+                                        <button type="button" disabled class="p-2.5 bg-gray-50 text-gray-300 rounded-xl cursor-not-allowed shadow-sm border border-gray-100" title="Administrator Utama (Dilindungi)">
+                                            <i class="fas fa-shield-alt"></i>
                                         </button>
-                                    </form>
+                                    <?php else: ?>
+                                        <form action="<?= base_url('admin/user/delete/' . $u['id_user']) ?>" method="POST" class="inline">
+                                            <?= csrf_field() ?>
+                                            <button type="submit" class="p-2.5 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 rounded-xl transition-colors shadow-sm btn-confirm" data-text="Hapus akun ini secara permanen?" data-btn="Ya, Hapus" title="Hapus Akun">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
+                                        </form>
+                                    <?php endif; ?>
                                 </div>
                             </td>
                         </tr>
@@ -130,6 +141,9 @@
                         <i class="fas fa-chevron-down text-xs"></i>
                     </div>
                 </div>
+                <p id="roleWarning" class="text-[10px] text-red-500 font-bold mt-1.5 hidden ml-1">
+                    <i class="fas fa-lock"></i> Role Administrator Utama tidak dapat diturunkan.
+                </p>
             </div>
 
             <div class="bg-blue-50 text-blue-800 p-3 rounded-lg text-xs font-medium items-start gap-2 hidden" id="passwordHint">
@@ -156,14 +170,22 @@
     const title = document.getElementById('modalTitle');
     const pwdHint = document.getElementById('passwordHint');
 
+    // Elemen proteksi UI
+    const roleSelect = document.getElementById('role_id');
+    const roleWarning = document.getElementById('roleWarning');
+
     function openModal() {
         form.reset();
         document.getElementById('id_user').value = '';
         title.innerHTML = '<i class="fas fa-user-plus text-blue-600"></i> Tambah User Baru';
 
-        // FIX TAILWIND CSS: Penambahan flex secara dinamis
         pwdHint.classList.remove('hidden');
         pwdHint.classList.add('flex');
+
+        // Buka kembali akses dropdown role
+        roleSelect.removeAttribute('disabled');
+        roleSelect.classList.remove('bg-gray-100', 'text-gray-400', 'cursor-not-allowed');
+        roleWarning.classList.add('hidden');
 
         modal.classList.remove('hidden');
         modal.classList.add('flex');
@@ -183,9 +205,19 @@
 
         title.innerHTML = '<i class="fas fa-user-edit text-amber-500"></i> Edit Data User';
 
-        // FIX TAILWIND CSS: Penghapusan flex agar tidak bertabrakan dengan hidden
         pwdHint.classList.add('hidden');
         pwdHint.classList.remove('flex');
+
+        // PROTEKSI UI: Nonaktifkan form Role jika ID = 1
+        if (parseInt(user.id_user) === 1) {
+            roleSelect.setAttribute('disabled', 'true');
+            roleSelect.classList.add('bg-gray-100', 'text-gray-400', 'cursor-not-allowed');
+            roleWarning.classList.remove('hidden');
+        } else {
+            roleSelect.removeAttribute('disabled');
+            roleSelect.classList.remove('bg-gray-100', 'text-gray-400', 'cursor-not-allowed');
+            roleWarning.classList.add('hidden');
+        }
 
         modal.classList.remove('hidden');
         modal.classList.add('flex');
@@ -203,10 +235,16 @@
         setTimeout(() => {
             modal.classList.add('hidden');
             modal.classList.remove('flex');
+
+            // Hapus atribut disabled dari select agar saat form di-submit tidak terjadi error required
+            roleSelect.removeAttribute('disabled');
         }, 300);
     }
 
     form.addEventListener('submit', function() {
+        // Hapus atribut disabled tepat sebelum submit agar valuenya (jika diperlukan) tetap terkirim
+        roleSelect.removeAttribute('disabled');
+
         const btn = this.querySelector('.btn-submit');
         if (btn) {
             btn.classList.add('btn-loading');

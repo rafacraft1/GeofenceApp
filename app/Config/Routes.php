@@ -29,9 +29,13 @@ $routes->group('admin', ['filter' => ['webAuth', 'dynamicAccess'], 'namespace' =
     $routes->post('siswa/unblock/(:num)', 'Siswa::unblock/$1');
 
     $routes->get('absensi', 'Absensi::index');
+    $routes->get('siswa/export', 'Siswa::export');
+    $routes->post('siswa/import', 'Siswa::import');
+    $routes->get('siswa/downloadTemplate', 'Siswa::downloadTemplate');
     $routes->post('absensi/inputManual', 'Absensi::inputManual');
 
     $routes->get('tracking', 'Tracking::index');
+    $routes->get('tracking/siswa/(:num)', 'Tracking::index/$1');
     $routes->get('tracking/getLocation/(:segment)', 'Tracking::getLocation/$1');
     $routes->post('tracking/pingSiswa/(:segment)', 'Tracking::pingSiswa/$1');
 
