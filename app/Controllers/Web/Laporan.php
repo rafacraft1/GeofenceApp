@@ -36,7 +36,7 @@ class Laporan extends BaseController
             ->orderBy('siswa.nama_siswa', 'ASC')
             ->findAll();
 
-        // 2. Ambil Agregasi Data Absensi (Hitung total status per siswa)
+        // 2. Ambil Agregasi Data Absensi
         $this->absensiModel->select('absensi.siswa_id, absensi.status, COUNT(absensi.id_absensi) as total')
             ->where('MONTH(absensi.tanggal) >=', $bulanMulai)
             ->where('MONTH(absensi.tanggal) <=', $bulanSelesai)
@@ -55,18 +55,17 @@ class Laporan extends BaseController
             $absenMap[$row['siswa_id']][$row['status']] = (int) $row['total'];
         }
 
-        // 4. Penggabungan Data Final & Implementasi Logika Dispensasi
+        // 4. Penggabungan Data Final
         $rekap = [];
         foreach ($listSiswa as $siswa) {
             $id         = $siswa['id_siswa'];
             $hadir      = $absenMap[$id]['Hadir'] ?? 0;
             $terlambat  = $absenMap[$id]['Terlambat'] ?? 0;
-            $dispensasi = $absenMap[$id]['Dispensasi'] ?? 0; // Menarik data dispensasi
+            $dispensasi = $absenMap[$id]['Dispensasi'] ?? 0;
             $sakit      = $absenMap[$id]['Sakit'] ?? 0;
             $izin       = $absenMap[$id]['Izin'] ?? 0;
             $alpa       = $absenMap[$id]['Alpa'] ?? 0;
 
-            // KUNCI UTAMA: Dispensasi ditambahkan ke Total Kehadiran yang sah
             $totalKehadiran = $hadir + $terlambat + $dispensasi;
             $totalHari      = $totalKehadiran + $sakit + $izin + $alpa;
             $persentase     = ($totalHari > 0) ? round(($totalKehadiran / $totalHari) * 100, 2) : 0;
@@ -76,7 +75,7 @@ class Laporan extends BaseController
                 'nama_siswa' => $siswa['nama_siswa'],
                 'nama_kelas' => $siswa['nama_kelas'] ?? '-',
                 'Hadir'      => $hadir,
-                'Dispensasi' => $dispensasi, // Dilempar ke View/Excel untuk rincian
+                'Dispensasi' => $dispensasi,
                 'Terlambat'  => $terlambat,
                 'Sakit'      => $sakit,
                 'Izin'       => $izin,
@@ -94,14 +93,24 @@ class Laporan extends BaseController
         $bulanMulai   = $this->request->getGet('bulan_mulai') ?? date('m');
         $bulanSelesai = $this->request->getGet('bulan_selesai') ?? date('m');
         $tahun        = $this->request->getGet('tahun') ?? date('Y');
-        $kelasId      = $this->request->getGet('kelas') ?? '';
+
+        $isWaliKelas  = session()->get('is_wali_kelas');
+        $kelasSession = session()->get('kelas_id');
+
+        // Penetapan paksa ID Kelas jika Wali Kelas
+        $kelasId = $isWaliKelas ? $kelasSession : ($this->request->getGet('kelas') ?? '');
 
         $rekapData = $this->getRekapData($bulanMulai, $bulanSelesai, $tahun, (string)$kelasId);
+
+        // List dropdown disesuaikan otoritas
+        $listKelas = $isWaliKelas
+            ? $this->kelasModel->where('id_kelas', $kelasSession)->findAll()
+            : $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll();
 
         $data = [
             'title'        => 'Laporan Kehadiran',
             'rekapData'    => $rekapData,
-            'listKelas'    => $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll(),
+            'listKelas'    => $listKelas,
             'bulanMulai'   => $bulanMulai,
             'bulanSelesai' => $bulanSelesai,
             'tahun'        => $tahun,
@@ -116,7 +125,9 @@ class Laporan extends BaseController
         $bulanMulai   = $this->request->getGet('bulan_mulai') ?? date('m');
         $bulanSelesai = $this->request->getGet('bulan_selesai') ?? date('m');
         $tahun        = $this->request->getGet('tahun') ?? date('Y');
-        $kelasId      = $this->request->getGet('kelas') ?? '';
+
+        // Penetapan paksa ID Kelas untuk file Excel
+        $kelasId = session()->get('is_wali_kelas') ? session()->get('kelas_id') : ($this->request->getGet('kelas') ?? '');
 
         $rekapData = $this->getRekapData($bulanMulai, $bulanSelesai, $tahun, (string)$kelasId);
 
@@ -127,7 +138,6 @@ class Laporan extends BaseController
         $sheet->setCellValue('A2', "PERIODE: Bulan $bulanMulai s/d $bulanSelesai Tahun $tahun");
         $sheet->getStyle('A1:A2')->getFont()->setBold(true);
 
-        // Header diperbarui dengan menyisipkan kolom Dispensasi
         $headers = ['No', 'NIS', 'Nama Lengkap', 'Kelas', 'Hadir', 'Dispensasi', 'Terlambat', 'Sakit', 'Izin', 'Alpa', 'Total Hari', 'Persentase'];
         $col = 'A';
         foreach ($headers as $h) {
@@ -144,7 +154,7 @@ class Laporan extends BaseController
             $sheet->setCellValue('C' . $row, $data['nama_siswa']);
             $sheet->setCellValue('D' . $row, $data['nama_kelas']);
             $sheet->setCellValue('E' . $row, $data['Hadir']);
-            $sheet->setCellValue('F' . $row, $data['Dispensasi']); // Kolom baru di Excel
+            $sheet->setCellValue('F' . $row, $data['Dispensasi']);
             $sheet->setCellValue('G' . $row, $data['Terlambat']);
             $sheet->setCellValue('H' . $row, $data['Sakit']);
             $sheet->setCellValue('I' . $row, $data['Izin']);

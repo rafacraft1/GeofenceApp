@@ -36,12 +36,13 @@ class Kelas extends BaseController
                 ->findAll();
         }
 
-        // Menggunakan KelasModel untuk optimasi LEFT JOIN
+        // PERBAIKAN: Join ke tabel users untuk mengambil nama wali kelas
         $kelas = $this->kelasModel
-            ->select('kelas.*, COUNT(siswa.id_siswa) as jumlah_siswa')
+            ->select('kelas.*, users.nama_lengkap as nama_wali, COUNT(siswa.id_siswa) as jumlah_siswa')
+            ->join('users', 'users.id_user = kelas.wali_kelas_id', 'left')
             ->join('siswa', 'siswa.kelas_id = kelas.id_kelas', 'left')
             ->groupBy('kelas.id_kelas')
-            ->orderBy('nama_kelas', 'ASC')
+            ->orderBy('kelas.nama_kelas', 'ASC')
             ->findAll();
 
         $data = [
@@ -55,18 +56,21 @@ class Kelas extends BaseController
 
     public function store()
     {
-        $idKelas   = $this->request->getPost('id_kelas');
-        $namaKelas = trim((string) $this->request->getPost('nama_kelas'));
-        $waliKelas = trim((string) $this->request->getPost('wali_kelas'));
+        $idKelas     = $this->request->getPost('id_kelas');
+        $namaKelas   = trim((string) $this->request->getPost('nama_kelas'));
+        // PERBAIKAN: Mengambil ID, bukan Nama
+        $waliKelasId = $this->request->getPost('wali_kelas_id');
 
         $aturanValidasi = [
-            'nama_kelas' => 'required',
-            'wali_kelas' => 'required'
+            'nama_kelas' => 'required'
         ];
 
         if (!$this->validate($aturanValidasi)) {
-            return redirect()->back()->with('error', 'Nama kelas dan Wali kelas wajib diisi.');
+            return redirect()->back()->with('error', 'Nama kelas wajib diisi.');
         }
+
+        // Tangani null jika dikosongkan ("-- Tanpa Wali Kelas --")
+        $waliKelasId = empty($waliKelasId) ? null : (int) $waliKelasId;
 
         if (!empty($idKelas)) {
             $cekDuplikat = $this->kelasModel
@@ -78,10 +82,10 @@ class Kelas extends BaseController
                 return redirect()->back()->with('error', 'Gagal update: Nama kelas "' . $namaKelas . '" sudah digunakan.');
             }
 
-            // updated_at otomatis dihandle oleh CI4 Model
+            // PERBAIKAN: Field yang disimpan adalah wali_kelas_id
             $this->kelasModel->update($idKelas, [
-                'nama_kelas' => $namaKelas,
-                'wali_kelas' => $waliKelas
+                'nama_kelas'    => $namaKelas,
+                'wali_kelas_id' => $waliKelasId
             ]);
 
             $pesan = "Data kelas $namaKelas berhasil diperbarui.";
@@ -92,10 +96,10 @@ class Kelas extends BaseController
                 return redirect()->back()->with('error', 'Gagal: Kelas "' . $namaKelas . '" sudah terdaftar.');
             }
 
-            // created_at otomatis dihandle oleh CI4 Model
+            // PERBAIKAN: Field yang disimpan adalah wali_kelas_id
             $this->kelasModel->insert([
-                'nama_kelas' => $namaKelas,
-                'wali_kelas' => $waliKelas
+                'nama_kelas'    => $namaKelas,
+                'wali_kelas_id' => $waliKelasId
             ]);
 
             $pesan = "Kelas baru $namaKelas berhasil ditambahkan.";
@@ -108,7 +112,6 @@ class Kelas extends BaseController
     {
         $this->kelasModel->db->transStart();
 
-        // Hapus siswa terkait menggunakan Model
         $this->siswaModel->where('kelas_id', $id)->delete();
         $this->kelasModel->delete($id);
 

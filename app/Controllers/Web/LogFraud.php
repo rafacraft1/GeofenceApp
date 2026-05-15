@@ -16,10 +16,18 @@ class LogFraud extends BaseController
 
     public function index()
     {
-        $logFraud = $this->logFraudModel
+        $this->logFraudModel
             ->select('log_fraud.*, siswa.nama_siswa, siswa.nis, kelas.nama_kelas')
             ->join('siswa', 'siswa.id_siswa = log_fraud.siswa_id')
-            ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left')
+            ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
+
+        // PROTEKSI OTORITAS WALI KELAS:
+        // Jika user adalah wali kelas, query dibatasi murni hanya untuk siswa di kelasnya
+        if (session()->get('is_wali_kelas')) {
+            $this->logFraudModel->where('siswa.kelas_id', session()->get('kelas_id'));
+        }
+
+        $logFraud = $this->logFraudModel
             ->orderBy('log_fraud.created_at', 'DESC')
             ->findAll();
 

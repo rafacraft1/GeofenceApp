@@ -30,11 +30,11 @@
                 </div>
 
                 <div class="mb-6">
-                    <label for="wali_kelas" class="block text-xs font-bold text-gray-600 uppercase mb-2">Pilih Wali Kelas</label>
-                    <select name="wali_kelas" id="wali_kelas" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer text-sm">
+                    <label for="wali_kelas_id" class="block text-xs font-bold text-gray-600 uppercase mb-2">Pilih Wali Kelas</label>
+                    <select name="wali_kelas_id" id="wali_kelas_id" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer text-sm">
                         <option value="">-- Tanpa Wali Kelas --</option>
                         <?php foreach ($listGuru as $guru): ?>
-                            <option value="<?= esc((string) $guru['nama_lengkap']) ?>"><?= esc((string) $guru['nama_lengkap']) ?></option>
+                            <option value="<?= esc((string) $guru['id_user']) ?>"><?= esc((string) $guru['nama_lengkap']) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -68,7 +68,7 @@
                                     <span class="font-black text-gray-800 tracking-tight"><?= esc((string) $k['nama_kelas']) ?></span>
                                 </td>
                                 <td class="py-4 px-6 text-center italic text-xs text-gray-500">
-                                    <?= esc((string) ($k['wali_kelas'] ?? '-')) ?>
+                                    <?= esc((string) ($k['nama_wali'] ?? '-')) ?>
                                 </td>
                                 <td class="py-4 px-6 text-center">
                                     <span class="bg-blue-50 text-blue-600 text-[10px] font-black px-2 py-1 rounded-md border border-blue-100">
@@ -78,7 +78,7 @@
                                 <td class="py-4 px-6 text-center">
                                     <div class="flex item-center justify-center space-x-2">
                                         <button type="button"
-                                            onclick="fillForm('<?= esc((string) $k['id_kelas']) ?>', '<?= esc((string) $k['nama_kelas'], 'js') ?>', '<?= esc((string) ($k['wali_kelas'] ?? ''), 'js') ?>')"
+                                            onclick="fillForm('<?= esc((string) $k['id_kelas']) ?>', '<?= esc((string) $k['nama_kelas'], 'js') ?>', '<?= esc((string) ($k['wali_kelas_id'] ?? ''), 'js') ?>')"
                                             class="text-blue-500 hover:text-blue-700 transition-transform hover:scale-110 bg-blue-50 p-1.5 rounded-lg border border-blue-100" title="Edit Data">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
@@ -114,10 +114,10 @@
 <?= $this->section('scripts') ?>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    function fillForm(id, nama, wali) {
+    function fillForm(id, nama, waliId) {
         document.getElementById('id_kelas').value = id;
         document.getElementById('nama_kelas').value = nama;
-        document.getElementById('wali_kelas').value = wali;
+        document.getElementById('wali_kelas_id').value = waliId; // Menyesuaikan dengan ID baru
 
         document.getElementById('form-title').innerText = 'Edit Kelas';
         document.getElementById('form-subtitle').innerText = 'Mengubah data kelas ' + nama;
@@ -136,6 +136,7 @@
 
     function resetForm() {
         document.getElementById('id_kelas').value = '';
+        document.getElementById('wali_kelas_id').value = ''; // Reset ID wali kelas
         document.getElementById('form-title').innerText = 'Tambah Kelas Baru';
         document.getElementById('form-subtitle').innerText = 'Tentukan kelas dan pilih Wali Kelas dari daftar guru.';
 

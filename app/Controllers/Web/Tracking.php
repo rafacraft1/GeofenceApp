@@ -24,18 +24,33 @@ class Tracking extends BaseController
     }
 
     /**
+     * PRIVATE HELPER: Memastikan keamanan akses Row-Level Security
+     */
+    private function checkAksesWaliKelas(int $targetKelasId): bool
+    {
+        if (session()->get('is_wali_kelas')) {
+            return $targetKelasId === session()->get('kelas_id');
+        }
+        return true;
+    }
+
+    /**
      * Menampilkan halaman utama Radar Tracking
      */
     public function index(string|null $targetId = null)
     {
         $keyword = $this->request->getGet('keyword');
-
         $config = $this->pengaturanModel->find(1);
 
         $this->siswaModel->select('siswa.id_siswa, siswa.nis, siswa.nama_siswa, kelas.nama_kelas')
             ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
 
-        // Filter Pencarian Backend (Tetap dipertahankan untuk pencarian awal via URL)
+        // PROTEKSI WALI KELAS: Batasi siswa yang dirender ke map
+        if (session()->get('is_wali_kelas')) {
+            $this->siswaModel->where('siswa.kelas_id', session()->get('kelas_id'));
+        }
+
+        // Filter Pencarian Backend
         if (!empty($keyword)) {
             $this->siswaModel->groupStart()
                 ->like('siswa.nama_siswa', $keyword)
@@ -65,7 +80,12 @@ class Tracking extends BaseController
     {
         $siswa = $this->siswaModel->find($idSiswa);
 
-        if ($siswa && !empty($siswa['lat_terakhir']) && !empty($siswa['long_terakhir'])) {
+        // Keamanan API: Tolak jika ID siswa bukan dari kelasnya
+        if (!$siswa || !$this->checkAksesWaliKelas((int)$siswa['kelas_id'])) {
+            return $this->response->setJSON(['status' => 404, 'message' => 'Siswa tidak ditemukan atau diluar jangkauan akses Anda.']);
+        }
+
+        if (!empty($siswa['lat_terakhir']) && !empty($siswa['long_terakhir'])) {
             return $this->response->setJSON([
                 'status'      => 200,
                 'lat'         => (float) $siswa['lat_terakhir'],
@@ -103,8 +123,9 @@ class Tracking extends BaseController
         helper('fcm');
         $siswa = $this->siswaModel->find($idSiswa);
 
-        if (!$siswa) {
-            return $this->response->setJSON(['status' => 404, 'message' => 'Data siswa tidak ditemukan.']);
+        // Keamanan API: Cegah PING paksa ke device siswa kelas lain
+        if (!$siswa || !$this->checkAksesWaliKelas((int)$siswa['kelas_id'])) {
+            return $this->response->setJSON(['status' => 404, 'message' => 'Data siswa tidak ditemukan atau diluar akses.']);
         }
 
         if (empty($siswa['fcm_token'])) {

@@ -3,7 +3,7 @@
 /**
  * @var string $title
  * @var string $tanggal
- * @var string $kelas_aktif
+ * @var string|int|null $kelas_aktif
  * @var array<int, array<string, string|null>> $absensi
  * @var array<int, array<string, string|null>> $siswa
  * @var array<int, array<string, string|null>> $list_kelas
@@ -25,14 +25,19 @@
             <input type="date" name="tanggal" value="<?= esc((string) $tanggal) ?>" class="border-gray-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer bg-gray-50" onchange="this.form.submit()">
         </div>
         <div>
-            <select name="kelas_id" class="border-gray-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-gray-50 cursor-pointer" onchange="this.form.submit()">
-                <option value="">Semua Kelas</option>
-                <?php foreach ($list_kelas as $k): ?>
-                    <option value="<?= esc((string) $k['id_kelas']) ?>" <?= ($kelas_aktif === (string) $k['id_kelas']) ? 'selected' : '' ?>>
-                        <?= esc((string) $k['nama_kelas']) ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
+            <?php if (session()->get('is_wali_kelas')): ?>
+                <input type="text" value="<?= esc((string) session()->get('nama_kelas')) ?>" class="border-gray-200 rounded-xl p-2.5 text-sm bg-gray-100 text-gray-500 cursor-not-allowed outline-none w-48" readonly>
+                <input type="hidden" name="kelas_id" value="<?= session()->get('kelas_id') ?>">
+            <?php else: ?>
+                <select name="kelas_id" class="border-gray-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-gray-50 cursor-pointer w-48" onchange="this.form.submit()">
+                    <option value="">Semua Kelas</option>
+                    <?php foreach ($list_kelas as $k): ?>
+                        <option value="<?= esc((string) $k['id_kelas']) ?>" <?= ((string) $kelas_aktif === (string) $k['id_kelas']) ? 'selected' : '' ?>>
+                            <?= esc((string) $k['nama_kelas']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            <?php endif; ?>
         </div>
     </form>
 
@@ -152,7 +157,7 @@
 
             <div>
                 <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Keterangan (Opsional)</label>
-                <input type="text" name="keterangan" class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="Catatan tambahan admin...">
+                <input type="text" name="keterangan" class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="Catatan tambahan...">
             </div>
 
             <div class="flex justify-end gap-3 pt-4">

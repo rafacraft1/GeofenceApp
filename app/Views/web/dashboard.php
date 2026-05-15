@@ -82,7 +82,9 @@
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 h-fit">
-        <h3 class="text-xs font-bold text-gray-700 mb-6 uppercase tracking-wider">Performa Kelas Terbaik</h3>
+        <h3 class="text-xs font-bold text-gray-700 mb-6 uppercase tracking-wider">
+            <?= session()->get('is_wali_kelas') ? 'Performa Kelas Anda' : 'Performa Kelas Terbaik' ?>
+        </h3>
         <div class="space-y-5">
             <?php foreach ($top_classes as $index => $tc): ?>
                 <div class="flex items-center justify-between group">

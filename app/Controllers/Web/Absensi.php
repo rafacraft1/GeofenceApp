@@ -21,10 +21,26 @@ class Absensi extends BaseController
         $this->kelasModel   = new KelasModel();
     }
 
+    /**
+     * PRIVATE HELPER: Memastikan keamanan akses Row-Level Security
+     */
+    private function checkAksesWaliKelas(int $targetKelasId): bool
+    {
+        if (session()->get('is_wali_kelas')) {
+            return $targetKelasId === session()->get('kelas_id');
+        }
+        return true;
+    }
+
     public function index()
     {
         $tanggalFilter = $this->request->getGet('tanggal') ?? Time::now('Asia/Jakarta')->toDateString();
-        $kelasFilter   = $this->request->getGet('kelas_id');
+
+        $isWaliKelas    = session()->get('is_wali_kelas');
+        $kelasSessionId = session()->get('kelas_id');
+
+        // Jika Wali Kelas, paksa filter kelas dari session
+        $kelasFilter = $isWaliKelas ? $kelasSessionId : $this->request->getGet('kelas_id');
 
         $this->absensiModel->select('absensi.*, siswa.nama_siswa, siswa.nis, kelas.nama_kelas')
             ->join('siswa', 'siswa.id_siswa = absensi.siswa_id')
@@ -37,13 +53,21 @@ class Absensi extends BaseController
 
         $absensi = $this->absensiModel->orderBy('absensi.jam_masuk', 'DESC')->findAll();
 
-        $siswa = $this->siswaModel
+        // Filter Data Siswa untuk dropdown Modal Input Manual
+        $siswaQuery = $this->siswaModel
             ->select('siswa.id_siswa, siswa.nis, siswa.nama_siswa, kelas.nama_kelas')
             ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left')
-            ->orderBy('siswa.nama_siswa', 'ASC')
-            ->findAll();
+            ->orderBy('siswa.nama_siswa', 'ASC');
 
-        $listKelas = $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll();
+        // Jika Wali Kelas, batasi hanya murid kelasnya
+        if ($isWaliKelas) {
+            $siswaQuery->where('siswa.kelas_id', $kelasSessionId);
+            $listKelas = $this->kelasModel->where('id_kelas', $kelasSessionId)->findAll();
+        } else {
+            $listKelas = $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll();
+        }
+
+        $siswa = $siswaQuery->findAll();
 
         $data = [
             'title'       => 'Data Absensi Harian',
@@ -76,8 +100,10 @@ class Absensi extends BaseController
         $keterangan = (string) $this->request->getPost('keterangan');
 
         $siswa = $this->siswaModel->find($siswaId);
-        if (!$siswa) {
-            return redirect()->back()->with('error', 'Siswa tidak ditemukan.');
+
+        // Pengecekan Eksistensi dan Otorisasi Hak Akses Wali Kelas
+        if (!$siswa || !$this->checkAksesWaliKelas((int)$siswa['kelas_id'])) {
+            return redirect()->back()->with('error', 'Akses Ditolak: Siswa tidak ditemukan atau berada di luar otoritas Anda.');
         }
 
         $waktuSekarang = Time::now('Asia/Jakarta')->toTimeString();

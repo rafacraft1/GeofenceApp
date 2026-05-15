@@ -5,7 +5,7 @@
  * @var string $bulanMulai
  * @var string $bulanSelesai
  * @var string $tahun
- * @var string $kelasId
+ * @var string|int $kelasId
  * @var array<int, array<string, mixed>> $rekapData
  */
 ?>
@@ -25,14 +25,19 @@
 
         <div>
             <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Kelas</label>
-            <select name="kelas" onchange="this.form.submit()" class="w-full border-gray-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 cursor-pointer">
-                <option value="">-- Semua Kelas --</option>
-                <?php foreach ($listKelas as $k): ?>
-                    <option value="<?= esc((string) $k['id_kelas']) ?>" <?= ($kelasId === (string) $k['id_kelas']) ? 'selected' : '' ?>>
-                        <?= esc((string) $k['nama_kelas']) ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
+            <?php if (session()->get('is_wali_kelas')): ?>
+                <input type="text" value="<?= esc((string) session()->get('nama_kelas')) ?>" class="w-full border-gray-200 rounded-xl p-2.5 text-sm bg-gray-100 text-gray-500 cursor-not-allowed outline-none" readonly>
+                <input type="hidden" name="kelas" value="<?= session()->get('kelas_id') ?>">
+            <?php else: ?>
+                <select name="kelas" onchange="this.form.submit()" class="w-full border-gray-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 cursor-pointer">
+                    <option value="">-- Semua Kelas --</option>
+                    <?php foreach ($listKelas as $k): ?>
+                        <option value="<?= esc((string) $k['id_kelas']) ?>" <?= ((string) $kelasId === (string) $k['id_kelas']) ? 'selected' : '' ?>>
+                            <?= esc((string) $k['nama_kelas']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            <?php endif; ?>
         </div>
 
         <div>

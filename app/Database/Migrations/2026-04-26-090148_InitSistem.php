@@ -18,44 +18,7 @@ class InitSistem extends Migration
         $this->forge->addKey('id_role', true);
         $this->forge->createTable('roles');
 
-        // 1. Tabel Kelas
-        $this->forge->addField([
-            'id_kelas'   => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
-            'nama_kelas' => ['type' => 'VARCHAR', 'constraint' => '50'],
-            'wali_kelas' => ['type' => 'VARCHAR', 'constraint' => '100', 'null' => true],
-            'created_at' => ['type' => 'DATETIME', 'null' => true],
-            'updated_at' => ['type' => 'DATETIME', 'null' => true],
-        ]);
-        $this->forge->addKey('id_kelas', true);
-        $this->forge->createTable('kelas');
-
-        // 2. Tabel Siswa (DIPERBARUI DENGAN KOLOM LIVE TRACKING)
-        $this->forge->addField([
-            'id_siswa'      => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
-            'kelas_id'      => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true],
-            'nis'           => ['type' => 'VARCHAR', 'constraint' => '20', 'unique' => true], // Otomatis menjadi Index (Unique)
-            'nama_siswa'    => ['type' => 'VARCHAR', 'constraint' => '100'],
-            'password'      => ['type' => 'VARCHAR', 'constraint' => '255'],
-            'foto_profil'   => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
-            'device_id'     => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
-            'api_token'     => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
-            'fcm_token'     => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
-            'lat_terakhir'  => ['type' => 'VARCHAR', 'constraint' => '100', 'null' => true], // TAMBAHAN
-            'long_terakhir' => ['type' => 'VARCHAR', 'constraint' => '100', 'null' => true], // TAMBAHAN
-            'last_login'    => ['type' => 'DATETIME', 'null' => true],
-            'is_blocked'    => ['type' => 'TINYINT', 'constraint' => 1, 'default' => 0],
-            'fraud_count'   => ['type' => 'INT', 'constraint' => 11, 'default' => 0],
-            'created_at'    => ['type' => 'DATETIME', 'null' => true],
-            'updated_at'    => ['type' => 'DATETIME', 'null' => true],
-        ]);
-        $this->forge->addKey('id_siswa', true);
-        $this->forge->addKey('api_token'); // Index pencarian API Token
-        $this->forge->addKey('kelas_id');
-        // RESTRICT digunakan agar kelas tidak sengaja terhapus jika masih ada siswa di dalamnya
-        $this->forge->addForeignKey('kelas_id', 'kelas', 'id_kelas', 'CASCADE', 'RESTRICT');
-        $this->forge->createTable('siswa');
-
-        // 3. Tabel Users (Admin & Guru Wali Kelas)
+        // 1. Tabel Users (Dipindah ke atas agar bisa di-referensi oleh Tabel Kelas)
         $this->forge->addField([
             'id_user'       => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
             'nama_lengkap'  => ['type' => 'VARCHAR', 'constraint' => '100'],
@@ -69,6 +32,45 @@ class InitSistem extends Migration
         $this->forge->addKey('role_id');
         $this->forge->addForeignKey('role_id', 'roles', 'id_role', 'CASCADE', 'RESTRICT');
         $this->forge->createTable('users');
+
+        // 2. Tabel Kelas (Terdapat Perubahan FK wali_kelas_id)
+        $this->forge->addField([
+            'id_kelas'      => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
+            'nama_kelas'    => ['type' => 'VARCHAR', 'constraint' => '50'],
+            'wali_kelas_id' => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'null' => true], // DIUBAH
+            'created_at'    => ['type' => 'DATETIME', 'null' => true],
+            'updated_at'    => ['type' => 'DATETIME', 'null' => true],
+        ]);
+        $this->forge->addKey('id_kelas', true);
+        $this->forge->addKey('wali_kelas_id');
+        // Jika user(guru) dihapus, wali_kelas_id jadi NULL (kelas tetap aman)
+        $this->forge->addForeignKey('wali_kelas_id', 'users', 'id_user', 'CASCADE', 'SET NULL');
+        $this->forge->createTable('kelas');
+
+        // 3. Tabel Siswa
+        $this->forge->addField([
+            'id_siswa'      => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
+            'kelas_id'      => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true],
+            'nis'           => ['type' => 'VARCHAR', 'constraint' => '20', 'unique' => true],
+            'nama_siswa'    => ['type' => 'VARCHAR', 'constraint' => '100'],
+            'password'      => ['type' => 'VARCHAR', 'constraint' => '255'],
+            'foto_profil'   => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
+            'device_id'     => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
+            'api_token'     => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
+            'fcm_token'     => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
+            'lat_terakhir'  => ['type' => 'VARCHAR', 'constraint' => '100', 'null' => true],
+            'long_terakhir' => ['type' => 'VARCHAR', 'constraint' => '100', 'null' => true],
+            'last_login'    => ['type' => 'DATETIME', 'null' => true],
+            'is_blocked'    => ['type' => 'TINYINT', 'constraint' => 1, 'default' => 0],
+            'fraud_count'   => ['type' => 'INT', 'constraint' => 11, 'default' => 0],
+            'created_at'    => ['type' => 'DATETIME', 'null' => true],
+            'updated_at'    => ['type' => 'DATETIME', 'null' => true],
+        ]);
+        $this->forge->addKey('id_siswa', true);
+        $this->forge->addKey('api_token');
+        $this->forge->addKey('kelas_id');
+        $this->forge->addForeignKey('kelas_id', 'kelas', 'id_kelas', 'CASCADE', 'RESTRICT');
+        $this->forge->createTable('siswa');
 
         // 4. Tabel Pengaturan 
         $this->forge->addField([
@@ -179,9 +181,7 @@ class InitSistem extends Migration
         $this->forge->addForeignKey('siswa_id', 'siswa', 'id_siswa', 'CASCADE', 'CASCADE');
         $this->forge->createTable('log_fraud');
 
-        // ========================================================
         // 11. TABEL MENUS (Master Data Modul untuk RBAC Dinamis)
-        // ========================================================
         $this->forge->addField([
             'id_menu'    => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
             'nama_menu'  => ['type' => 'VARCHAR', 'constraint' => '100'],
@@ -193,14 +193,12 @@ class InitSistem extends Migration
         $this->forge->addKey('id_menu', true);
         $this->forge->createTable('menus');
 
-        // ========================================================
         // 12. TABEL ROLE_MENUS (Relasi Role dan Menu)
-        // ========================================================
         $this->forge->addField([
             'id_role' => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true],
             'id_menu' => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true],
         ]);
-        $this->forge->addKey(['id_role', 'id_menu'], true); // Composite Key
+        $this->forge->addKey(['id_role', 'id_menu'], true);
         $this->forge->addForeignKey('id_role', 'roles', 'id_role', 'CASCADE', 'CASCADE');
         $this->forge->addForeignKey('id_menu', 'menus', 'id_menu', 'CASCADE', 'CASCADE');
         $this->forge->createTable('role_menus');

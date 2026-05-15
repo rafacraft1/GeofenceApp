@@ -3,94 +3,62 @@
 namespace App\Database\Seeds;
 
 use CodeIgniter\Database\Seeder;
-use CodeIgniter\CLI\CLI;
 
 class SiswaSeeder extends Seeder
 {
     public function run()
     {
-        $faker = \Faker\Factory::create('id_ID');
-
-        $list_kelas = [
-            'X TKJ A',
-            'X TKJ B',
-            'XI TKJ',
-            'XII TKJ',
-            'X APHPI A',
-            'XI APHPI',
-            'X TKR',
-            'XI TKR',
-            'XII TKR',
-            'X APHP',
-            'XI APHP',
-            'XII APHP'
-        ];
-
-        $data_siswa = [];
-        $nis_awal = 20260001;
-
-        $jumlahSiswaPerKelas = 3;
-        $totalSiswa = count($list_kelas) * $jumlahSiswaPerKelas;
-        $currentStep = 0;
-
-        CLI::newLine();
-        CLI::write('Memulai sinkronisasi data Kelas dan pembuatan dummy Siswa...', 'cyan');
-
-        // 0. Nonaktifkan pengecekan Foreign Key agar bisa melakukan TRUNCATE
+        // 1. Nonaktifkan pengecekan Foreign Key untuk proses Truncate yang aman
         $this->db->query('SET FOREIGN_KEY_CHECKS=0;');
 
-        // 1. Kosongkan tabel siswa agar siap di-seed ulang tanpa bentrok NIS
+        // 2. Bersihkan tabel siswa beserta seluruh riwayat transaksinya
+        $this->db->table('log_fraud')->truncate();
+        $this->db->table('pengajuan_izin')->truncate();
+        $this->db->table('absensi')->truncate();
         $this->db->table('siswa')->truncate();
 
-        foreach ($list_kelas as $nama_kelas) {
+        $siswaData = [];
+        $nisAwal   = 2026001; // Format NIS angkatan 2026
 
-            // Cek apakah kelas sudah ada, jika tidak, buatkan (Upsert Logic)
-            $kelasRow = $this->db->table('kelas')->where('nama_kelas', $nama_kelas)->get()->getRowArray();
-            if (!$kelasRow) {
-                $this->db->table('kelas')->insert([
-                    'nama_kelas' => $nama_kelas,
-                    'wali_kelas' => null,
-                    'created_at' => date('Y-m-d H:i:s')
-                ]);
-                $kelas_id = $this->db->insertID();
-            } else {
-                $kelas_id = (int) $kelasRow['id_kelas'];
-            }
+        // 3. Persiapan Data Dummy Nama Siswa (15 Siswa)
+        $namaKelas10A = ['Agus Prayitno', 'Bunga Citra', 'Candra Wijaya', 'Dewi Lestari', 'Eko Saputro'];
+        $namaKelas10B = ['Fajar Siddiq', 'Gita Wirjawan', 'Hadi Sucipto', 'Intan Nuraini', 'Joko Santoso'];
+        $namaKelas11A = ['Kartika Putri', 'Lukman Hakim', 'Maulana Yusuf', 'Nina Zatulini', 'Oka Antara'];
 
-            for ($i = 1; $i <= $jumlahSiswaPerKelas; $i++) {
-                $nis = (string) $nis_awal++;
-
-                $data_siswa[] = [
-                    'nis'          => $nis,
-                    'nama_siswa'   => $faker->name,
-                    'kelas_id'     => $kelas_id,
-                    'password'     => password_hash($nis, PASSWORD_BCRYPT),
-                    'foto_profil'  => null,
-                    'device_id'    => null,
-                    'fraud_count'  => 0,
-                    'is_blocked'   => 0,
-                    'api_token'    => null,
-                    'fcm_token'    => null,
-                    'last_login'   => null,
-                    'created_at'   => date('Y-m-d H:i:s'),
-                    'updated_at'   => date('Y-m-d H:i:s'),
+        // 4. Closure (Fungsi Helper) untuk generate array data siswa
+        $generateSiswa = function (array $namaList, int $kelasId) use (&$nisAwal, &$siswaData) {
+            foreach ($namaList as $nama) {
+                $nis = (string) $nisAwal++;
+                $siswaData[] = [
+                    'kelas_id'      => $kelasId,
+                    'nis'           => $nis,
+                    'nama_siswa'    => $nama,
+                    // Password default sama dengan NIS
+                    'password'      => password_hash($nis, PASSWORD_BCRYPT),
+                    'foto_profil'   => null,
+                    'device_id'     => null,
+                    'api_token'     => null,
+                    'fcm_token'     => null,
+                    'lat_terakhir'  => null,
+                    'long_terakhir' => null,
+                    'last_login'    => null,
+                    'is_blocked'    => 0,
+                    'fraud_count'   => 0,
+                    'created_at'    => date('Y-m-d H:i:s'),
+                    'updated_at'    => date('Y-m-d H:i:s')
                 ];
-
-                $currentStep++;
-                CLI::showProgress($currentStep, $totalSiswa);
             }
-        }
+        };
 
-        CLI::newLine();
-        CLI::write('Menyimpan data masal ke database...', 'yellow');
+        // 5. Eksekusi Distribusi Siswa ke Masing-masing Kelas
+        $generateSiswa($namaKelas10A, 1); // Kelas 10-A (Wali: Budi Santoso)
+        $generateSiswa($namaKelas10B, 2); // Kelas 10-B (Wali: Siti Aminah)
+        $generateSiswa($namaKelas11A, 3); // Kelas 11-A (Tanpa Wali)
 
-        $this->db->table('siswa')->insertBatch($data_siswa);
+        // 6. Insert Batch Data Siswa
+        $this->db->table('siswa')->insertBatch($siswaData);
 
-        // 2. Aktifkan kembali pengecekan Foreign Key
+        // 7. Aktifkan kembali pengecekan Foreign Key
         $this->db->query('SET FOREIGN_KEY_CHECKS=1;');
-
-        CLI::newLine();
-        CLI::write("Berhasil! $totalSiswa data dummy Siswa telah ditambahkan secara menyeluruh.", 'green');
-        CLI::newLine();
     }
 }

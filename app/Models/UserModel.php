@@ -12,7 +12,6 @@ class UserModel extends Model
     protected $returnType       = 'array';
     protected $protectFields    = true;
 
-    // Membatasi kolom yang diizinkan untuk keamanan
     protected $allowedFields    = [
         'nama_lengkap',
         'username',
@@ -24,11 +23,6 @@ class UserModel extends Model
     protected $createdField     = 'created_at';
     protected $updatedField     = 'updated_at';
 
-    /**
-     * Mengambil data user beserta nama role-nya menggunakan JOIN.
-     * Jika $username diisi, kembalikan 1 baris data spesifik.
-     * Jika $username kosong (''), kembalikan seluruh data user.
-     */
     public function getUserWithRole(string $username = '')
     {
         $builder = $this->select('users.*, roles.nama_role')
@@ -36,11 +30,18 @@ class UserModel extends Model
             ->orderBy('users.role_id', 'ASC');
 
         if ($username !== '') {
-            // Mode pencarian spesifik untuk Login/Auth
             return $builder->where('username', $username)->first();
         }
 
-        // Mode pengambilan massal untuk halaman Manajemen User
         return $builder->findAll();
+    }
+
+    public function getWaliKelasInfo(int $userId)
+    {
+        return $this->db->table('kelas')
+            ->select('id_kelas, nama_kelas')
+            ->where('wali_kelas_id', $userId)
+            ->get()
+            ->getRowArray();
     }
 }

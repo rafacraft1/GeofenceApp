@@ -130,10 +130,15 @@
         <div><label class="block text-xs font-bold text-gray-600 uppercase mb-2">Nama Lengkap</label><input type="text" name="nama_siswa" required class="w-full border-gray-200 rounded-xl p-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="Nama siswa"></div>
         <div>
             <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Pilih Kelas</label>
-            <select name="kelas_id" required class="w-full border-gray-200 rounded-xl p-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer">
-                <option value="" disabled selected>-- Pilih Kelas --</option>
-                <?php if (!empty($list_kelas)) : ?><?php foreach ($list_kelas as $k): ?><option value="<?= (string) $k['id_kelas'] ?>"><?= esc((string) $k['nama_kelas']) ?></option><?php endforeach; ?><?php endif; ?>
-            </select>
+            <?php if (session()->get('is_wali_kelas')): ?>
+                <input type="text" value="<?= esc((string) session()->get('nama_kelas')) ?>" class="w-full border-gray-200 rounded-xl p-3 text-sm bg-gray-100 text-gray-500 cursor-not-allowed outline-none" readonly>
+                <input type="hidden" name="kelas_id" value="<?= session()->get('kelas_id') ?>">
+            <?php else: ?>
+                <select name="kelas_id" required class="w-full border-gray-200 rounded-xl p-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer">
+                    <option value="" disabled selected>-- Pilih Kelas --</option>
+                    <?php if (!empty($list_kelas)) : ?><?php foreach ($list_kelas as $k): ?><option value="<?= (string) $k['id_kelas'] ?>"><?= esc((string) $k['nama_kelas']) ?></option><?php endforeach; ?><?php endif; ?>
+                </select>
+            <?php endif; ?>
         </div>
         <div><label class="block text-xs font-bold text-gray-600 uppercase mb-2">Foto (Opsional)</label><input type="file" name="foto" accept="image/*" class="w-full border-gray-200 rounded-xl p-2 bg-gray-50 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all"></div>
         <div class="md:col-span-4 flex justify-end gap-3 pt-2">
@@ -267,9 +272,14 @@
             <div><label class="block text-xs font-bold text-gray-600 uppercase mb-2">Nama Lengkap</label><input type="text" id="edit-nama" name="nama_siswa" required class="w-full border-gray-200 rounded-xl p-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all"></div>
             <div>
                 <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Kelas</label>
-                <select id="edit-kelas" name="kelas_id" required class="w-full border-gray-200 rounded-xl p-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer">
-                    <?php if (!empty($list_kelas)) : ?><?php foreach ($list_kelas as $k): ?><option value="<?= (string) $k['id_kelas'] ?>"><?= esc((string) $k['nama_kelas']) ?></option><?php endforeach; ?><?php endif; ?>
-                </select>
+                <?php if (session()->get('is_wali_kelas')): ?>
+                    <input type="text" value="<?= esc((string) session()->get('nama_kelas')) ?>" class="w-full border-gray-200 rounded-xl p-3 text-sm bg-gray-100 text-gray-500 cursor-not-allowed outline-none" readonly>
+                    <input type="hidden" id="edit-kelas" name="kelas_id" value="<?= session()->get('kelas_id') ?>">
+                <?php else: ?>
+                    <select id="edit-kelas" name="kelas_id" required class="w-full border-gray-200 rounded-xl p-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer">
+                        <?php if (!empty($list_kelas)) : ?><?php foreach ($list_kelas as $k): ?><option value="<?= (string) $k['id_kelas'] ?>"><?= esc((string) $k['nama_kelas']) ?></option><?php endforeach; ?><?php endif; ?>
+                    </select>
+                <?php endif; ?>
             </div>
             <div><label class="block text-xs font-bold text-gray-600 uppercase mb-2">Ganti Foto (Kosongkan jika tidak mengubah)</label><input type="file" name="foto" accept="image/*" class="w-full border-gray-200 rounded-xl p-2 bg-gray-50 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all"></div>
             <div class="flex justify-end gap-3 pt-4"><button type="button" onclick="closeEditModal()" class="px-5 py-2.5 text-sm font-semibold text-gray-400 hover:bg-gray-100 rounded-xl transition-colors">Batal</button><button type="submit" class="bg-blue-600 text-white px-8 py-2.5 rounded-xl text-sm font-semibold shadow-lg hover:bg-blue-700 btn-submit transition-all">Simpan Perubahan</button></div>
@@ -298,7 +308,11 @@
             </div>
 
             <div class="bg-amber-50 border border-amber-100 p-4 rounded-xl">
-                <p class="text-[11px] text-amber-700 leading-relaxed font-medium text-center">Gunakan format template agar tidak error.</p><a href="<?= base_url('admin/siswa/downloadTemplate') ?>" class="block text-center text-amber-900 font-bold text-xs mt-2 underline">Unduh Template</a>
+                <p class="text-[11px] text-amber-700 leading-relaxed font-medium text-center">Gunakan format template agar tidak error.</p>
+                <?php if (session()->get('is_wali_kelas')): ?>
+                    <p class="text-[11px] text-red-600 leading-relaxed font-bold text-center mt-1">Anda hanya dapat mengimpor data khusus untuk Kelas <?= esc((string) session()->get('nama_kelas')) ?>.</p>
+                <?php endif; ?>
+                <a href="<?= base_url('admin/siswa/downloadTemplate') ?>" class="block text-center text-amber-900 font-bold text-xs mt-2 underline">Unduh Template</a>
             </div>
             <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 btn-submit">Mulai Import</button>
         </form>
