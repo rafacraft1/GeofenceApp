@@ -94,8 +94,6 @@ class AbsensiApi extends ResourceController
 
         $sekarang        = Time::now('Asia/Jakarta');
         $tanggalSekarang = $sekarang->toDateString();
-
-        // PERBAIKAN: Gunakan format('N') agar konsisten dengan database dan WaktuApi (1=Senin, 7=Minggu)
         $kodeHari        = $sekarang->format('N');
 
         $jadwal = $this->getJadwalHariIni($tanggalSekarang, (string)$kodeHari);
@@ -158,7 +156,6 @@ class AbsensiApi extends ResourceController
                 $keterangan = "Terlambat {$menitTelat} Menit";
             }
         } else {
-            // Catat jika nekat menggunakan Fake GPS saat dispensasi
             if ($isFakeGps) {
                 $keterangan = 'Hadir di Lokasi Kegiatan (Fake GPS Terdeteksi)';
             }
@@ -167,10 +164,16 @@ class AbsensiApi extends ResourceController
         $fileName = $this->validateAndSaveBase64Image($foto, 'masuk', (string)$siswa['id_siswa']);
         if (!$fileName) return $this->failValidationErrors('Format file foto tidak valid atau terindikasi manipulasi.');
 
+        // PENGAMANAN REAL-TIME HISTORICAL SNAPSHOT
+        // Tarik data kelas_id terbaru dari DB untuk menghindari caching JWT
+        $realtimeSiswa = $this->db->table('siswa')->select('kelas_id')->where('id_siswa', $siswa['id_siswa'])->get()->getRowArray();
+        $snapshotKelasId = $realtimeSiswa['kelas_id'] ?? null;
+
         try {
             if ($isDispensasi) {
-                // UPDATE RECORD DISPENSASI (TIDAK BOLEH INSERT)
+                // UPDATE RECORD DISPENSASI (INJEKSI SNAPSHOT)
                 $this->absensiModel->update($absenHariIni['id_absensi'], [
+                    'kelas_id'    => $snapshotKelasId, // <--- REKAM SNAPSHOT MUTASI
                     'jam_masuk'   => $sekarang->toTimeString(),
                     'foto_masuk'  => $fileName,
                     'lat_masuk'   => $lat,
@@ -186,9 +189,10 @@ class AbsensiApi extends ResourceController
                     'detail'  => $keterangan
                 ]);
             } else {
-                // INSERT NORMAL
+                // INSERT NORMAL (INJEKSI SNAPSHOT)
                 $this->absensiModel->insert([
                     'siswa_id'    => $siswa['id_siswa'],
+                    'kelas_id'    => $snapshotKelasId, // <--- REKAM SNAPSHOT MUTASI
                     'tanggal'     => $tanggalSekarang,
                     'jam_masuk'   => $sekarang->toTimeString(),
                     'status'      => $status,
@@ -213,6 +217,7 @@ class AbsensiApi extends ResourceController
 
     public function pulang()
     {
+        // Fungsi pulang tidak perlu merekam kelas_id lagi, karena sudah terkunci saat jam masuk.
         $siswa = $this->getSiswaAuth();
 
         $aturanValidasi = [
@@ -227,8 +232,6 @@ class AbsensiApi extends ResourceController
 
         $sekarang        = Time::now('Asia/Jakarta');
         $tanggalSekarang = $sekarang->toDateString();
-
-        // PERBAIKAN: Gunakan format('N') di Absen Pulang juga
         $kodeHari        = $sekarang->format('N');
 
         $jadwal = $this->getJadwalHariIni($tanggalSekarang, (string)$kodeHari);
@@ -241,7 +244,6 @@ class AbsensiApi extends ResourceController
 
         $isDispensasi = ($absen['status'] === 'Dispensasi');
 
-        // --- ATURAN BATAS WAKTU (Di-bypass untuk kegiatan luar) ---
         if (!$isDispensasi) {
             $waktuPulang = Time::parse($tanggalSekarang . ' ' . $jadwal['jam_pulang'], 'Asia/Jakarta');
             $batasAkhirPulang = Time::parse($tanggalSekarang . ' 23:00:00', 'Asia/Jakarta');
@@ -254,7 +256,6 @@ class AbsensiApi extends ResourceController
                 return $this->failForbidden('Batas waktu presensi pulang (23:00) telah habis.');
             }
         }
-        // ---------------------------------------
 
         $lat  = (float) $this->request->getPost('latitude');
         $lon  = (float) $this->request->getPost('longitude');

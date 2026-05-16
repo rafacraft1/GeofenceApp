@@ -74,6 +74,10 @@ $routes->group('admin', ['filter' => ['webAuth', 'dynamicAccess'], 'namespace' =
     $routes->get('pengumuman', 'Pengumuman::index');
     $routes->post('pengumuman/store', 'Pengumuman::store');
     $routes->post('pengumuman/delete/(:num)', 'Pengumuman::delete/$1');
+
+    $routes->get('mutasi', 'Mutasi::index');
+    $routes->post('mutasi/proses', 'Mutasi::proses');
+    $routes->get('mutasi/checkTujuan/(:any)', 'Mutasi::checkTujuan/$1');
 });
 
 // ========================================================================

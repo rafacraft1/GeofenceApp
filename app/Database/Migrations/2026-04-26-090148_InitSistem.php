@@ -18,7 +18,7 @@ class InitSistem extends Migration
         $this->forge->addKey('id_role', true);
         $this->forge->createTable('roles');
 
-        // 1. Tabel Users (Dipindah ke atas agar bisa di-referensi oleh Tabel Kelas)
+        // 1. Tabel Users
         $this->forge->addField([
             'id_user'       => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
             'nama_lengkap'  => ['type' => 'VARCHAR', 'constraint' => '100'],
@@ -33,17 +33,16 @@ class InitSistem extends Migration
         $this->forge->addForeignKey('role_id', 'roles', 'id_role', 'CASCADE', 'RESTRICT');
         $this->forge->createTable('users');
 
-        // 2. Tabel Kelas (Terdapat Perubahan FK wali_kelas_id)
+        // 2. Tabel Kelas
         $this->forge->addField([
             'id_kelas'      => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
             'nama_kelas'    => ['type' => 'VARCHAR', 'constraint' => '50'],
-            'wali_kelas_id' => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'null' => true], // DIUBAH
+            'wali_kelas_id' => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'null' => true],
             'created_at'    => ['type' => 'DATETIME', 'null' => true],
             'updated_at'    => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id_kelas', true);
         $this->forge->addKey('wali_kelas_id');
-        // Jika user(guru) dihapus, wali_kelas_id jadi NULL (kelas tetap aman)
         $this->forge->addForeignKey('wali_kelas_id', 'users', 'id_user', 'CASCADE', 'SET NULL');
         $this->forge->createTable('kelas');
 
@@ -84,10 +83,11 @@ class InitSistem extends Migration
         $this->forge->addKey('id_pengaturan', true);
         $this->forge->createTable('pengaturan');
 
-        // 5. Tabel Absensi 
+        // 5. Tabel Absensi (PERUBAHAN MAJOR: Penambahan kelas_id)
         $this->forge->addField([
             'id_absensi'  => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
             'siswa_id'    => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true],
+            'kelas_id'    => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'null' => true], // TAMBAHAN UNTUK HISTORICAL SNAPSHOT
             'tanggal'     => ['type' => 'DATE'],
             'jam_masuk'   => ['type' => 'TIME', 'null' => true],
             'jam_pulang'  => ['type' => 'TIME', 'null' => true],
@@ -106,9 +106,12 @@ class InitSistem extends Migration
         ]);
         $this->forge->addKey('id_absensi', true);
         $this->forge->addKey('siswa_id');
+        $this->forge->addKey('kelas_id');
         $this->forge->addKey('tanggal');
         $this->forge->addKey('status');
         $this->forge->addForeignKey('siswa_id', 'siswa', 'id_siswa', 'CASCADE', 'CASCADE');
+        // Jika kelas dihapus, biarkan data laporan absen historis tetap ada (Set Null)
+        $this->forge->addForeignKey('kelas_id', 'kelas', 'id_kelas', 'CASCADE', 'SET NULL');
         $this->forge->createTable('absensi');
 
         // 6. Tabel Pengumuman
@@ -181,7 +184,7 @@ class InitSistem extends Migration
         $this->forge->addForeignKey('siswa_id', 'siswa', 'id_siswa', 'CASCADE', 'CASCADE');
         $this->forge->createTable('log_fraud');
 
-        // 11. TABEL MENUS (Master Data Modul untuk RBAC Dinamis)
+        // 11. TABEL MENUS
         $this->forge->addField([
             'id_menu'    => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
             'nama_menu'  => ['type' => 'VARCHAR', 'constraint' => '100'],
@@ -193,7 +196,7 @@ class InitSistem extends Migration
         $this->forge->addKey('id_menu', true);
         $this->forge->createTable('menus');
 
-        // 12. TABEL ROLE_MENUS (Relasi Role dan Menu)
+        // 12. TABEL ROLE_MENUS
         $this->forge->addField([
             'id_role' => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true],
             'id_menu' => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true],

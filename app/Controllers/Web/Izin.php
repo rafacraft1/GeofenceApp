@@ -36,8 +36,6 @@ class Izin extends BaseController
             ->join('siswa', 'siswa.id_siswa = pengajuan_izin.siswa_id')
             ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
 
-        // IMPLEMENTASI FILTER WALI KELAS: 
-        // Jika user adalah wali kelas, batasi query hanya untuk kelasnya
         if (session()->get('is_wali_kelas')) {
             $this->izinModel->where('siswa.kelas_id', session()->get('kelas_id'));
         }
@@ -57,7 +55,6 @@ class Izin extends BaseController
 
     public function approve(string $idIzin)
     {
-        // Ambil data izin beserta ID kelas siswanya (via JOIN) untuk divalidasi
         $izin = $this->izinModel
             ->select('pengajuan_izin.*, siswa.kelas_id')
             ->join('siswa', 'siswa.id_siswa = pengajuan_izin.siswa_id')
@@ -68,12 +65,10 @@ class Izin extends BaseController
             return redirect()->back()->with('error', 'Data tidak valid atau sudah diproses.');
         }
 
-        // PROTEKSI OTORITAS WALI KELAS
         if (!$this->checkAksesWaliKelas((int)$izin['kelas_id'])) {
             return redirect()->back()->with('error', 'Akses Ditolak: Anda tidak berhak memproses izin siswa dari kelas lain.');
         }
 
-        // Mulai Transaksi Database Aman
         $this->izinModel->db->transStart();
 
         $this->izinModel->update($idIzin, ['status' => 'Approved']);
@@ -85,7 +80,6 @@ class Izin extends BaseController
         while ($tglMulai->toDateString() <= $tglSelesai->toDateString()) {
             $tanggalString = $tglMulai->toDateString();
 
-            // Hapus data absen yang tumpang tindih menggunakan Model
             $this->absensiModel->where([
                 'siswa_id' => $izin['siswa_id'],
                 'tanggal'  => $tanggalString
@@ -93,6 +87,7 @@ class Izin extends BaseController
 
             $insertData[] = [
                 'siswa_id'   => $izin['siswa_id'],
+                'kelas_id'   => $izin['kelas_id'], // INJEKSI HISTORICAL SNAPSHOT
                 'tanggal'    => $tanggalString,
                 'status'     => $izin['jenis'],
                 'keterangan' => 'Disetujui via sistem: ' . $izin['alasan']
@@ -116,7 +111,6 @@ class Izin extends BaseController
 
     public function reject(string $idIzin)
     {
-        // Ambil data izin beserta ID kelas siswanya (via JOIN) untuk divalidasi
         $izin = $this->izinModel
             ->select('pengajuan_izin.*, siswa.kelas_id')
             ->join('siswa', 'siswa.id_siswa = pengajuan_izin.siswa_id')
@@ -127,7 +121,6 @@ class Izin extends BaseController
             return redirect()->back()->with('error', 'Data tidak valid atau sudah diproses.');
         }
 
-        // PROTEKSI OTORITAS WALI KELAS
         if (!$this->checkAksesWaliKelas((int)$izin['kelas_id'])) {
             return redirect()->back()->with('error', 'Akses Ditolak: Anda tidak berhak menolak izin siswa dari kelas lain.');
         }

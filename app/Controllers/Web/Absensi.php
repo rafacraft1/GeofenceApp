@@ -83,7 +83,6 @@ class Absensi extends BaseController
 
     public function inputManual()
     {
-        // Peningkatan Keamanan: Validasi input wajib dilakukan
         $aturanValidasi = [
             'siswa_id'   => 'required|numeric',
             'tanggal'    => 'required|valid_date[Y-m-d]',
@@ -101,7 +100,6 @@ class Absensi extends BaseController
 
         $siswa = $this->siswaModel->find($siswaId);
 
-        // Pengecekan Eksistensi dan Otorisasi Hak Akses Wali Kelas
         if (!$siswa || !$this->checkAksesWaliKelas((int)$siswa['kelas_id'])) {
             return redirect()->back()->with('error', 'Akses Ditolak: Siswa tidak ditemukan atau berada di luar otoritas Anda.');
         }
@@ -117,6 +115,7 @@ class Absensi extends BaseController
             }
 
             $this->absensiModel->update($absenLama['id_absensi'], [
+                'kelas_id'   => $siswa['kelas_id'], // INJEKSI HISTORICAL SNAPSHOT
                 'jam_masuk'  => $jamMasuk,
                 'status'     => $status,
                 'keterangan' => $keterangan
@@ -127,6 +126,7 @@ class Absensi extends BaseController
 
         $this->absensiModel->insert([
             'siswa_id'   => $siswaId,
+            'kelas_id'   => $siswa['kelas_id'], // INJEKSI HISTORICAL SNAPSHOT
             'tanggal'    => $tanggal,
             'jam_masuk'  => $jamMasuk,
             'status'     => $status,

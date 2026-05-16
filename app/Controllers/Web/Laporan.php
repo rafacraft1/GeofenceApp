@@ -3,7 +3,6 @@
 namespace App\Controllers\Web;
 
 use App\Controllers\BaseController;
-use App\Models\SiswaModel;
 use App\Models\AbsensiModel;
 use App\Models\KelasModel;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -11,81 +10,88 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class Laporan extends BaseController
 {
-    protected SiswaModel $siswaModel;
     protected AbsensiModel $absensiModel;
     protected KelasModel $kelasModel;
 
     public function __construct()
     {
-        $this->siswaModel   = new SiswaModel();
         $this->absensiModel = new AbsensiModel();
         $this->kelasModel   = new KelasModel();
     }
 
+    /**
+     * REFAKTORISASI SCD (Slowly Changing Dimension):
+     * Query ini memastikan riwayat kelas tidak bergeser walaupun siswa sudah naik kelas.
+     */
     private function getRekapData(string $bulanMulai, string $bulanSelesai, string $tahun, string $kelasId): array
     {
-        // 1. Ambil Data Siswa beserta Kelas
-        $this->siswaModel->select('siswa.id_siswa, siswa.nis, siswa.nama_siswa, kelas.nama_kelas')
-            ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
-
-        if (!empty($kelasId)) {
-            $this->siswaModel->where('siswa.kelas_id', $kelasId);
-        }
-
-        $listSiswa = $this->siswaModel->orderBy('kelas.nama_kelas', 'ASC')
-            ->orderBy('siswa.nama_siswa', 'ASC')
-            ->findAll();
-
-        // 2. Ambil Agregasi Data Absensi
-        $this->absensiModel->select('absensi.siswa_id, absensi.status, COUNT(absensi.id_absensi) as total')
+        // 1. Ambil Data Agregasi Kehadiran langsung dari tabel Absensi (Group by Siswa, Kelas Historis, dan Status)
+        // Perhatikan: JOIN tabel kelas sekarang dikunci ke absensi.kelas_id
+        $this->absensiModel->select('absensi.siswa_id, absensi.kelas_id, absensi.status, COUNT(absensi.id_absensi) as total, siswa.nis, siswa.nama_siswa, kelas.nama_kelas')
+            ->join('siswa', 'siswa.id_siswa = absensi.siswa_id')
+            ->join('kelas', 'kelas.id_kelas = absensi.kelas_id', 'left')
             ->where('MONTH(absensi.tanggal) >=', $bulanMulai)
             ->where('MONTH(absensi.tanggal) <=', $bulanSelesai)
             ->where('YEAR(absensi.tanggal)', $tahun);
 
         if (!empty($kelasId)) {
-            $this->absensiModel->join('siswa', 'siswa.id_siswa = absensi.siswa_id')
-                ->where('siswa.kelas_id', $kelasId);
+            $this->absensiModel->where('absensi.kelas_id', $kelasId);
         }
 
-        $dataAbsen = $this->absensiModel->groupBy('absensi.siswa_id, absensi.status')->findAll();
+        $dataAbsen = $this->absensiModel->groupBy('absensi.siswa_id, absensi.kelas_id, absensi.status')->findAll();
 
-        // 3. Mapping Data Absensi ke Memori (Efisiensi O(1) Lookups)
-        $absenMap = [];
+        // 2. Mapping Data (O(1) Lookups)
+        $rekapMap = [];
+
         foreach ($dataAbsen as $row) {
-            $absenMap[$row['siswa_id']][$row['status']] = (int) $row['total'];
+            $key = $row['siswa_id'] . '_' . $row['kelas_id']; // Kunci unik gabungan siswa dan kelas historisnya
+
+            if (!isset($rekapMap[$key])) {
+                $rekapMap[$key] = [
+                    'nis'        => $row['nis'],
+                    'nama_siswa' => $row['nama_siswa'],
+                    'nama_kelas' => $row['nama_kelas'] ?? '-',
+                    'Hadir'      => 0,
+                    'Dispensasi' => 0,
+                    'Terlambat'  => 0,
+                    'Sakit'      => 0,
+                    'Izin'       => 0,
+                    'Alpa'       => 0,
+                ];
+            }
+
+            $rekapMap[$key][$row['status']] = (int) $row['total'];
         }
 
-        // 4. Penggabungan Data Final
-        $rekap = [];
-        foreach ($listSiswa as $siswa) {
-            $id         = $siswa['id_siswa'];
-            $hadir      = $absenMap[$id]['Hadir'] ?? 0;
-            $terlambat  = $absenMap[$id]['Terlambat'] ?? 0;
-            $dispensasi = $absenMap[$id]['Dispensasi'] ?? 0;
-            $sakit      = $absenMap[$id]['Sakit'] ?? 0;
-            $izin       = $absenMap[$id]['Izin'] ?? 0;
-            $alpa       = $absenMap[$id]['Alpa'] ?? 0;
+        // 3. Kalkulasi Persentase Akhir
+        $hasilAkhir = [];
+        foreach ($rekapMap as $data) {
+            $hadir      = $data['Hadir'];
+            $terlambat  = $data['Terlambat'];
+            $dispensasi = $data['Dispensasi'];
+            $sakit      = $data['Sakit'];
+            $izin       = $data['Izin'];
+            $alpa       = $data['Alpa'];
 
             $totalKehadiran = $hadir + $terlambat + $dispensasi;
             $totalHari      = $totalKehadiran + $sakit + $izin + $alpa;
             $persentase     = ($totalHari > 0) ? round(($totalKehadiran / $totalHari) * 100, 2) : 0;
 
-            $rekap[] = [
-                'nis'        => $siswa['nis'],
-                'nama_siswa' => $siswa['nama_siswa'],
-                'nama_kelas' => $siswa['nama_kelas'] ?? '-',
-                'Hadir'      => $hadir,
-                'Dispensasi' => $dispensasi,
-                'Terlambat'  => $terlambat,
-                'Sakit'      => $sakit,
-                'Izin'       => $izin,
-                'Alpa'       => $alpa,
-                'TotalHari'  => $totalHari,
-                'Persentase' => $persentase
-            ];
+            $data['TotalHari']  = $totalHari;
+            $data['Persentase'] = $persentase;
+
+            $hasilAkhir[] = $data;
         }
 
-        return $rekap;
+        // 4. Sortir secara alfabetis berdasarkan nama kelas lalu nama siswa
+        usort($hasilAkhir, function ($a, $b) {
+            if ($a['nama_kelas'] === $b['nama_kelas']) {
+                return $a['nama_siswa'] <=> $b['nama_siswa'];
+            }
+            return $a['nama_kelas'] <=> $b['nama_kelas'];
+        });
+
+        return $hasilAkhir;
     }
 
     public function index()
@@ -97,12 +103,10 @@ class Laporan extends BaseController
         $isWaliKelas  = session()->get('is_wali_kelas');
         $kelasSession = session()->get('kelas_id');
 
-        // Penetapan paksa ID Kelas jika Wali Kelas
         $kelasId = $isWaliKelas ? $kelasSession : ($this->request->getGet('kelas') ?? '');
 
         $rekapData = $this->getRekapData($bulanMulai, $bulanSelesai, $tahun, (string)$kelasId);
 
-        // List dropdown disesuaikan otoritas
         $listKelas = $isWaliKelas
             ? $this->kelasModel->where('id_kelas', $kelasSession)->findAll()
             : $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll();
@@ -126,7 +130,6 @@ class Laporan extends BaseController
         $bulanSelesai = $this->request->getGet('bulan_selesai') ?? date('m');
         $tahun        = $this->request->getGet('tahun') ?? date('Y');
 
-        // Penetapan paksa ID Kelas untuk file Excel
         $kelasId = session()->get('is_wali_kelas') ? session()->get('kelas_id') : ($this->request->getGet('kelas') ?? '');
 
         $rekapData = $this->getRekapData($bulanMulai, $bulanSelesai, $tahun, (string)$kelasId);

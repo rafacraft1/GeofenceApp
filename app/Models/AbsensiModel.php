@@ -14,6 +14,7 @@ class AbsensiModel extends Model
 
     protected $allowedFields    = [
         'siswa_id',
+        'kelas_id', // TAMBAHAN UNTUK HISTORICAL SNAPSHOT
         'tanggal',
         'jam_masuk',
         'jam_pulang',

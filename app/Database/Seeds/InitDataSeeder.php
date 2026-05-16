@@ -68,11 +68,11 @@ class InitDataSeeder extends Seeder
             ]
         ]);
 
-        // 4. Data Kelas beserta Relasi Wali Kelas (Penyesuaian Major)
+        // 4. Data Kelas beserta Relasi Wali Kelas
         $this->db->table('kelas')->insertBatch([
-            ['id_kelas' => 1, 'nama_kelas' => '10-A', 'wali_kelas_id' => 2, 'created_at' => date('Y-m-d H:i:s')], // Dipegang Budi Santoso (ID User 2)
-            ['id_kelas' => 2, 'nama_kelas' => '10-B', 'wali_kelas_id' => 3, 'created_at' => date('Y-m-d H:i:s')], // Dipegang Siti Aminah (ID User 3)
-            ['id_kelas' => 3, 'nama_kelas' => '11-A', 'wali_kelas_id' => null, 'created_at' => date('Y-m-d H:i:s')], // Belum ada wali kelas
+            ['id_kelas' => 1, 'nama_kelas' => '10-A', 'wali_kelas_id' => 2, 'created_at' => date('Y-m-d H:i:s')],
+            ['id_kelas' => 2, 'nama_kelas' => '10-B', 'wali_kelas_id' => 3, 'created_at' => date('Y-m-d H:i:s')],
+            ['id_kelas' => 3, 'nama_kelas' => '11-A', 'wali_kelas_id' => null, 'created_at' => date('Y-m-d H:i:s')],
         ]);
 
         // 5. Data Pengaturan Sekolah Default
@@ -96,7 +96,6 @@ class InitDataSeeder extends Seeder
                 'is_libur'   => 0
             ];
         }
-        // Sabtu & Minggu Libur
         $jadwal[] = ['kode_hari' => 6, 'nama_hari' => 'Sabtu', 'jam_masuk' => null, 'jam_pulang' => null, 'is_libur' => 1];
         $jadwal[] = ['kode_hari' => 7, 'nama_hari' => 'Minggu', 'jam_masuk' => null, 'jam_pulang' => null, 'is_libur' => 1];
 
@@ -104,31 +103,31 @@ class InitDataSeeder extends Seeder
 
         // 7. TABEL MENUS (Master Data Modul)
         $this->db->table('menus')->insertBatch([
-            ['id_menu' => 1, 'nama_menu' => 'Dashboard',        'url' => 'admin/dashboard',  'icon' => 'fas fa-home', 'urutan' => 1, 'is_active' => 1],
-            ['id_menu' => 2, 'nama_menu' => 'Data Siswa',       'url' => 'admin/siswa',      'icon' => 'fas fa-users', 'urutan' => 2, 'is_active' => 1],
-            ['id_menu' => 3, 'nama_menu' => 'Absensi Harian',   'url' => 'admin/absensi',    'icon' => 'fas fa-clipboard-check', 'urutan' => 3, 'is_active' => 1],
-            ['id_menu' => 4, 'nama_menu' => 'Izin & Sakit',     'url' => 'admin/izin',       'icon' => 'fas fa-envelope-open-text', 'urutan' => 4, 'is_active' => 1],
-            ['id_menu' => 5, 'nama_menu' => 'Live Radar',       'url' => 'admin/tracking',   'icon' => 'fas fa-map-marked-alt', 'urutan' => 5, 'is_active' => 1],
-            ['id_menu' => 6, 'nama_menu' => 'Log Fraud',        'url' => 'admin/log-fraud',  'icon' => 'fas fa-shield-alt', 'urutan' => 6, 'is_active' => 1],
-            ['id_menu' => 7, 'nama_menu' => 'Laporan Rekap',    'url' => 'admin/laporan',    'icon' => 'fas fa-file-excel', 'urutan' => 7, 'is_active' => 1],
-            ['id_menu' => 8, 'nama_menu' => 'Data User/Guru',   'url' => 'admin/user',       'icon' => 'fas fa-user-tie', 'urutan' => 8, 'is_active' => 1],
-            ['id_menu' => 9, 'nama_menu' => 'Data Kelas',       'url' => 'admin/kelas',      'icon' => 'fas fa-chalkboard', 'urutan' => 9, 'is_active' => 1],
-            ['id_menu' => 10, 'nama_menu' => 'Pengumuman',      'url' => 'admin/pengumuman', 'icon' => 'fas fa-bullhorn', 'urutan' => 10, 'is_active' => 1],
-            ['id_menu' => 11, 'nama_menu' => 'Hari Libur',      'url' => 'admin/libur',      'icon' => 'fas fa-calendar-times', 'urutan' => 11, 'is_active' => 1],
-            ['id_menu' => 12, 'nama_menu' => 'Jadwal Harian',   'url' => 'admin/jadwal',     'icon' => 'fas fa-clock', 'urutan' => 12, 'is_active' => 1],
-            ['id_menu' => 13, 'nama_menu' => 'Pengaturan',      'url' => 'admin/pengaturan', 'icon' => 'fas fa-cogs', 'urutan' => 13, 'is_active' => 1],
+            ['id_menu' => 1,  'nama_menu' => 'Dashboard',        'url' => 'admin/dashboard',  'icon' => 'fas fa-home', 'urutan' => 1, 'is_active' => 1],
+            ['id_menu' => 2,  'nama_menu' => 'Data Siswa',       'url' => 'admin/siswa',      'icon' => 'fas fa-users', 'urutan' => 2, 'is_active' => 1],
+            ['id_menu' => 3,  'nama_menu' => 'Absensi Harian',   'url' => 'admin/absensi',    'icon' => 'fas fa-clipboard-check', 'urutan' => 3, 'is_active' => 1],
+            ['id_menu' => 4,  'nama_menu' => 'Izin & Sakit',     'url' => 'admin/izin',       'icon' => 'fas fa-envelope-open-text', 'urutan' => 4, 'is_active' => 1],
+            ['id_menu' => 5,  'nama_menu' => 'Live Radar',       'url' => 'admin/tracking',   'icon' => 'fas fa-map-marked-alt', 'urutan' => 5, 'is_active' => 1],
+            ['id_menu' => 6,  'nama_menu' => 'Log Fraud',        'url' => 'admin/log-fraud',  'icon' => 'fas fa-shield-alt', 'urutan' => 6, 'is_active' => 1],
+            ['id_menu' => 7,  'nama_menu' => 'Laporan Rekap',    'url' => 'admin/laporan',    'icon' => 'fas fa-file-excel', 'urutan' => 7, 'is_active' => 1],
+            ['id_menu' => 8,  'nama_menu' => 'Data User/Guru',   'url' => 'admin/user',       'icon' => 'fas fa-user-tie', 'urutan' => 8, 'is_active' => 1],
+            ['id_menu' => 9,  'nama_menu' => 'Data Kelas',       'url' => 'admin/kelas',      'icon' => 'fas fa-chalkboard', 'urutan' => 9, 'is_active' => 1],
+            ['id_menu' => 10, 'nama_menu' => 'Pengumuman',       'url' => 'admin/pengumuman', 'icon' => 'fas fa-bullhorn', 'urutan' => 10, 'is_active' => 1],
+            ['id_menu' => 11, 'nama_menu' => 'Hari Libur',       'url' => 'admin/libur',      'icon' => 'fas fa-calendar-times', 'urutan' => 11, 'is_active' => 1],
+            ['id_menu' => 12, 'nama_menu' => 'Jadwal Harian',    'url' => 'admin/jadwal',     'icon' => 'fas fa-clock', 'urutan' => 12, 'is_active' => 1],
+            ['id_menu' => 13, 'nama_menu' => 'Pengaturan',       'url' => 'admin/pengaturan', 'icon' => 'fas fa-cogs', 'urutan' => 13, 'is_active' => 1],
+            ['id_menu' => 14, 'nama_menu' => 'Mutasi Kelas',     'url' => 'admin/mutasi',     'icon' => 'fas fa-exchange-alt', 'urutan' => 14, 'is_active' => 1], // MENU BARU
         ]);
 
         // 8. Pemetaan Role ke Menu (Role_Menus)
         $roleMenus = [];
 
-        // ADMIN (Role 1) mendapatkan HAK AKSES PENUH ke semua menu (1 s/d 13)
-        for ($i = 1; $i <= 13; $i++) {
+        // ADMIN (Role 1) mendapatkan HAK AKSES PENUH ke semua menu (1 s/d 14)
+        for ($i = 1; $i <= 14; $i++) {
             $roleMenus[] = ['id_role' => 1, 'id_menu' => $i];
         }
 
-        // GURU (Role 2) hanya mendapatkan HAK AKSES OPERASIONAL (Menu 1 s/d 7)
-        // Hal ini sudah kita siapkan agar Guru tidak bisa masuk ke Master Data
+        // GURU (Role 2) hanya mendapatkan HAK AKSES OPERASIONAL (Menu 1 s/d 7) -> Tetap aman tidak bisa mutasi
         for ($i = 1; $i <= 7; $i++) {
             $roleMenus[] = ['id_role' => 2, 'id_menu' => $i];
         }
