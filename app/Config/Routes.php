@@ -52,8 +52,8 @@ $routes->group('admin', ['filter' => ['webAuth', 'dynamicAccess'], 'namespace' =
     $routes->post('user/store', 'User::store');
     $routes->post('user/delete/(:num)', 'User::delete/$1');
     $routes->post('user/reset/(:num)', 'User::reset/$1');
-    $routes->get('user/hak-akses', 'User::hakAkses'); // BARU
-    $routes->post('user/hak-akses/save', 'User::saveHakAkses'); // BARU
+    $routes->get('user/hak-akses', 'User::hakAkses');
+    $routes->post('user/hak-akses/save', 'User::saveHakAkses');
 
     // Modul Kelas, Pengaturan, Jadwal, Libur, Pengumuman
     $routes->get('kelas', 'Kelas::index');
@@ -81,7 +81,7 @@ $routes->group('admin', ['filter' => ['webAuth', 'dynamicAccess'], 'namespace' =
 });
 
 // ========================================================================
-// 2. JALUR API ANDROID
+// 2. JALUR API ANDROID (V1)
 // ========================================================================
 $routes->group('api/v1', ['filter' => 'throttle', 'namespace' => 'App\Controllers\Api'], function ($routes) {
 
@@ -90,15 +90,15 @@ $routes->group('api/v1', ['filter' => 'throttle', 'namespace' => 'App\Controller
     $routes->get('pengumuman', 'PengumumanApi::index');
     $routes->get('waktu_server', 'WaktuApi::index');
 
+    // ✅ Rute diletakkan DI LUAR grup token agar background service Flutter bisa mengaksesnya
+    $routes->post('tracking/store', 'TrackingApi::storeLocation');
+
     // Group Khusus Transaksi Data (Wajib API Token)
     $routes->group('', ['filter' => 'apiAuth'], function ($routes) {
         $routes->post('absen/masuk', 'AbsensiApi::masuk');
         $routes->post('absen/pulang', 'AbsensiApi::pulang');
         $routes->get('absen/riwayat', 'AbsensiApi::riwayat');
 
-        // ===============================================================
-        // PERBAIKAN 2: Route disesuaikan dengan permintaan dari Flutter
-        // ===============================================================
         $routes->post('tracking/updateLokasi', 'TrackingApi::updateLokasi');
 
         $routes->post('profile/upload-foto', 'ProfileApi::uploadFoto');
@@ -106,4 +106,13 @@ $routes->group('api/v1', ['filter' => 'throttle', 'namespace' => 'App\Controller
         $routes->get('izin/riwayat', 'IzinApi::riwayat');
         $routes->post('fcm/updateToken', 'FcmApi::updateToken');
     });
+});
+
+// ========================================================================
+// 3. JALUR API TRACKING ON-THE-FLY (HYBRID FIFO)
+// ========================================================================
+$routes->group('api/tracking', ['namespace' => 'App\Controllers\Api'], function ($routes) {
+    // Dipanggil Web Admin (AJAX / Fetch) - Tanpa wajib token API
+    $routes->post('trigger/(:num)', 'TrackingApi::triggerTracking/$1');
+    $routes->get('poll/(:num)', 'TrackingApi::pollLocation/$1');
 });

@@ -55,12 +55,15 @@
             <div id="tracking-status" class="bg-slate-900/80 backdrop-blur-md text-white px-4 py-2 rounded-full text-[10px] font-bold shadow-lg border border-white/10 hidden pointer-events-auto">
                 <span class="flex items-center gap-2">
                     <div class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                    MENAMPILKAN: <span id="target-name">-</span>
+                    <span id="status-text">MENAMPILKAN:</span> <span id="target-name" class="text-emerald-300">-</span>
                 </span>
             </div>
 
             <button id="btn-ping" onclick="pingSiswa()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-xl transition-all active:scale-95 hidden pointer-events-auto items-center gap-2">
-                PAKSA UPDATE LOKASI (PING)
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+                LACAK SEKARANG
             </button>
         </div>
     </div>
@@ -71,8 +74,20 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+<style>
+    /* Hilangkan background default icon leaflet untuk custom icon kita */
+    .custom-div-icon {
+        background: transparent;
+        border: none;
+    }
+</style>
+
 <script>
-    let map, marker, circle;
+    let map, circle;
+    // Variabel array untuk menampung banyak marker & 1 polyline (garis)
+    let markers = [];
+    let polylineLayer = null;
+
     let currentTargetId = null;
     let intervalId = null;
 
@@ -115,21 +130,16 @@
             });
         }
 
-        // ========================================================
-        // PERBAIKAN 2: AUTO-FOCUS JIKA ADA TARGET ID DARI URL
-        // ========================================================
+        // AUTO-FOCUS JIKA ADA TARGET ID DARI URL
         const initialTargetId = '<?= esc((string)($target_id ?? '')) ?>';
         if (initialTargetId) {
-            // Beri sedikit delay agar Leaflet Map selesai dirender sebelum melakukan auto-click
             setTimeout(() => {
                 const targetBtn = document.getElementById('btn-siswa-' + initialTargetId);
                 if (targetBtn) {
-                    // Scroll daftar siswa di sidebar agar nama siswa tersebut terlihat
                     targetBtn.scrollIntoView({
                         behavior: 'smooth',
                         block: 'center'
                     });
-                    // Simulasikan klik untuk memicu tracking
                     targetBtn.click();
                 }
             }, 500);
@@ -140,7 +150,7 @@
         if (intervalId) clearInterval(intervalId);
         currentTargetId = idSiswa;
 
-        // Visual Feedback: Beri warna pada siswa yang sedang aktif di sidebar
+        // Visual Feedback Sidebar
         document.querySelectorAll('.siswa-item').forEach(el => {
             el.classList.remove('bg-blue-50', 'border-blue-200');
             el.classList.add('border-transparent');
@@ -152,44 +162,113 @@
         }
 
         document.getElementById('target-name').textContent = nama.toUpperCase();
+        document.getElementById('status-text').textContent = "MEMANTAU:";
         document.getElementById('tracking-status').classList.remove('hidden');
         document.getElementById('btn-ping').classList.remove('hidden');
         document.getElementById('btn-ping').classList.add('flex');
 
-        // Panggil fetch pertama kali
-        fetchLocation();
+        // Pertama kali klik, lakukan ping/trigger untuk meminta data dari HP
+        pingSiswa();
 
-        // Set interval untuk refresh otomatis tiap 5 detik
-        intervalId = setInterval(fetchLocation, 5000);
+        // Polling ke API Cache CI4 setiap 2 detik untuk menarik array data rute
+        intervalId = setInterval(fetchLocationArray, 2000);
     }
 
-    function fetchLocation() {
+    // Fungsi Fetch ke Endpoint API Baru (Menarik Array Lokasi)
+    function fetchLocationArray() {
         if (!currentTargetId) return;
-        fetch(`<?= base_url('admin/tracking/getLocation/') ?>${currentTargetId}`)
+
+        fetch(`<?= base_url('api/tracking/poll/') ?>${currentTargetId}`)
             .then(response => response.json())
-            .then(data => {
-                if (data.status === 200 && data.lat) {
-                    const pos = [data.lat, data.lng];
-                    if (marker) map.removeLayer(marker);
-
-                    // Gunakan flyTo untuk animasi pergerakan kamera yang halus
-                    map.flyTo(pos, 18, {
-                        animate: true,
-                        duration: 1.5
-                    });
-
-                    marker = window.L.marker(pos).addTo(map).bindPopup(`<b>${data.nama}</b><br>Terakhir Update: ${data.last_update}`).openPopup();
-                } else if (data.status === 404) {
-                    toastr.warning(data.message, "Info");
-                    clearInterval(intervalId); // Hentikan tracking jika data tidak ada
+            .then(res => {
+                if (res.status === 'success' && res.data && res.data.length > 0) {
+                    document.getElementById('status-text').textContent = "JALUR DITEMUKAN:";
+                    drawRoute(res.data);
+                } else if (res.status === 'pending') {
+                    document.getElementById('status-text').textContent = "MENUNGGU HP...";
                 }
-            }).catch(err => console.log('Menunggu pembaruan...'));
+            }).catch(err => console.log('Menunggu pembaruan jaringan...'));
     }
 
+    // Fungsi untuk menggambar Riwayat (Polylines) & Marker
+    function drawRoute(locations) {
+        // 1. Bersihkan map dari titik & garis milik siswa sebelumnya
+        markers.forEach(m => map.removeLayer(m));
+        markers = [];
+        if (polylineLayer) map.removeLayer(polylineLayer);
+
+        let latlngs = [];
+
+        // 2. Looping array lokasi (dari Terlama -> Terbaru)
+        locations.forEach((loc, index) => {
+            // Standarisasi key json (bisa lat/latitude, lng/longitude)
+            let lat = loc.lat || loc.latitude;
+            let lng = loc.lng || loc.longitude;
+            let pos = [parseFloat(lat), parseFloat(lng)];
+            latlngs.push(pos);
+
+            let isLatest = (index === locations.length - 1);
+
+            // Tampilan: Merah = Terbaru, Biru = Riwayat
+            let markerColor = isLatest ? '#ef4444' : '#3b82f6';
+            let ukuran = isLatest ? '16px' : '10px';
+            let labelTitle = isLatest ? 'Titik Terkini (On-Demand)' : `Riwayat (Berkala)`;
+            let waktuStr = loc.waktu || loc.timestamp || '-';
+
+            // Membuat Custom Dot Marker CSS
+            let customIcon = window.L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div style="background-color:${markerColor}; width:${ukuran}; height:${ukuran}; border-radius:50%; border:2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.4);"></div>`,
+                iconSize: [parseInt(ukuran), parseInt(ukuran)],
+                iconAnchor: [parseInt(ukuran) / 2, parseInt(ukuran) / 2]
+            });
+
+            // Pasang Marker
+            let newMarker = window.L.marker(pos, {
+                    icon: customIcon
+                })
+                .addTo(map)
+                .bindPopup(`
+                    <div style="text-align:center;">
+                        <b style="color:${markerColor}; font-size:12px;">${labelTitle}</b><br>
+                        <span style="font-size:10px; color:#666;">Waktu: ${waktuStr}</span>
+                    </div>
+                `);
+
+            if (isLatest) newMarker.openPopup();
+            markers.push(newMarker);
+        });
+
+        // 3. Tarik Garis (Polyline) jika lokasi lebih dari 1
+        if (latlngs.length > 1) {
+            polylineLayer = window.L.polyline(latlngs, {
+                color: '#ef4444', // Warna garis merah
+                weight: 3, // Ketebalan
+                dashArray: '5, 8', // Efek garis putus-putus
+                lineJoin: 'round'
+            }).addTo(map);
+
+            // Auto-Zoom Peta agar seluruh jalur terlihat pas di tengah layar
+            map.fitBounds(polylineLayer.getBounds(), {
+                padding: [50, 50],
+                maxZoom: 18
+            });
+        } else if (latlngs.length === 1) {
+            // Jika hanya ada 1 data (baru pertama kali), flyTo ke titik tersebut
+            map.flyTo(latlngs[0], 18, {
+                animate: true,
+                duration: 1.5
+            });
+        }
+    }
+
+    // Fungsi Trigger/Ping API
     function pingSiswa() {
         if (!currentTargetId) return;
-        toastr.info("Mengirim sinyal ping...");
-        fetch(`<?= base_url('admin/tracking/pingSiswa/') ?>${currentTargetId}`, {
+        toastr.info("Mengirim sinyal pelacakan ke HP...");
+        document.getElementById('status-text').textContent = "MEMBANGUNKAN HP...";
+
+        fetch(`<?= base_url('api/tracking/trigger/') ?>${currentTargetId}`, {
                 method: 'POST',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
@@ -203,8 +282,7 @@
                 return data;
             })
             .then(data => {
-                if (data.status === 200) toastr.success(data.message);
-                else toastr.error(data.message);
+                // Jangan reset interval, biarkan interval API Poll terus berjalan mengecek cache
             })
             .catch(err => toastr.error(err.message));
     }

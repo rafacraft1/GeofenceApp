@@ -7,65 +7,96 @@ use App\Models\SiswaModel;
 
 class TrackingApi extends ResourceController
 {
-    protected $format = 'json';
+    // Perbaikan Type Hinting untuk menghilangkan warning Intelephense
     protected SiswaModel $siswaModel;
 
     public function __construct()
     {
         $this->siswaModel = new SiswaModel();
+        // Memanggil helper FCM bawaan project Anda dan helper Cache
+        helper(['fcm', 'date']);
     }
 
-    private function getSiswaAuth(): array
+    /**
+     * 1. DIPANGGIL OLEH WEB ADMIN
+     * Membangunkan HP siswa secara diam-diam via FCM Data Message
+     */
+    public function triggerTracking(int|string $siswaId) // Tambahan type hint int|string
     {
-        /** @var mixed $request */
-        $request = $this->request;
-        return (array) $request->siswaAuth;
-    }
+        $siswa = $this->siswaModel->find($siswaId);
+        if (!$siswa || empty($siswa['fcm_token'])) {
+            return $this->failNotFound('Siswa atau Token FCM tidak ditemukan.');
+        }
 
-    public function updateLokasi()
-    {
-        $siswa = $this->getSiswaAuth();
-
-        $aturanValidasi = [
-            'lat'  => 'required|numeric',
-            'long' => 'required|numeric'
+        // Payload data khusus (tanpa notification agar silent)
+        // Nilai dikirim sebagai string karena FCM HTTP v1 mensyaratkan value dari data array berupa string
+        $dataPayload = [
+            'type'      => 'trigger_tracking',
+            'timestamp' => (string) time(),
+            'action'    => 'force_location_capture'
         ];
 
-        if (!$this->validate($aturanValidasi)) {
-            return $this->failValidationErrors($this->validator->getErrors());
-        }
-
-        // PERBAIKAN: Menyimpan koordinat live ke tabel siswa!
-        $this->siswaModel->update($siswa['id_siswa'], [
-            'lat_terakhir'  => $this->request->getPost('lat'),
-            'long_terakhir' => $this->request->getPost('long'),
-            'updated_at'    => date('Y-m-d H:i:s')
-        ]);
-
-        return $this->respond(['status' => 200, 'message' => 'Lokasi live berhasil diperbarui.']);
-    }
-
-    public function pingSiswa(string $targetId)
-    {
-        helper('fcm');
-
-        $siswa = $this->siswaModel->find($targetId);
-
-        if (!$siswa || empty($siswa['fcm_token'])) {
-            return $this->failNotFound('Siswa tidak ditemukan atau perangkat sedang offline.');
-        }
-
-        $result = send_fcm_notification(
-            (string) $siswa['fcm_token'],
-            "PING_LOCATION",
-            "Permintaan lokasi real-time dari Admin.",
-            ['action' => 'fetch_location']
+        // PERBAIKAN ERROR 1: Panggil fungsi yang benar dari fcm_helper.php
+        $fcmResult = send_fcm_notification(
+            $siswa['fcm_token'],
+            '', // Title kosong
+            '', // Body kosong
+            $dataPayload
         );
 
-        if ($result) {
-            return $this->respond(['status' => 200, 'message' => 'Sinyal ping terkirim ke perangkat siswa.']);
+        return $this->respond([
+            'status'  => 'success',
+            'message' => 'Sinyal pelacakan telah dikirim ke perangkat siswa.',
+            'fcm_log' => json_decode((string)$fcmResult, true) ?? $fcmResult
+        ]);
+    }
+
+    /**
+     * 2. DIPANGGIL OLEH APLIKASI FLUTTER
+     * Menerima array 4 lokasi (3 riwayat lokal + 1 saat ini) dan menyimpannya di Cache CI4
+     */
+    public function storeLocation()
+    {
+        $json = $this->request->getJSON(true);
+        $siswaId = $json['siswa_id'] ?? null;
+        $locations = $json['locations'] ?? [];
+
+        if (empty($siswaId) || empty($locations)) {
+            // PERBAIKAN ERROR 2: Gunakan fungsi bawaan CI4 failValidationErrors
+            return $this->failValidationErrors(['error' => 'Data siswa_id dan array locations wajib dikirim.']);
         }
 
-        return $this->failServerError('Gagal mengirim sinyal ping.');
+        // MENGGUNAKAN CACHE SEBAGAI JEMBATAN SEMENTARA (TTL: 60 Detik)
+        // Memori akan otomatis bersih setelah 60 detik (tidak membebani database)
+        $cacheKey = 'tracking_siswa_' . $siswaId;
+        cache()->save($cacheKey, $locations, 60);
+
+        return $this->respond([
+            'status'  => 'success',
+            'message' => 'Data 4 titik lokasi berhasil diunggah ke memori sementara server.'
+        ]);
+    }
+
+    /**
+     * 3. DIPANGGIL OLEH WEB ADMIN (POLLING)
+     * Mengambil data dari Cache untuk digambar di peta web
+     */
+    public function pollLocation(int|string $siswaId) // Tambahan type hint int|string
+    {
+        $cacheKey = 'tracking_siswa_' . $siswaId;
+        $dataLokasi = cache($cacheKey);
+
+        if ($dataLokasi) {
+            return $this->respond([
+                'status' => 'success',
+                'data'   => $dataLokasi
+            ]);
+        }
+
+        // Jika cache kosong, berarti HP Flutter belum merespon
+        return $this->respond([
+            'status'  => 'pending',
+            'message' => 'Menunggu balasan lokasi dari perangkat siswa...'
+        ]);
     }
 }
