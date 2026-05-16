@@ -21,7 +21,11 @@ class AuthService
      */
     public function attemptLogin(string $nis, string $password, ?string $deviceId): array
     {
-        $siswa = $this->siswaModel->where('nis', $nis)->first();
+        // PERBAIKAN: Tambahkan select dan join untuk menarik 'nama_kelas'
+        $siswa = $this->siswaModel->select('siswa.*, kelas.nama_kelas')
+            ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left')
+            ->where('nis', $nis)
+            ->first();
 
         if (!$siswa) {
             return ['status' => 404, 'message' => 'Akun dengan NIS tersebut tidak ditemukan.'];
@@ -63,6 +67,7 @@ class AuthService
                 'nis'         => $siswa['nis'],
                 'nama_siswa'  => $siswa['nama_siswa'],
                 'kelas_id'    => $siswa['kelas_id'],
+                'nama_kelas'  => $siswa['nama_kelas'] ?? 'Siswa Aktif', // KUNCI PENYELESAIAN MASALAH
                 'foto_profil' => $siswa['foto_profil']
             ]
         ];
