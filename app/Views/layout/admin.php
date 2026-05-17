@@ -97,7 +97,6 @@
             <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Menu Utama</p>
 
             <?php
-            // Mengambil menu dinamis dari database
             $db = \Config\Database::connect();
             $allowedMenus = $db->table('menus')
                 ->join('role_menus', 'role_menus.id_menu = menus.id_menu')
@@ -108,12 +107,10 @@
                 ->getResultArray();
 
             foreach ($allowedMenus as $menu):
-                // FIX INTELEPHENSE: Eksplisit Casting menjadi String
                 $urlMenu  = (string) $menu['url'];
                 $namaMenu = (string) $menu['nama_menu'];
                 $iconMenu = (string) $menu['icon'];
 
-                // Cek apakah URL saat ini sama dengan URL dari Database
                 $isActive = strpos((string) uri_string(), $urlMenu) !== false;
                 $activeClass = $isActive ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800 hover:text-white';
             ?>
@@ -144,13 +141,55 @@
                 </button>
                 <h2 class="text-lg md:text-xl font-bold text-gray-800 hidden sm:block"><?= esc((string) ($title ?? 'Dashboard')) ?></h2>
             </div>
-            <div class="flex items-center gap-3">
-                <div class="hidden sm:flex flex-col text-right">
-                    <span class="text-sm font-bold text-gray-800"><?= esc((string) (session()->get('nama_lengkap') ?? 'Admin')) ?></span>
-                    <span class="text-[10px] font-bold <?= $roleId === 1 ? 'text-indigo-600' : 'text-emerald-600' ?> uppercase tracking-wider"><?= esc((string) (session()->get('nama_role') ?? 'User')) ?></span>
-                </div>
-                <div class="w-9 h-9 rounded-full <?= $roleId === 1 ? 'bg-indigo-100 text-indigo-600' : 'bg-emerald-100 text-emerald-600' ?> flex items-center justify-center font-black shadow-inner border <?= $roleId === 1 ? 'border-indigo-200' : 'border-emerald-200' ?>">
-                    <?= esc(substr((string) (session()->get('nama_lengkap') ?? 'A'), 0, 1)) ?>
+
+            <?php
+            $fotoSession = session()->get('foto');
+            $namaLengkap = session()->get('nama_lengkap') ?? 'Admin';
+
+            // PENGAMAN OTOMATIS: Deteksi nama role secara realtime jika session kosong
+            $namaRole = session()->get('nama_role');
+            if (empty($namaRole)) {
+                if ($roleId === 1) {
+                    $namaRole = 'Admin';
+                } elseif ($roleId === 2) {
+                    $namaRole = 'Guru';
+                } else {
+                    $db = \Config\Database::connect();
+                    $roleRow = $db->table('roles')->where('id_role', $roleId)->get()->getRowArray();
+                    $namaRole = $roleRow['nama_role'] ?? 'User';
+                }
+            }
+            ?>
+            <div class="relative">
+                <button onclick="toggleProfileDropdown()" class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer group focus:outline-none relative z-10" id="profileDropdownBtn" title="Menu Pengguna">
+                    <div class="hidden sm:flex flex-col text-right">
+                        <span class="text-sm font-bold text-gray-800 group-hover:text-blue-700 transition-colors"><?= esc((string) $namaLengkap) ?></span>
+                        <span class="text-[10px] font-bold <?= $roleId === 1 ? 'text-indigo-600' : 'text-emerald-600' ?> uppercase tracking-wider">
+                            <?= esc((string) $namaRole) ?>
+                        </span>
+                    </div>
+                    <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-black shadow-inner border border-blue-200 group-hover:ring-2 group-hover:ring-blue-400 transition-all overflow-hidden">
+                        <?php if (!empty($fotoSession)): ?>
+                            <img src="<?= base_url('uploads/profiles/' . $fotoSession) ?>" alt="Profil" class="w-full h-full object-cover">
+                        <?php else: ?>
+                            <?= esc(substr((string) $namaLengkap, 0, 1)) ?>
+                        <?php endif; ?>
+                    </div>
+                    <svg class="w-4 h-4 text-gray-500 transition-transform duration-200" id="dropdownArrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+
+                <div id="profileDropdownMenu" class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-1 hidden z-50 transform origin-top-right transition-all duration-200">
+                    <a href="<?= base_url('admin/profile') ?>" class="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                        <i class="fas fa-user-edit text-gray-400 w-4"></i>
+                        <span>Edit Profil</span>
+                    </a>
+                    <div class="border-t border-gray-100 my-1"></div>
+                    <a href="<?= base_url('admin/logout') ?>" class="flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                        <i class="fas fa-sign-out-alt text-red-400 w-4"></i>
+                        <span>Keluar</span>
+                    </a>
                 </div>
             </div>
         </header>
@@ -178,6 +217,22 @@
                 overlay.classList.toggle('hidden');
             }
         }
+
+        function toggleProfileDropdown() {
+            const menu = document.getElementById('profileDropdownMenu');
+            const arrow = document.getElementById('dropdownArrow');
+            menu.classList.toggle('hidden');
+            arrow.classList.toggle('rotate-180');
+        }
+
+        window.addEventListener('click', function(e) {
+            const menu = document.getElementById('profileDropdownMenu');
+            const btn = document.getElementById('profileDropdownBtn');
+            if (menu && btn && !btn.contains(e.target) && !menu.contains(e.target)) {
+                menu.classList.add('hidden');
+                document.getElementById('dropdownArrow').classList.remove('rotate-180');
+            }
+        });
 
         toastr.options = {
             "closeButton": true,

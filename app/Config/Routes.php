@@ -14,7 +14,17 @@ $routes->get('admin/login', 'Web\AuthWeb::index');
 $routes->post('admin/login_action', 'Web\AuthWeb::login');
 $routes->get('admin/logout', 'Web\AuthWeb::logout');
 
-// Group Web dengan Filter Dinamis
+// ========================================================================
+// 1. JALUR PROFILE (Hanya butuh verifikasi Login, Tanpa Filter Menu Dinamis)
+// ========================================================================
+$routes->group('admin', ['filter' => 'webAuth', 'namespace' => 'App\Controllers\Web'], function ($routes) {
+    $routes->get('profile', 'User::profile');
+    $routes->post('profile/update', 'User::updateProfile');
+});
+
+// ========================================================================
+// 2. JALUR WEB UTAMA (Dengan Filter Web Auth & Hak Akses Dinamis)
+// ========================================================================
 $routes->group('admin', ['filter' => ['webAuth', 'dynamicAccess'], 'namespace' => 'App\Controllers\Web'], function ($routes) {
 
     $routes->get('dashboard', 'Dashboard::index');
@@ -81,7 +91,7 @@ $routes->group('admin', ['filter' => ['webAuth', 'dynamicAccess'], 'namespace' =
 });
 
 // ========================================================================
-// 2. JALUR API ANDROID (V1)
+// 3. JALUR API ANDROID (V1)
 // ========================================================================
 $routes->group('api/v1', ['filter' => 'throttle', 'namespace' => 'App\Controllers\Api'], function ($routes) {
 
@@ -109,7 +119,7 @@ $routes->group('api/v1', ['filter' => 'throttle', 'namespace' => 'App\Controller
 });
 
 // ========================================================================
-// 3. JALUR API TRACKING ON-THE-FLY (HYBRID FIFO)
+// 4. JALUR API TRACKING ON-THE-FLY (HYBRID FIFO)
 // ========================================================================
 $routes->group('api/tracking', ['namespace' => 'App\Controllers\Api'], function ($routes) {
     // Dipanggil Web Admin (AJAX / Fetch) - Tanpa wajib token API

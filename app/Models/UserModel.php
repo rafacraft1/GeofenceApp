@@ -16,7 +16,8 @@ class UserModel extends Model
         'nama_lengkap',
         'username',
         'password_hash',
-        'role_id'
+        'role_id',
+        'foto' // ✅ Ditambahkan untuk fitur foto profil
     ];
 
     protected $useTimestamps    = true;

@@ -35,6 +35,7 @@ class InitDataSeeder extends Seeder
                 'nama_lengkap'  => 'Administrator Sistem',
                 'username'      => 'admin',
                 'password_hash' => $passwordDefault,
+                'foto'          => null, // ✅ PENYESUAIAN STRUKTUR KOLOM
                 'role_id'       => 1, // Role Admin
                 'created_at'    => date('Y-m-d H:i:s'),
                 'updated_at'    => date('Y-m-d H:i:s')
@@ -44,6 +45,7 @@ class InitDataSeeder extends Seeder
                 'nama_lengkap'  => 'Budi Santoso, S.Pd',
                 'username'      => 'guru1',
                 'password_hash' => $passwordDefault,
+                'foto'          => null, // ✅ PENYESUAIAN STRUKTUR KOLOM
                 'role_id'       => 2, // Role Guru (Wali Kelas 10-A)
                 'created_at'    => date('Y-m-d H:i:s'),
                 'updated_at'    => date('Y-m-d H:i:s')
@@ -53,6 +55,7 @@ class InitDataSeeder extends Seeder
                 'nama_lengkap'  => 'Siti Aminah, M.Pd',
                 'username'      => 'guru2',
                 'password_hash' => $passwordDefault,
+                'foto'          => null, // ✅ PENYESUAIAN STRUKTUR KOLOM
                 'role_id'       => 2, // Role Guru (Wali Kelas 10-B)
                 'created_at'    => date('Y-m-d H:i:s'),
                 'updated_at'    => date('Y-m-d H:i:s')
@@ -62,6 +65,7 @@ class InitDataSeeder extends Seeder
                 'nama_lengkap'  => 'Drs. Ahmad Dahlan',
                 'username'      => 'guru3',
                 'password_hash' => $passwordDefault,
+                'foto'          => null, // ✅ PENYESUAIAN STRUKTUR KOLOM
                 'role_id'       => 2, // Role Guru (Bukan Wali Kelas)
                 'created_at'    => date('Y-m-d H:i:s'),
                 'updated_at'    => date('Y-m-d H:i:s')
@@ -116,7 +120,7 @@ class InitDataSeeder extends Seeder
             ['id_menu' => 11, 'nama_menu' => 'Hari Libur',       'url' => 'admin/libur',      'icon' => 'fas fa-calendar-times', 'urutan' => 11, 'is_active' => 1],
             ['id_menu' => 12, 'nama_menu' => 'Jadwal Harian',    'url' => 'admin/jadwal',     'icon' => 'fas fa-clock', 'urutan' => 12, 'is_active' => 1],
             ['id_menu' => 13, 'nama_menu' => 'Pengaturan',       'url' => 'admin/pengaturan', 'icon' => 'fas fa-cogs', 'urutan' => 13, 'is_active' => 1],
-            ['id_menu' => 14, 'nama_menu' => 'Mutasi Kelas',     'url' => 'admin/mutasi',     'icon' => 'fas fa-exchange-alt', 'urutan' => 14, 'is_active' => 1], // MENU BARU
+            ['id_menu' => 14, 'nama_menu' => 'Mutasi Kelas',     'url' => 'admin/mutasi',     'icon' => 'fas fa-exchange-alt', 'urutan' => 14, 'is_active' => 1],
         ]);
 
         // 8. Pemetaan Role ke Menu (Role_Menus)

@@ -20,14 +20,10 @@ class User extends BaseController
         $this->kelasModel = new KelasModel();
     }
 
-    /**
-     * Menampilkan daftar user
-     */
     public function index()
     {
         $data = [
             'title' => 'Manajemen User',
-            // Mengirim string kosong agar Model mengembalikan semua data user
             'users' => $this->userModel->getUserWithRole(''),
             'roles' => $this->roleModel->findAll()
         ];
@@ -35,9 +31,6 @@ class User extends BaseController
         return view('web/user', $data);
     }
 
-    /**
-     * Simpan atau Update data user
-     */
     public function store()
     {
         $id = $this->request->getPost('id_user');
@@ -47,7 +40,6 @@ class User extends BaseController
             'username'     => "required|min_length[3]|is_unique[users.username,id_user,{$id}]",
         ];
 
-        // Role wajib diisi kecuali untuk edit Administrator Utama (ID 1)
         if (empty($id) || (int)$id !== 1) {
             $rules['role_id'] = 'required';
         }
@@ -61,7 +53,6 @@ class User extends BaseController
             'username'     => (string) $this->request->getPost('username'),
         ];
 
-        // PROTEKSI: Jika ID 1, paksa role_id tetap 1 (Admin)
         if (!empty($id) && (int)$id === 1) {
             $data['role_id'] = 1;
         } else {
@@ -69,7 +60,6 @@ class User extends BaseController
         }
 
         if (empty($id)) {
-            // Password default untuk user baru
             $data['password_hash'] = password_hash('123456', PASSWORD_BCRYPT);
             $this->userModel->insert($data);
             $msg = 'User berhasil ditambahkan. Password default: 123456';
@@ -81,28 +71,27 @@ class User extends BaseController
         return redirect()->to(base_url('admin/user'))->with('success', $msg);
     }
 
-    /**
-     * Hapus data user dengan proteksi sistem
-     */
     public function delete(string $id)
     {
-        // Proteksi 1: Tidak boleh menghapus diri sendiri
-        if ((int)$id === (int)session()->get('id_user')) {
+        $currentUserId = session()->get('id_user') ?? session()->get('id') ?? session()->get('user_id');
+
+        if ((int)$id === (int)$currentUserId) {
             return redirect()->back()->with('error', 'Anda tidak dapat menghapus akun Anda sendiri.');
         }
 
-        // Proteksi 2: Tidak boleh menghapus Administrator Utama (ID 1)
         if ((int)$id === 1) {
             return redirect()->back()->with('error', 'Akses Ditolak! Akun Administrator Utama dilindungi sistem.');
+        }
+
+        $userDB = $this->userModel->find($id);
+        if (!empty($userDB['foto']) && file_exists(FCPATH . 'uploads/profiles/' . $userDB['foto'])) {
+            unlink(FCPATH . 'uploads/profiles/' . $userDB['foto']);
         }
 
         $this->userModel->delete($id);
         return redirect()->to(base_url('admin/user'))->with('success', 'User berhasil dihapus.');
     }
 
-    /**
-     * Reset password ke default (123456)
-     */
     public function reset(string $id)
     {
         $this->userModel->update($id, [
@@ -112,15 +101,107 @@ class User extends BaseController
         return redirect()->to(base_url('admin/user'))->with('success', 'Password user berhasil direset ke: 123456');
     }
 
-    /**
-     * ========================================================
-     * MANAJEMEN HAK AKSES (RBAC MATRIX)
-     * ========================================================
-     */
+    public function profile()
+    {
+        $userId = session()->get('id_user') ?? session()->get('id') ?? session()->get('user_id');
 
-    /**
-     * Menampilkan matriks konfigurasi hak akses menu
-     */
+        if ($userId) {
+            $user = $this->userModel->find($userId);
+        } else {
+            $user = $this->userModel->where('nama_lengkap', session()->get('nama_lengkap'))->first();
+        }
+
+        if (!$user) {
+            $user = [
+                'nama_lengkap' => session()->get('nama_lengkap') ?? 'Admin',
+                'username'     => session()->get('username') ?? '',
+                'foto'         => session()->get('foto') ?? null
+            ];
+        }
+
+        $data = [
+            'title' => 'Pengaturan Profil',
+            'user'  => $user
+        ];
+
+        return view('web/profile', $data);
+    }
+
+    public function updateProfile()
+    {
+        $userId = session()->get('id_user') ?? session()->get('id') ?? session()->get('user_id');
+
+        if (!$userId) {
+            $userDB = $this->userModel->where('nama_lengkap', session()->get('nama_lengkap'))->first();
+            $userId = $userDB['id_user'] ?? null;
+        }
+
+        if (!$userId) {
+            return redirect()->back()->with('error', 'Sesi pengguna tidak valid. Silakan login ulang.');
+        }
+
+        $userDB = $this->userModel->find($userId);
+
+        $rules = [
+            'nama_lengkap' => 'required|min_length[3]',
+            'username'     => "required|min_length[3]|is_unique[users.username,id_user,{$userId}]",
+            'foto'         => 'max_size[foto,2048]|is_image[foto]|mime_in[foto,image/jpg,image/jpeg,image/png]'
+        ];
+
+        if ($this->request->getPost('password') || $this->request->getPost('password_lama') || $this->request->getPost('pass_confirm')) {
+            $rules['password_lama'] = 'required';
+            $rules['password']      = 'required|min_length[6]';
+            $rules['pass_confirm']  = 'required|matches[password]';
+        }
+
+        if (!$this->validate($rules)) {
+            return redirect()->back()->withInput()->with('error', $this->validator->listErrors());
+        }
+
+        $data = [
+            'nama_lengkap' => (string) $this->request->getPost('nama_lengkap'),
+            'username'     => (string) $this->request->getPost('username'),
+        ];
+
+        if ($this->request->getPost('password')) {
+            $passwordLama = (string)$this->request->getPost('password_lama');
+
+            // FIX INTELEPHENSE: Explicit string casting untuk hash password dari database
+            if (!password_verify($passwordLama, (string) $userDB['password_hash'])) {
+                return redirect()->back()->withInput()->with('error', 'Kata sandi lama yang Anda masukkan salah!');
+            }
+
+            $data['password_hash'] = password_hash((string)$this->request->getPost('password'), PASSWORD_BCRYPT);
+        }
+
+        $fileFoto = $this->request->getFile('foto');
+        if ($fileFoto && $fileFoto->isValid() && !$fileFoto->hasMoved()) {
+            $namaFotoBaru = $fileFoto->getRandomName();
+
+            if (!empty($userDB['foto']) && file_exists(FCPATH . 'uploads/profiles/' . $userDB['foto'])) {
+                unlink(FCPATH . 'uploads/profiles/' . $userDB['foto']);
+            }
+
+            $fileFoto->move(FCPATH . 'uploads/profiles', $namaFotoBaru);
+            $data['foto'] = $namaFotoBaru;
+        }
+
+        $this->userModel->update($userId, $data);
+
+        $sessionData = [
+            'nama_lengkap' => $data['nama_lengkap'],
+            'username'     => $data['username']
+        ];
+
+        if (isset($data['foto'])) {
+            $sessionData['foto'] = $data['foto'];
+        }
+
+        session()->set($sessionData);
+
+        return redirect()->to(base_url('admin/profile'))->with('success', 'Profil berhasil diperbarui.');
+    }
+
     public function hakAkses()
     {
         $db = \Config\Database::connect();
@@ -129,7 +210,6 @@ class User extends BaseController
         $menus     = $db->table('menus')->orderBy('urutan', 'ASC')->get()->getResultArray();
         $roleMenus = $db->table('role_menus')->get()->getResultArray();
 
-        // Mapping data akses ke array [role_id][menu_id]
         $access = [];
         foreach ($roleMenus as $rm) {
             $access[$rm['id_role']][$rm['id_menu']] = true;
@@ -145,17 +225,12 @@ class User extends BaseController
         return view('web/hak_akses', $data);
     }
 
-    /**
-     * Menyimpan perubahan hak akses secara massal
-     */
     public function saveHakAkses()
     {
         $db = \Config\Database::connect();
         $permissions = $this->request->getPost('permissions');
 
         $db->transStart();
-
-        // Reset/Hapus semua relasi role_menus lama
         $db->table('role_menus')->truncate();
 
         if (!empty($permissions) && is_array($permissions)) {
@@ -168,7 +243,6 @@ class User extends BaseController
                     ];
                 }
             }
-
             if (!empty($insertData)) {
                 $db->table('role_menus')->insertBatch($insertData);
             }

@@ -24,6 +24,7 @@ class InitSistem extends Migration
             'nama_lengkap'  => ['type' => 'VARCHAR', 'constraint' => '100'],
             'username'      => ['type' => 'VARCHAR', 'constraint' => '50', 'unique' => true],
             'password_hash' => ['type' => 'VARCHAR', 'constraint' => '255'],
+            'foto'          => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true], // ✅ PENAMBAHAN KOLOM FOTO
             'role_id'       => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true],
             'created_at'    => ['type' => 'DATETIME', 'null' => true],
             'updated_at'    => ['type' => 'DATETIME', 'null' => true],
