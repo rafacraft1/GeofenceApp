@@ -77,3 +77,29 @@ defined('EXIT_USER_INPUT')     || define('EXIT_USER_INPUT', 7);     // invalid u
 defined('EXIT_DATABASE')       || define('EXIT_DATABASE', 8);       // database error
 defined('EXIT__AUTO_MIN')      || define('EXIT__AUTO_MIN', 9);      // lowest automatically-assigned error code
 defined('EXIT__AUTO_MAX')      || define('EXIT__AUTO_MAX', 125);    // highest automatically-assigned error code
+
+/*
+ |--------------------------------------------------------------------------
+ | CUSTOM APPLICATION CONSTANTS (GEOFENCE APP)
+ |--------------------------------------------------------------------------
+ | Konstanta di bawah ini ditambahkan secara khusus untuk standarisasi 
+ | sistem agar terhindar dari hardcode yang berpotensi menyulitkan maintenance.
+ |
+ */
+
+/**
+ * ID Khusus untuk Role Administrator Utama di tabel 'roles'.
+ * Digunakan sebagai proteksi penghapusan dan pengubahan role inti.
+ */
+defined('ROLE_SUPERADMIN_ID') || define('ROLE_SUPERADMIN_ID', 1);
+
+/**
+ * Default password untuk pendaftaran user/guru baru melalui Web Admin, 
+ * maupun saat melakukan fitur Reset Password.
+ */
+defined('DEFAULT_USER_PASSWORD') || define('DEFAULT_USER_PASSWORD', '123456');
+
+/**
+ * Direktori (Path) relatif utama untuk penyimpanan aset gambar profil user.
+ */
+defined('PATH_PROFILE_UPLOAD') || define('PATH_PROFILE_UPLOAD', 'uploads/profiles/');

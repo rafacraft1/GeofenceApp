@@ -4,6 +4,7 @@ namespace App\Controllers\Api;
 
 use CodeIgniter\RESTful\ResourceController;
 use CodeIgniter\I18n\Time;
+use CodeIgniter\HTTP\Files\UploadedFile;
 use App\Services\AbsensiService;
 use App\Models\AbsensiModel;
 
@@ -44,37 +45,18 @@ class AbsensiApi extends ResourceController
         return ['is_libur' => false, 'jam_masuk' => $jadwal['jam_masuk'], 'jam_pulang' => $jadwal['jam_pulang']];
     }
 
-    private function validateAndSaveBase64Image(string $base64String, string $tipe, string $siswaId): ?string
+    private function handleFileUpload(?UploadedFile $file, string $tipe, string $siswaId): ?string
     {
-        $imageParts = explode(';base64,', $base64String);
-        if (count($imageParts) != 2) return null;
-
-        $imageBase64 = base64_decode($imageParts[1]);
-        if (!$imageBase64) return null;
-
-        $finfo    = finfo_open(FILEINFO_MIME_TYPE);
-        $mimeType = finfo_buffer($finfo, $imageBase64);
-        finfo_close($finfo);
-
-        $allowedMimes = [
-            'image/jpeg' => 'jpg',
-            'image/png'  => 'png',
-            'image/jpg'  => 'jpg'
-        ];
-
-        if (!array_key_exists($mimeType, $allowedMimes)) {
+        if ($file === null || !$file->isValid() || $file->hasMoved()) {
             return null;
         }
 
-        $extension = $allowedMimes[$mimeType];
+        $extension = $file->getExtension() ?: 'jpg';
         $fileName  = $siswaId . '_' . $tipe . '_' . time() . '.' . $extension;
-        $filePath  = FCPATH . 'uploads/absensi/' . $fileName;
 
-        if (file_put_contents($filePath, $imageBase64)) {
-            return $fileName;
-        }
+        $file->move(FCPATH . 'uploads/absensi/', $fileName);
 
-        return null;
+        return $fileName;
     }
 
     public function masuk()
@@ -84,7 +66,7 @@ class AbsensiApi extends ResourceController
         $aturanValidasi = [
             'latitude'    => 'required|numeric',
             'longitude'   => 'required|numeric',
-            'foto'        => 'required',
+            'foto'        => 'uploaded[foto]|is_image[foto]|mime_in[foto,image/jpg,image/jpeg,image/png]',
             'is_fake_gps' => 'permit_empty|in_list[0,1]'
         ];
 
@@ -136,7 +118,6 @@ class AbsensiApi extends ResourceController
         $lat       = (float) $this->request->getPost('latitude');
         $lon       = (float) $this->request->getPost('longitude');
         $isFakeGps = (int) $this->request->getPost('is_fake_gps');
-        $foto      = (string) $this->request->getPost('foto');
 
         $status     = $isDispensasi ? 'Dispensasi' : 'Hadir';
         $keterangan = $isDispensasi ? 'Hadir di Lokasi Kegiatan' : 'Tepat Waktu';
@@ -161,8 +142,10 @@ class AbsensiApi extends ResourceController
             }
         }
 
-        $fileName = $this->validateAndSaveBase64Image($foto, 'masuk', (string)$siswa['id_siswa']);
-        if (!$fileName) return $this->failValidationErrors('Format file foto tidak valid atau terindikasi manipulasi.');
+        $fileFoto = $this->request->getFile('foto');
+        $fileName = $this->handleFileUpload($fileFoto, 'masuk', (string)$siswa['id_siswa']);
+
+        if (!$fileName) return $this->failValidationErrors('Gagal mengunggah file foto atau format tidak valid.');
 
         // PENGAMANAN REAL-TIME HISTORICAL SNAPSHOT
         // Tarik data kelas_id terbaru dari DB untuk menghindari caching JWT
@@ -217,13 +200,12 @@ class AbsensiApi extends ResourceController
 
     public function pulang()
     {
-        // Fungsi pulang tidak perlu merekam kelas_id lagi, karena sudah terkunci saat jam masuk.
         $siswa = $this->getSiswaAuth();
 
         $aturanValidasi = [
             'latitude'  => 'required|numeric',
             'longitude' => 'required|numeric',
-            'foto'      => 'required'
+            'foto'      => 'uploaded[foto]|is_image[foto]|mime_in[foto,image/jpg,image/jpeg,image/png]'
         ];
 
         if (!$this->validate($aturanValidasi)) {
@@ -259,10 +241,11 @@ class AbsensiApi extends ResourceController
 
         $lat  = (float) $this->request->getPost('latitude');
         $lon  = (float) $this->request->getPost('longitude');
-        $foto = (string) $this->request->getPost('foto');
 
-        $fileName = $this->validateAndSaveBase64Image($foto, 'pulang', (string)$siswa['id_siswa']);
-        if (!$fileName) return $this->failValidationErrors('Format file foto tidak valid.');
+        $fileFoto = $this->request->getFile('foto');
+        $fileName = $this->handleFileUpload($fileFoto, 'pulang', (string)$siswa['id_siswa']);
+
+        if (!$fileName) return $this->failValidationErrors('Gagal mengunggah file foto atau format tidak valid.');
 
         try {
             $this->absensiModel->update($absen['id_absensi'], [

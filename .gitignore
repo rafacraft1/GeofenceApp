@@ -135,11 +135,13 @@ public/uploads/absensi/*
 public/uploads/siswa/*
 public/uploads/izin/*
 public/uploads/pengumuman/*
+public/uploads/profiles/*
 
 # KECUALI file .gitkeep (agar struktur folder tetap terbawa ke server)
 !public/uploads/absensi/.gitkeep
 !public/uploads/siswa/.gitkeep
 !public/uploads/izin/.gitkeep
 !public/uploads/pengumuman/.gitkeep
+!public/uploads/profiles/.gitkeep
 
 node_modules/

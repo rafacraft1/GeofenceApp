@@ -8,10 +8,8 @@ class InitDataSeeder extends Seeder
 {
     public function run()
     {
-        // 0. Nonaktifkan pengecekan Foreign Key agar bisa melakukan TRUNCATE
         $this->db->query('SET FOREIGN_KEY_CHECKS=0;');
 
-        // 1. Bersihkan data lama agar tidak duplikat saat seeding ulang
         $this->db->table('role_menus')->truncate();
         $this->db->table('menus')->truncate();
         $this->db->table('roles')->truncate();
@@ -21,13 +19,14 @@ class InitDataSeeder extends Seeder
         $this->db->table('jadwal_absen')->truncate();
         $this->db->table('hari_libur')->truncate();
 
-        // 2. Data Master Role (Admin & Guru)
+        // 2. Data Master Role (Menyisipkan default warna badge menggunakan class text Tailwind CSS)
         $this->db->table('roles')->insertBatch([
-            ['id_role' => 1, 'nama_role' => 'Admin', 'created_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s')],
-            ['id_role' => 2, 'nama_role' => 'Guru',  'created_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s')]
+            ['id_role' => 1, 'nama_role' => 'Admin', 'warna_badge' => 'indigo', 'created_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s')],
+            ['id_role' => 2, 'nama_role' => 'Guru',  'warna_badge' => 'emerald', 'created_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s')]
         ]);
 
-        // 3. Data Users (1 Admin Utama, 2 Guru Wali Kelas, 1 Guru Biasa)
+        // 3. Data Users 
+        // Menggunakan Konstanta Default Password (Meskipun di seeder, kita siapkan struktur rapi)
         $passwordDefault = password_hash('123456', PASSWORD_BCRYPT);
         $this->db->table('users')->insertBatch([
             [
@@ -35,8 +34,8 @@ class InitDataSeeder extends Seeder
                 'nama_lengkap'  => 'Administrator Sistem',
                 'username'      => 'admin',
                 'password_hash' => $passwordDefault,
-                'foto'          => null, // ✅ PENYESUAIAN STRUKTUR KOLOM
-                'role_id'       => 1, // Role Admin
+                'foto'          => null,
+                'role_id'       => 1,
                 'created_at'    => date('Y-m-d H:i:s'),
                 'updated_at'    => date('Y-m-d H:i:s')
             ],
@@ -45,8 +44,8 @@ class InitDataSeeder extends Seeder
                 'nama_lengkap'  => 'Budi Santoso, S.Pd',
                 'username'      => 'guru1',
                 'password_hash' => $passwordDefault,
-                'foto'          => null, // ✅ PENYESUAIAN STRUKTUR KOLOM
-                'role_id'       => 2, // Role Guru (Wali Kelas 10-A)
+                'foto'          => null,
+                'role_id'       => 2,
                 'created_at'    => date('Y-m-d H:i:s'),
                 'updated_at'    => date('Y-m-d H:i:s')
             ],
@@ -55,8 +54,8 @@ class InitDataSeeder extends Seeder
                 'nama_lengkap'  => 'Siti Aminah, M.Pd',
                 'username'      => 'guru2',
                 'password_hash' => $passwordDefault,
-                'foto'          => null, // ✅ PENYESUAIAN STRUKTUR KOLOM
-                'role_id'       => 2, // Role Guru (Wali Kelas 10-B)
+                'foto'          => null,
+                'role_id'       => 2,
                 'created_at'    => date('Y-m-d H:i:s'),
                 'updated_at'    => date('Y-m-d H:i:s')
             ],
@@ -65,8 +64,8 @@ class InitDataSeeder extends Seeder
                 'nama_lengkap'  => 'Drs. Ahmad Dahlan',
                 'username'      => 'guru3',
                 'password_hash' => $passwordDefault,
-                'foto'          => null, // ✅ PENYESUAIAN STRUKTUR KOLOM
-                'role_id'       => 2, // Role Guru (Bukan Wali Kelas)
+                'foto'          => null,
+                'role_id'       => 2,
                 'created_at'    => date('Y-m-d H:i:s'),
                 'updated_at'    => date('Y-m-d H:i:s')
             ]
@@ -79,16 +78,18 @@ class InitDataSeeder extends Seeder
             ['id_kelas' => 3, 'nama_kelas' => '11-A', 'wali_kelas_id' => null, 'created_at' => date('Y-m-d H:i:s')],
         ]);
 
-        // 5. Data Pengaturan Sekolah Default
+        // 5. Data Pengaturan Sekolah Default (Menyisipkan nama_aplikasi dan nama_sekolah)
         $this->db->table('pengaturan')->insert([
             'id_pengaturan'     => 1,
+            'nama_aplikasi'     => 'GeofenceApp', // Nama default aplikasi web
+            'nama_sekolah'      => 'SMKN 1 TGB',  // Nama default identitas institusi
             'latitude_sekolah'  => '-6.200000',
             'longitude_sekolah' => '106.816666',
             'radius_meter'      => 50,
             'updated_at'        => date('Y-m-d H:i:s')
         ]);
 
-        // 6. Data Jadwal Absen Default (Senin - Jumat)
+        // 6. Data Jadwal Absen Default
         $jadwal = [];
         $hari = [1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat'];
         foreach ($hari as $kode => $nama) {
@@ -105,7 +106,7 @@ class InitDataSeeder extends Seeder
 
         $this->db->table('jadwal_absen')->insertBatch($jadwal);
 
-        // 7. TABEL MENUS (Master Data Modul)
+        // 7. TABEL MENUS
         $this->db->table('menus')->insertBatch([
             ['id_menu' => 1,  'nama_menu' => 'Dashboard',        'url' => 'admin/dashboard',  'icon' => 'fas fa-home', 'urutan' => 1, 'is_active' => 1],
             ['id_menu' => 2,  'nama_menu' => 'Data Siswa',       'url' => 'admin/siswa',      'icon' => 'fas fa-users', 'urutan' => 2, 'is_active' => 1],
@@ -125,20 +126,15 @@ class InitDataSeeder extends Seeder
 
         // 8. Pemetaan Role ke Menu (Role_Menus)
         $roleMenus = [];
-
-        // ADMIN (Role 1) mendapatkan HAK AKSES PENUH ke semua menu (1 s/d 14)
         for ($i = 1; $i <= 14; $i++) {
             $roleMenus[] = ['id_role' => 1, 'id_menu' => $i];
         }
-
-        // GURU (Role 2) hanya mendapatkan HAK AKSES OPERASIONAL (Menu 1 s/d 7) -> Tetap aman tidak bisa mutasi
         for ($i = 1; $i <= 7; $i++) {
             $roleMenus[] = ['id_role' => 2, 'id_menu' => $i];
         }
 
         $this->db->table('role_menus')->insertBatch($roleMenus);
 
-        // Aktifkan kembali pengecekan Foreign Key
         $this->db->query('SET FOREIGN_KEY_CHECKS=1;');
     }
 }

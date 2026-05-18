@@ -40,7 +40,7 @@ class User extends BaseController
             'username'     => "required|min_length[3]|is_unique[users.username,id_user,{$id}]",
         ];
 
-        if (empty($id) || (int)$id !== 1) {
+        if (empty($id) || (int)$id !== ROLE_SUPERADMIN_ID) {
             $rules['role_id'] = 'required';
         }
 
@@ -53,16 +53,16 @@ class User extends BaseController
             'username'     => (string) $this->request->getPost('username'),
         ];
 
-        if (!empty($id) && (int)$id === 1) {
-            $data['role_id'] = 1;
+        if (!empty($id) && (int)$id === ROLE_SUPERADMIN_ID) {
+            $data['role_id'] = ROLE_SUPERADMIN_ID;
         } else {
             $data['role_id'] = (int) $this->request->getPost('role_id');
         }
 
         if (empty($id)) {
-            $data['password_hash'] = password_hash('123456', PASSWORD_BCRYPT);
+            $data['password_hash'] = password_hash(DEFAULT_USER_PASSWORD, PASSWORD_BCRYPT);
             $this->userModel->insert($data);
-            $msg = 'User berhasil ditambahkan. Password default: 123456';
+            $msg = 'User berhasil ditambahkan. Password default: ' . DEFAULT_USER_PASSWORD;
         } else {
             $this->userModel->update($id, $data);
             $msg = 'Data user berhasil diperbarui.';
@@ -79,13 +79,13 @@ class User extends BaseController
             return redirect()->back()->with('error', 'Anda tidak dapat menghapus akun Anda sendiri.');
         }
 
-        if ((int)$id === 1) {
+        if ((int)$id === ROLE_SUPERADMIN_ID) {
             return redirect()->back()->with('error', 'Akses Ditolak! Akun Administrator Utama dilindungi sistem.');
         }
 
         $userDB = $this->userModel->find($id);
-        if (!empty($userDB['foto']) && file_exists(FCPATH . 'uploads/profiles/' . $userDB['foto'])) {
-            unlink(FCPATH . 'uploads/profiles/' . $userDB['foto']);
+        if (!empty($userDB['foto']) && file_exists(FCPATH . PATH_PROFILE_UPLOAD . $userDB['foto'])) {
+            unlink(FCPATH . PATH_PROFILE_UPLOAD . $userDB['foto']);
         }
 
         $this->userModel->delete($id);
@@ -95,10 +95,10 @@ class User extends BaseController
     public function reset(string $id)
     {
         $this->userModel->update($id, [
-            'password_hash' => password_hash('123456', PASSWORD_BCRYPT)
+            'password_hash' => password_hash(DEFAULT_USER_PASSWORD, PASSWORD_BCRYPT)
         ]);
 
-        return redirect()->to(base_url('admin/user'))->with('success', 'Password user berhasil direset ke: 123456');
+        return redirect()->to(base_url('admin/user'))->with('success', 'Password user berhasil direset ke: ' . DEFAULT_USER_PASSWORD);
     }
 
     public function profile()
@@ -166,7 +166,6 @@ class User extends BaseController
         if ($this->request->getPost('password')) {
             $passwordLama = (string)$this->request->getPost('password_lama');
 
-            // FIX INTELEPHENSE: Explicit string casting untuk hash password dari database
             if (!password_verify($passwordLama, (string) $userDB['password_hash'])) {
                 return redirect()->back()->withInput()->with('error', 'Kata sandi lama yang Anda masukkan salah!');
             }
@@ -178,11 +177,11 @@ class User extends BaseController
         if ($fileFoto && $fileFoto->isValid() && !$fileFoto->hasMoved()) {
             $namaFotoBaru = $fileFoto->getRandomName();
 
-            if (!empty($userDB['foto']) && file_exists(FCPATH . 'uploads/profiles/' . $userDB['foto'])) {
-                unlink(FCPATH . 'uploads/profiles/' . $userDB['foto']);
+            if (!empty($userDB['foto']) && file_exists(FCPATH . PATH_PROFILE_UPLOAD . $userDB['foto'])) {
+                unlink(FCPATH . PATH_PROFILE_UPLOAD . $userDB['foto']);
             }
 
-            $fileFoto->move(FCPATH . 'uploads/profiles', $namaFotoBaru);
+            $fileFoto->move(FCPATH . PATH_PROFILE_UPLOAD, $namaFotoBaru);
             $data['foto'] = $namaFotoBaru;
         }
 

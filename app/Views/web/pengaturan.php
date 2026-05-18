@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @var array<string, mixed> $config
+ * @var array<string, mixed> $pengaturan
  */
 
 // Mengambil URL Firebase dari file .env (Mendukung key FIREBASE_DATABASE_URL atau FIREBASE_URL)
@@ -48,35 +48,51 @@ $isFirebaseEmpty = empty($envFirebaseUrl);
 
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
         <h3 class="text-lg font-bold text-gray-800 mb-2">Konfigurasi Sistem</h3>
-        <p class="text-xs text-gray-500 mb-6">Tentukan lokasi koordinat sekolah dan batas radius pengawasan.</p>
+        <p class="text-xs text-gray-500 mb-4">Tentukan identitas aplikasi, lokasi koordinat sekolah dan batas radius.</p>
 
-        <form action="<?= base_url('admin/pengaturan/save') ?>" method="POST" id="formPengaturan" class="space-y-6 flex-1 flex flex-col">
+        <form action="<?= base_url('admin/pengaturan/save') ?>" method="POST" id="formPengaturan" class="space-y-5 flex-1 flex flex-col">
             <?= csrf_field() ?>
+
+            <div class="space-y-3">
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase">Nama Aplikasi</label>
+                    <input type="text" name="nama_aplikasi" value="<?= esc((string) ($pengaturan['nama_aplikasi'] ?? 'GeofenceApp')) ?>" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-2.5 text-sm font-bold text-gray-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all" required>
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase">Nama Sekolah / Instansi</label>
+                    <input type="text" name="nama_sekolah" value="<?= esc((string) ($pengaturan['nama_sekolah'] ?? 'SMKN 1 TGB')) ?>" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-2.5 text-sm font-bold text-gray-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all" required>
+                </div>
+            </div>
+
+            <hr class="border-gray-100 my-1">
+
             <div class="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
                 <div>
                     <label class="text-[10px] font-bold text-gray-400 uppercase">Latitude</label>
-                    <input type="text" id="lat" name="latitude_sekolah" value="<?= esc((string) ($config['latitude_sekolah'] ?? '')) ?>" class="w-full bg-transparent font-bold text-sm text-gray-800 outline-none" readonly>
+                    <input type="text" id="lat" name="latitude_sekolah" value="<?= esc((string) ($pengaturan['latitude_sekolah'] ?? '')) ?>" class="w-full bg-transparent font-bold text-sm text-gray-800 outline-none" readonly>
                 </div>
                 <div>
                     <label class="text-[10px] font-bold text-gray-400 uppercase">Longitude</label>
-                    <input type="text" id="long" name="longitude_sekolah" value="<?= esc((string) ($config['longitude_sekolah'] ?? '')) ?>" class="w-full bg-transparent font-bold text-sm text-gray-800 outline-none" readonly>
+                    <input type="text" id="long" name="longitude_sekolah" value="<?= esc((string) ($pengaturan['longitude_sekolah'] ?? '')) ?>" class="w-full bg-transparent font-bold text-sm text-gray-800 outline-none" readonly>
                 </div>
             </div>
 
             <div class="pt-2">
                 <label class="block text-xs font-bold text-gray-600 uppercase mb-3">Radius Diizinkan (Meter)</label>
                 <div class="flex items-center gap-4">
-                    <input type="range" id="radius-slider" min="10" max="500" step="5" value="<?= esc((string) ($config['radius_meter'] ?? 50)) ?>" class="flex-1 accent-blue-600 cursor-grab">
-                    <input type="number" id="radius" name="radius_meter" value="<?= esc((string) ($config['radius_meter'] ?? 50)) ?>" class="w-24 border border-gray-200 rounded-xl p-2.5 text-center text-sm font-bold text-blue-600 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all bg-gray-50">
+                    <input type="range" id="radius-slider" min="10" max="500" step="5" value="<?= esc((string) ($pengaturan['radius_meter'] ?? 50)) ?>" class="flex-1 accent-blue-600 cursor-grab">
+                    <input type="number" id="radius" name="radius_meter" value="<?= esc((string) ($pengaturan['radius_meter'] ?? 50)) ?>" class="w-24 border border-gray-200 rounded-xl p-2.5 text-center text-sm font-bold text-blue-600 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all bg-gray-50">
                 </div>
             </div>
+
+            <input type="hidden" name="firebase_url" value="<?= esc((string) ($pengaturan['firebase_url'] ?? '')) ?>">
 
             <div class="pt-4 mt-auto">
                 <button type="submit" class="w-full flex justify-center items-center gap-2 bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 active:scale-95 transition-all btn-submit">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                     </svg>
-                    Simpan Pengaturan Peta
+                    Simpan Pengaturan
                 </button>
             </div>
         </form>
@@ -105,20 +121,22 @@ $isFirebaseEmpty = empty($envFirebaseUrl);
         }
 
         let center = [latInput.value || 0, lngInput.value || 0];
-        let map = L.map('map', {
+
+        // Memakai window.L untuk mencegah indikator "Class L not imported" di VS Code
+        let map = window.L.map('map', {
             zoomControl: false
         }).setView(center, 18);
 
-        L.control.zoom({
+        window.L.control.zoom({
             position: 'bottomright'
         }).addTo(map);
 
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        window.L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; OpenStreetMap &copy; CARTO',
             maxZoom: 20
         }).addTo(map);
 
-        let schoolIcon = L.divIcon({
+        let schoolIcon = window.L.divIcon({
             html: `
                 <div class="relative flex flex-col items-center justify-end w-full h-full">
                     <div class="absolute bottom-0 w-6 h-6 bg-blue-500 rounded-full animate-ping opacity-60"></div>
@@ -139,10 +157,11 @@ $isFirebaseEmpty = empty($envFirebaseUrl);
             iconAnchor: [28, 70]
         });
 
-        let marker = L.marker(center, {
+        let marker = window.L.marker(center, {
             icon: schoolIcon
         }).addTo(map);
-        let circle = L.circle(center, {
+
+        let circle = window.L.circle(center, {
             color: '#2563eb',
             fillColor: '#60a5fa',
             fillOpacity: 0.15,

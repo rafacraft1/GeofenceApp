@@ -10,10 +10,11 @@ class InitSistem extends Migration
     {
         // 0. Tabel Master Roles
         $this->forge->addField([
-            'id_role'    => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
-            'nama_role'  => ['type' => 'VARCHAR', 'constraint' => '50', 'unique' => true],
-            'created_at' => ['type' => 'DATETIME', 'null' => true],
-            'updated_at' => ['type' => 'DATETIME', 'null' => true],
+            'id_role'     => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
+            'nama_role'   => ['type' => 'VARCHAR', 'constraint' => '50', 'unique' => true],
+            'warna_badge' => ['type' => 'VARCHAR', 'constraint' => '50', 'default' => 'gray'], // ✅ TAMBAHAN: Warna Badge Role
+            'created_at'  => ['type' => 'DATETIME', 'null' => true],
+            'updated_at'  => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id_role', true);
         $this->forge->createTable('roles');
@@ -24,7 +25,7 @@ class InitSistem extends Migration
             'nama_lengkap'  => ['type' => 'VARCHAR', 'constraint' => '100'],
             'username'      => ['type' => 'VARCHAR', 'constraint' => '50', 'unique' => true],
             'password_hash' => ['type' => 'VARCHAR', 'constraint' => '255'],
-            'foto'          => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true], // ✅ PENAMBAHAN KOLOM FOTO
+            'foto'          => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
             'role_id'       => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true],
             'created_at'    => ['type' => 'DATETIME', 'null' => true],
             'updated_at'    => ['type' => 'DATETIME', 'null' => true],
@@ -75,6 +76,8 @@ class InitSistem extends Migration
         // 4. Tabel Pengaturan 
         $this->forge->addField([
             'id_pengaturan'     => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
+            'nama_aplikasi'     => ['type' => 'VARCHAR', 'constraint' => '100', 'default' => 'GeofenceApp'], // ✅ TAMBAHAN: Nama Aplikasi Dinamis
+            'nama_sekolah'      => ['type' => 'VARCHAR', 'constraint' => '150', 'default' => 'Nama Sekolah'], // ✅ TAMBAHAN: Nama Sekolah Dinamis
             'latitude_sekolah'  => ['type' => 'VARCHAR', 'constraint' => '100'],
             'longitude_sekolah' => ['type' => 'VARCHAR', 'constraint' => '100'],
             'radius_meter'      => ['type' => 'INT', 'constraint' => 11],
@@ -84,11 +87,11 @@ class InitSistem extends Migration
         $this->forge->addKey('id_pengaturan', true);
         $this->forge->createTable('pengaturan');
 
-        // 5. Tabel Absensi (PERUBAHAN MAJOR: Penambahan kelas_id)
+        // 5. Tabel Absensi
         $this->forge->addField([
             'id_absensi'  => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
             'siswa_id'    => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true],
-            'kelas_id'    => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'null' => true], // TAMBAHAN UNTUK HISTORICAL SNAPSHOT
+            'kelas_id'    => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'null' => true],
             'tanggal'     => ['type' => 'DATE'],
             'jam_masuk'   => ['type' => 'TIME', 'null' => true],
             'jam_pulang'  => ['type' => 'TIME', 'null' => true],
@@ -111,7 +114,6 @@ class InitSistem extends Migration
         $this->forge->addKey('tanggal');
         $this->forge->addKey('status');
         $this->forge->addForeignKey('siswa_id', 'siswa', 'id_siswa', 'CASCADE', 'CASCADE');
-        // Jika kelas dihapus, biarkan data laporan absen historis tetap ada (Set Null)
         $this->forge->addForeignKey('kelas_id', 'kelas', 'id_kelas', 'CASCADE', 'SET NULL');
         $this->forge->createTable('absensi');
 
@@ -170,7 +172,7 @@ class InitSistem extends Migration
         $this->forge->addForeignKey('siswa_id', 'siswa', 'id_siswa', 'CASCADE', 'CASCADE');
         $this->forge->createTable('pengajuan_izin');
 
-        // 10. Tabel Log Fraud / Pelanggaran
+        // 10. Tabel Log Fraud
         $this->forge->addField([
             'id_log'      => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
             'siswa_id'    => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true],

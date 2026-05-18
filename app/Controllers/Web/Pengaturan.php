@@ -17,8 +17,8 @@ class Pengaturan extends BaseController
     public function index()
     {
         $data = [
-            'title'  => 'Pengaturan Sistem',
-            'config' => $this->pengaturanModel->find(1)
+            'title'      => 'Pengaturan Sistem',
+            'pengaturan' => $this->pengaturanModel->find(1)
         ];
 
         return view('web/pengaturan', $data);
@@ -26,24 +26,36 @@ class Pengaturan extends BaseController
 
     public function save()
     {
-        // firebase_url dihapus dari rules karena sudah menggunakan .env
         $rules = [
+            'nama_aplikasi'     => 'required|min_length[3]',
+            'nama_sekolah'      => 'required|min_length[3]',
             'latitude_sekolah'  => 'required',
             'longitude_sekolah' => 'required',
             'radius_meter'      => 'required|numeric'
         ];
 
         if (!$this->validate($rules)) {
-            return redirect()->back()->withInput()->with('error', 'Data tidak valid: ' . $this->validator->listErrors());
+            return redirect()->back()->withInput()->with('error', $this->validator->listErrors());
         }
 
-        // firebase_url dihapus dari proses update
-        $this->pengaturanModel->update(1, [
+        $data = [
+            'nama_aplikasi'     => (string) $this->request->getPost('nama_aplikasi'),
+            'nama_sekolah'      => (string) $this->request->getPost('nama_sekolah'),
             'latitude_sekolah'  => (string) $this->request->getPost('latitude_sekolah'),
             'longitude_sekolah' => (string) $this->request->getPost('longitude_sekolah'),
-            'radius_meter'      => (int) $this->request->getPost('radius_meter')
+            'radius_meter'      => (int) $this->request->getPost('radius_meter'),
+            'firebase_url'      => (string) $this->request->getPost('firebase_url'),
+            'updated_at'        => date('Y-m-d H:i:s')
+        ];
+
+        $this->pengaturanModel->update(1, $data);
+
+        // ✅ Update Session secara Real-time agar Header langsung berubah tanpa perlu relogin
+        session()->set([
+            'nama_aplikasi' => $data['nama_aplikasi'],
+            'nama_sekolah'  => $data['nama_sekolah']
         ]);
 
-        return redirect()->back()->with('success', 'Konfigurasi sistem berhasil diperbarui.');
+        return redirect()->to(base_url('admin/pengaturan'))->with('success', 'Pengaturan sistem berhasil diperbarui.');
     }
 }
