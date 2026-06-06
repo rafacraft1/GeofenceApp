@@ -27,16 +27,12 @@ class Siswa extends Controller
         $this->logFraudModel = new LogFraudModel();
     }
 
-    /**
-     * PRIVATE HELPER: Memastikan keamanan akses Row-Level Security
-     * Jika role adalah wali kelas, pastikan ID kelas target cocok dengan session
-     */
     private function checkAksesWaliKelas(int $targetKelasId): bool
     {
         if (session()->get('is_wali_kelas')) {
             return $targetKelasId === session()->get('kelas_id');
         }
-        return true; // Admin Super bebas akses
+        return true;
     }
 
     public function index()
@@ -44,10 +40,21 @@ class Siswa extends Controller
         $isWaliKelas = session()->get('is_wali_kelas');
         $kelasSessionId = session()->get('kelas_id');
 
-        // Jika Wali Kelas, paksa filter kelas dari session. Jika bukan, ambil dari request (Dropdown)
         $kelasFilter = $isWaliKelas ? $kelasSessionId : $this->request->getGet('kelas');
+        $search = trim((string) $this->request->getGet('search'));
 
-        // Dropdown Kelas: Wali kelas hanya melihat kelasnya sendiri, Admin melihat semua
+        $sort = strtolower(trim((string) $this->request->getGet('sort')));
+        $dir  = strtoupper(trim((string) $this->request->getGet('dir')));
+        $dir  = in_array($dir, ['ASC', 'DESC']) ? $dir : 'ASC';
+
+        $allowedSorts = [
+            'nama_siswa' => 'siswa.nama_siswa',
+            'nis'        => 'siswa.nis',
+            'device'     => 'siswa.device_id',
+            'fraud'      => 'siswa.fraud_count'
+        ];
+        $sortColumn = $allowedSorts[$sort] ?? 'siswa.nama_siswa';
+
         if ($isWaliKelas) {
             $listKelas = $this->kelasModel->where('id_kelas', $kelasSessionId)->findAll();
         } else {
@@ -65,10 +72,17 @@ class Siswa extends Controller
             $this->siswaModel->where('siswa.kelas_id', $kelasFilter);
         }
 
+        if (!empty($search)) {
+            $this->siswaModel->groupStart()
+                ->like('siswa.nama_siswa', $search)
+                ->orLike('siswa.nis', $search)
+                ->groupEnd();
+        }
+
         $totalData = $this->siswaModel->countAllResults(false);
         $offset    = ($page - 1) * $perPage;
 
-        $siswa = $this->siswaModel->orderBy('kelas.nama_kelas', 'ASC')
+        $siswa = $this->siswaModel->orderBy($sortColumn, $dir)
             ->orderBy('siswa.nama_siswa', 'ASC')
             ->findAll($perPage, $offset);
 
@@ -77,11 +91,12 @@ class Siswa extends Controller
             'siswa'       => $siswa,
             'list_kelas'  => $listKelas,
             'kelas_aktif' => $kelasFilter,
+            'search'      => $search,
             'pager_links' => $pager->makeLinks($page, $perPage, $totalData, 'default_full'),
             'page'        => $page,
             'perPage'     => $perPage,
             'total_data'  => $totalData,
-            'is_wali_kelas' => $isWaliKelas // Lempar ke View agar UI bisa menyesuaikan (misal: mematikan filter)
+            'is_wali_kelas' => $isWaliKelas
         ];
 
         return view('web/siswa', $data);
@@ -91,7 +106,6 @@ class Siswa extends Controller
     {
         $kelasIdPost = (int) $this->request->getPost('kelas_id');
 
-        // Proteksi Otorisasi
         if (!$this->checkAksesWaliKelas($kelasIdPost)) {
             return redirect()->back()->with('error', 'Akses Ditolak: Anda tidak dapat menambahkan siswa ke kelas lain.');
         }
@@ -225,7 +239,6 @@ class Siswa extends Controller
     {
         $spreadsheet = new Spreadsheet();
 
-        // Wali Kelas hanya mendapat template khusus untuk kelasnya sendiri
         if (session()->get('is_wali_kelas')) {
             $listKelas = $this->kelasModel->where('id_kelas', session()->get('kelas_id'))->findAll();
         } else {
@@ -288,7 +301,6 @@ class Siswa extends Controller
 
     public function export()
     {
-        // Paksa filter dari session jika wali kelas
         if (session()->get('is_wali_kelas')) {
             $kelasId = session()->get('kelas_id');
         } else {
@@ -366,8 +378,6 @@ class Siswa extends Controller
             }
             $kelasId = (int) $kelasMap[$namaKelas];
 
-            // PENTING: Proteksi Import
-            // Abaikan baris excel jika Wali Kelas mencoba import untuk kelas lain
             if (!$this->checkAksesWaliKelas($kelasId)) {
                 $skipped++;
                 continue;
@@ -391,6 +401,7 @@ class Siswa extends Controller
         return redirect()->to('/admin/siswa')->with('success', "Berhasil import $inserted data siswa. $skipped baris dilewati (NIS duplikat, beda kelas, atau format tidak valid).");
     }
 
+    // --- FITUR PROFIL 360 & PAGINATION PRESENSI ---
     public function detail(string $idSiswa)
     {
         $siswa = $this->siswaModel->getSiswaWithKelas($idSiswa);
@@ -399,33 +410,60 @@ class Siswa extends Controller
             return redirect()->to('/admin/siswa')->with('error', 'Data siswa tidak ditemukan atau Akses Ditolak.');
         }
 
-        $absensi = $this->absensiModel->where('siswa_id', $idSiswa)
-            ->orderBy('tanggal', 'DESC')
-            ->findAll(10);
+        // Tangkap parameter filter tanggal
+        $startDate = $this->request->getGet('start_date');
+        $endDate   = $this->request->getGet('end_date');
 
+        // Parameter Pagination khusus tabel presensi
+        $pageAbsensi    = (int) ($this->request->getGet('page_absensi') ?? 1);
+        $perPageAbsensi = 10;
+
+        // 1. Query Riwayat Presensi (Dilengkapi Pagination)
+        $this->absensiModel->where('siswa_id', $idSiswa);
+        if (!empty($startDate) && !empty($endDate)) {
+            $this->absensiModel->where('tanggal >=', $startDate)->where('tanggal <=', $endDate);
+        }
+
+        $totalAbsensi = $this->absensiModel->countAllResults(false);
+        $absensi = $this->absensiModel->orderBy('tanggal', 'DESC')->paginate($perPageAbsensi, 'absensi');
+
+        // Buat objek Pager secara manual agar UI tetap sesuai design system kita
+        $pagerAbsensi = $this->absensiModel->pager;
+        $pagerLinks   = $pagerAbsensi->makeLinks($pageAbsensi, $perPageAbsensi, $totalAbsensi, 'default_full', 0, 'absensi');
+
+        // 2. Query Log Fraud (Dibatasi 10 terakhir agar tabel kanan rapi)
         $logFraud = $this->logFraudModel->where('siswa_id', $idSiswa)
             ->orderBy('created_at', 'DESC')
             ->findAll(10);
 
-        $statHadir = $this->absensiModel->where(['siswa_id' => $idSiswa, 'status' => 'Hadir'])->countAllResults();
-        $statTelat = $this->absensiModel->where(['siswa_id' => $idSiswa, 'status' => 'Terlambat'])->countAllResults();
-        $statSakit = $this->absensiModel->where(['siswa_id' => $idSiswa, 'status' => 'Sakit'])->countAllResults();
-        $statIzin  = $this->absensiModel->where(['siswa_id' => $idSiswa, 'status' => 'Izin'])->countAllResults();
-        $statAlpa  = $this->absensiModel->where(['siswa_id' => $idSiswa, 'status' => 'Alpa'])->countAllResults();
+        // 3. Query Statistik Presensi Dinamis (Mengikuti Filter Tanggal)
+        $this->absensiModel->select('status, COUNT(*) as total')->where('siswa_id', $idSiswa);
+        if (!empty($startDate) && !empty($endDate)) {
+            $this->absensiModel->where('tanggal >=', $startDate)->where('tanggal <=', $endDate);
+        }
+        $rekap = $this->absensiModel->groupBy('status')->findAll();
+
+        $stats = ['hadir' => 0, 'terlambat' => 0, 'sakit' => 0, 'izin' => 0, 'alpa' => 0];
+        foreach ($rekap as $r) {
+            $statusKey = strtolower($r['status']);
+            if (isset($stats[$statusKey])) {
+                $stats[$statusKey] = (int) $r['total'];
+            }
+        }
+        $stats['total'] = array_sum($stats);
 
         $data = [
-            'title'    => 'Profil 360: ' . $siswa['nama_siswa'],
-            'siswa'    => $siswa,
-            'absensi'  => $absensi,
-            'logFraud' => $logFraud,
-            'stats'    => [
-                'hadir'     => $statHadir,
-                'terlambat' => $statTelat,
-                'sakit'     => $statSakit,
-                'izin'      => $statIzin,
-                'alpa'      => $statAlpa,
-                'total'     => $statHadir + $statTelat + $statSakit + $statIzin + $statAlpa
-            ]
+            'title'            => 'Profil 360: ' . $siswa['nama_siswa'],
+            'siswa'            => $siswa,
+            'absensi'          => $absensi,
+            'pager_absensi'    => $pagerLinks,
+            'page_absensi'     => $pageAbsensi,
+            'per_page_absensi' => $perPageAbsensi,
+            'total_absensi'    => $totalAbsensi,
+            'logFraud'         => $logFraud,
+            'start_date'       => $startDate,
+            'end_date'         => $endDate,
+            'stats'            => $stats
         ];
 
         return view('web/siswa_detail', $data);

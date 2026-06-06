@@ -22,10 +22,35 @@ class User extends BaseController
 
     public function index()
     {
+        $search  = trim((string) $this->request->getGet('search'));
+        $pager   = \Config\Services::pager();
+        $page    = (int) ($this->request->getGet('page_user') ?? 1);
+        $perPage = 10;
+
+        $builder = $this->userModel->select('users.*, roles.nama_role')
+            ->join('roles', 'roles.id_role = users.role_id', 'left');
+
+        if (!empty($search)) {
+            $builder->groupStart()
+                ->like('users.nama_lengkap', $search)
+                ->orLike('users.username', $search)
+                ->groupEnd();
+        }
+
+        $totalData  = $builder->countAllResults(false);
+        $users      = $builder->orderBy('users.role_id', 'ASC')->orderBy('users.nama_lengkap', 'ASC')
+            ->paginate($perPage, 'user');
+        $pagerLinks = $this->userModel->pager->makeLinks($page, $perPage, $totalData, 'default_full', 0, 'user');
+
         $data = [
-            'title' => 'Manajemen User',
-            'users' => $this->userModel->getUserWithRole(''),
-            'roles' => $this->roleModel->findAll()
+            'title'       => 'Manajemen User',
+            'users'       => $users,
+            'roles'       => $this->roleModel->findAll(),
+            'search'      => $search,
+            'pager_links' => $pagerLinks,
+            'page'        => $page,
+            'perPage'     => $perPage,
+            'total_data'  => $totalData
         ];
 
         return view('web/user', $data);
@@ -33,14 +58,21 @@ class User extends BaseController
 
     public function store()
     {
-        $id = $this->request->getPost('id_user');
+        $id         = $this->request->getPost('id_user');
+        $roleIdPost = (int) $this->request->getPost('role_id');
+
+        if ($roleIdPost === 1) {
+            if (empty($id) || (int)$id !== 1) {
+                return redirect()->back()->withInput()->with('error', 'Pelanggaran Keamanan: Anda tidak berhak mengangkat user menjadi Administrator.');
+            }
+        }
 
         $rules = [
             'nama_lengkap' => 'required|min_length[3]',
             'username'     => "required|min_length[3]|is_unique[users.username,id_user,{$id}]",
         ];
 
-        if (empty($id) || (int)$id !== ROLE_SUPERADMIN_ID) {
+        if (empty($id) || (int)$id !== 1) {
             $rules['role_id'] = 'required';
         }
 
@@ -53,22 +85,22 @@ class User extends BaseController
             'username'     => (string) $this->request->getPost('username'),
         ];
 
-        if (!empty($id) && (int)$id === ROLE_SUPERADMIN_ID) {
-            $data['role_id'] = ROLE_SUPERADMIN_ID;
+        if (!empty($id) && (int)$id === 1) {
+            $data['role_id'] = 1;
         } else {
-            $data['role_id'] = (int) $this->request->getPost('role_id');
+            $data['role_id'] = $roleIdPost;
         }
 
         if (empty($id)) {
-            $data['password_hash'] = password_hash(DEFAULT_USER_PASSWORD, PASSWORD_BCRYPT);
+            $data['password_hash'] = password_hash('123456', PASSWORD_BCRYPT);
             $this->userModel->insert($data);
-            $msg = 'User berhasil ditambahkan. Password default: ' . DEFAULT_USER_PASSWORD;
+            $msg = 'User berhasil ditambahkan. Password default: 123456';
         } else {
             $this->userModel->update($id, $data);
             $msg = 'Data user berhasil diperbarui.';
         }
 
-        return redirect()->to(base_url('admin/user'))->with('success', $msg);
+        return redirect()->back()->with('success', $msg);
     }
 
     public function delete(string $id)
@@ -79,26 +111,26 @@ class User extends BaseController
             return redirect()->back()->with('error', 'Anda tidak dapat menghapus akun Anda sendiri.');
         }
 
-        if ((int)$id === ROLE_SUPERADMIN_ID) {
+        if ((int)$id === 1) {
             return redirect()->back()->with('error', 'Akses Ditolak! Akun Administrator Utama dilindungi sistem.');
         }
 
         $userDB = $this->userModel->find($id);
-        if (!empty($userDB['foto']) && file_exists(FCPATH . PATH_PROFILE_UPLOAD . $userDB['foto'])) {
-            unlink(FCPATH . PATH_PROFILE_UPLOAD . $userDB['foto']);
+        if (!empty($userDB['foto']) && file_exists(FCPATH . 'uploads/profiles/' . $userDB['foto'])) {
+            unlink(FCPATH . 'uploads/profiles/' . $userDB['foto']);
         }
 
         $this->userModel->delete($id);
-        return redirect()->to(base_url('admin/user'))->with('success', 'User berhasil dihapus.');
+        return redirect()->back()->with('success', 'User berhasil dihapus.');
     }
 
     public function reset(string $id)
     {
         $this->userModel->update($id, [
-            'password_hash' => password_hash(DEFAULT_USER_PASSWORD, PASSWORD_BCRYPT)
+            'password_hash' => password_hash('123456', PASSWORD_BCRYPT)
         ]);
 
-        return redirect()->to(base_url('admin/user'))->with('success', 'Password user berhasil direset ke: ' . DEFAULT_USER_PASSWORD);
+        return redirect()->back()->with('success', 'Password user berhasil direset ke: 123456');
     }
 
     public function profile()
@@ -177,11 +209,11 @@ class User extends BaseController
         if ($fileFoto && $fileFoto->isValid() && !$fileFoto->hasMoved()) {
             $namaFotoBaru = $fileFoto->getRandomName();
 
-            if (!empty($userDB['foto']) && file_exists(FCPATH . PATH_PROFILE_UPLOAD . $userDB['foto'])) {
-                unlink(FCPATH . PATH_PROFILE_UPLOAD . $userDB['foto']);
+            if (!empty($userDB['foto']) && file_exists(FCPATH . 'uploads/profiles/' . $userDB['foto'])) {
+                unlink(FCPATH . 'uploads/profiles/' . $userDB['foto']);
             }
 
-            $fileFoto->move(FCPATH . PATH_PROFILE_UPLOAD, $namaFotoBaru);
+            $fileFoto->move(FCPATH . 'uploads/profiles/', $namaFotoBaru);
             $data['foto'] = $namaFotoBaru;
         }
 
@@ -201,8 +233,17 @@ class User extends BaseController
         return redirect()->to(base_url('admin/profile'))->with('success', 'Profil berhasil diperbarui.');
     }
 
+    // =========================================================================
+    // FITUR KONFIGURASI HAK AKSES (RBAC) - TERPROTEKSI
+    // =========================================================================
+
     public function hakAkses()
     {
+        // PROTEKSI: Cegah user biasa yang tahu URL ini untuk bisa mengaksesnya
+        if (session()->get('role_id') != 1) {
+            return redirect()->to(base_url('admin/dashboard'))->with('error', 'Akses Ditolak: Hanya Administrator Utama yang dapat mengatur Hak Akses.');
+        }
+
         $db = \Config\Database::connect();
 
         $roles     = $db->table('roles')->orderBy('id_role', 'ASC')->get()->getResultArray();
@@ -226,11 +267,21 @@ class User extends BaseController
 
     public function saveHakAkses()
     {
+        // PROTEKSI SUBMIT: Cegah user biasa yang mencoba kirim POST Request tembak langsung
+        if (session()->get('role_id') != 1) {
+            if ($this->request->isAJAX()) return $this->response->setJSON(['status' => 'error', 'message' => 'Akses Ditolak.']);
+            return redirect()->to(base_url('admin/dashboard'));
+        }
+
         $db = \Config\Database::connect();
         $permissions = $this->request->getPost('permissions');
 
         $db->transStart();
-        $db->table('role_menus')->truncate();
+
+        // PERBAIKAN FATAL BUG DATABASE MySQL: 
+        // Jangan gunakan truncate() di dalam transaksi karena memicu implicit commit.
+        // Gunakan emptyTable() (DML Statement) yang aman untuk di-rollback jika terjadi error.
+        $db->table('role_menus')->emptyTable();
 
         if (!empty($permissions) && is_array($permissions)) {
             $insertData = [];
@@ -250,7 +301,15 @@ class User extends BaseController
         $db->transComplete();
 
         if ($db->transStatus() === false) {
+            if ($this->request->isAJAX()) {
+                return $this->response->setJSON(['status' => 'error', 'message' => 'Sistem gagal memperbarui konfigurasi hak akses database.']);
+            }
             return redirect()->back()->with('error', 'Gagal memperbarui konfigurasi hak akses.');
+        }
+
+        // UX SPA: Kembalikan JSON jika dipanggil via AJAX
+        if ($this->request->isAJAX()) {
+            return $this->response->setJSON(['status' => 'success', 'message' => 'Hak akses (RBAC) berhasil diperbarui secara sistem.']);
         }
 
         return redirect()->to(base_url('admin/user/hak-akses'))->with('success', 'Hak akses berhasil diperbarui.');

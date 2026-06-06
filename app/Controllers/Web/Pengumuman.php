@@ -19,42 +19,33 @@ class Pengumuman extends BaseController
 
     public function index()
     {
-        $data = [
+        return view('web/pengumuman', [
             'title'      => 'Broadcast Pengumuman',
             'pengumuman' => $this->pengumumanModel->orderBy('created_at', 'DESC')->findAll()
-        ];
-
-        return view('web/pengumuman', $data);
+        ]);
     }
 
     public function store()
     {
+        // 1. Validasi Ketat
         $rules = [
             'judul'  => 'required|min_length[5]|max_length[150]',
             'isi'    => 'required',
             'tipe'   => 'required|in_list[Info,Penting,Libur]',
-            // Validasi format dilonggarkan untuk PDF, batas global 2MB (namun PDF akan dibatasi mutlak 1MB di bawah)
-            'gambar' => 'max_size[gambar,2048]|ext_in[gambar,jpg,jpeg,png,pdf]|mime_in[gambar,image/jpg,image/jpeg,image/png,application/pdf]'
+            'gambar' => 'permit_empty|max_size[gambar,2048]|ext_in[gambar,jpg,jpeg,png,pdf]|mime_in[gambar,image/jpg,image/jpeg,image/png,application/pdf]'
         ];
 
         if (!$this->validate($rules)) {
             return redirect()->back()->withInput()->with('error', $this->validator->listErrors());
         }
 
-        $judul = (string) $this->request->getPost('judul');
-        $isi   = (string) $this->request->getPost('isi');
-        $tipe  = (string) $this->request->getPost('tipe');
-
         $fileGambar = $this->request->getFile('gambar');
         $namaGambar = null;
 
         if ($fileGambar && $fileGambar->isValid() && !$fileGambar->hasMoved()) {
-
-            // PROTEKSI BACKEND MUTLAK: Jika file adalah PDF, cek ukurannya tidak boleh lebih dari 1 MB (1024 KB)
-            if ($fileGambar->getMimeType() === 'application/pdf') {
-                if ($fileGambar->getSizeByUnit('kb') > 1024) {
-                    return redirect()->back()->withInput()->with('error', 'Gagal Upload: Ukuran file PDF maksimal adalah 1 MB.');
-                }
+            // Proteksi ukuran PDF 1MB
+            if ($fileGambar->getMimeType() === 'application/pdf' && $fileGambar->getSizeByUnit('kb') > 1024) {
+                return redirect()->back()->withInput()->with('error', 'Gagal Upload: Ukuran file PDF maksimal 1 MB.');
             }
 
             $namaGambar = $fileGambar->getRandomName();
@@ -62,19 +53,23 @@ class Pengumuman extends BaseController
         }
 
         $this->pengumumanModel->insert([
-            'judul'  => $judul,
-            'isi'    => $isi,
-            'tipe'   => $tipe,
+            'judul'  => (string)$this->request->getPost('judul'),
+            'isi'    => (string)$this->request->getPost('isi'),
+            'tipe'   => (string)$this->request->getPost('tipe'),
             'gambar' => $namaGambar
         ]);
 
-        // TRIGGER PUSH NOTIFICATION (FCM)
-        $allTokens = $this->siswaModel->select('fcm_token')->where('fcm_token IS NOT NULL')->findAll();
-        $tokenList = array_column($allTokens, 'fcm_token');
+        // 2. Optimasi Pengiriman FCM (Batch/Chunking)
+        $tokens = $this->siswaModel->select('fcm_token')->where('fcm_token IS NOT NULL')->findAll();
+        $tokenList = array_column($tokens, 'fcm_token');
 
         if (!empty($tokenList)) {
             helper('fcm');
-            send_fcm_notification($tokenList, "📢 " . $judul, substr(strip_tags($isi), 0, 100) . "...");
+            // Jika token sangat banyak, gunakan chunking agar tidak timeout
+            $chunks = array_chunk($tokenList, 500);
+            foreach ($chunks as $chunk) {
+                send_fcm_notification($chunk, "📢 " . $this->request->getPost('judul'), substr(strip_tags((string)$this->request->getPost('isi')), 0, 100) . "...");
+            }
         }
 
         return redirect()->to(base_url('admin/pengumuman'))->with('success', 'Pengumuman berhasil disebarkan!');
@@ -83,15 +78,12 @@ class Pengumuman extends BaseController
     public function delete(string $id)
     {
         $pengumuman = $this->pengumumanModel->find($id);
-
         if ($pengumuman) {
             if (!empty($pengumuman['gambar']) && file_exists(FCPATH . 'uploads/pengumuman/' . $pengumuman['gambar'])) {
                 unlink(FCPATH . 'uploads/pengumuman/' . $pengumuman['gambar']);
             }
-
             $this->pengumumanModel->delete($id);
         }
-
-        return redirect()->to(base_url('admin/pengumuman'))->with('success', 'Pengumuman berhasil ditarik dan dihapus.');
+        return redirect()->to(base_url('admin/pengumuman'))->with('success', 'Pengumuman berhasil ditarik.');
     }
 }

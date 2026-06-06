@@ -21,12 +21,10 @@ class Laporan extends BaseController
 
     /**
      * REFAKTORISASI SCD (Slowly Changing Dimension):
-     * Query ini memastikan riwayat kelas tidak bergeser walaupun siswa sudah naik kelas.
+     * Tetap dipertahankan KHUSUS UNTUK EXCEL agar export berjalan sempurna.
      */
     private function getRekapData(string $bulanMulai, string $bulanSelesai, string $tahun, string $kelasId): array
     {
-        // 1. Ambil Data Agregasi Kehadiran langsung dari tabel Absensi (Group by Siswa, Kelas Historis, dan Status)
-        // Perhatikan: JOIN tabel kelas sekarang dikunci ke absensi.kelas_id
         $this->absensiModel->select('absensi.siswa_id, absensi.kelas_id, absensi.status, COUNT(absensi.id_absensi) as total, siswa.nis, siswa.nama_siswa, kelas.nama_kelas')
             ->join('siswa', 'siswa.id_siswa = absensi.siswa_id')
             ->join('kelas', 'kelas.id_kelas = absensi.kelas_id', 'left')
@@ -40,11 +38,9 @@ class Laporan extends BaseController
 
         $dataAbsen = $this->absensiModel->groupBy('absensi.siswa_id, absensi.kelas_id, absensi.status')->findAll();
 
-        // 2. Mapping Data (O(1) Lookups)
         $rekapMap = [];
-
         foreach ($dataAbsen as $row) {
-            $key = $row['siswa_id'] . '_' . $row['kelas_id']; // Kunci unik gabungan siswa dan kelas historisnya
+            $key = $row['siswa_id'] . '_' . $row['kelas_id'];
 
             if (!isset($rekapMap[$key])) {
                 $rekapMap[$key] = [
@@ -59,11 +55,9 @@ class Laporan extends BaseController
                     'Alpa'       => 0,
                 ];
             }
-
             $rekapMap[$key][$row['status']] = (int) $row['total'];
         }
 
-        // 3. Kalkulasi Persentase Akhir
         $hasilAkhir = [];
         foreach ($rekapMap as $data) {
             $hadir      = $data['Hadir'];
@@ -83,7 +77,6 @@ class Laporan extends BaseController
             $hasilAkhir[] = $data;
         }
 
-        // 4. Sortir secara alfabetis berdasarkan nama kelas lalu nama siswa
         usort($hasilAkhir, function ($a, $b) {
             if ($a['nama_kelas'] === $b['nama_kelas']) {
                 return $a['nama_siswa'] <=> $b['nama_siswa'];
@@ -94,18 +87,73 @@ class Laporan extends BaseController
         return $hasilAkhir;
     }
 
+    /**
+     * TAMPILAN WEB (Teroptimasi menggunakan Server-Side Pagination & SQL Aggregation)
+     */
     public function index()
     {
         $bulanMulai   = $this->request->getGet('bulan_mulai') ?? date('m');
         $bulanSelesai = $this->request->getGet('bulan_selesai') ?? date('m');
         $tahun        = $this->request->getGet('tahun') ?? date('Y');
+        $search       = trim((string) $this->request->getGet('search'));
 
         $isWaliKelas  = session()->get('is_wali_kelas');
         $kelasSession = session()->get('kelas_id');
+        $kelasId      = $isWaliKelas ? $kelasSession : ($this->request->getGet('kelas') ?? '');
 
-        $kelasId = $isWaliKelas ? $kelasSession : ($this->request->getGet('kelas') ?? '');
+        // Parameter Pagination
+        $pager   = \Config\Services::pager();
+        $page    = (int) ($this->request->getGet('page_laporan') ?? 1);
+        $perPage = 15;
 
-        $rekapData = $this->getRekapData($bulanMulai, $bulanSelesai, $tahun, (string)$kelasId);
+        // Query Aggregation di level Database untuk men-support Pagination secara Native
+        $this->absensiModel->select('absensi.siswa_id, absensi.kelas_id, siswa.nis, siswa.nama_siswa, kelas.nama_kelas')
+            ->select("SUM(CASE WHEN absensi.status = 'Hadir' THEN 1 ELSE 0 END) as Hadir", false)
+            ->select("SUM(CASE WHEN absensi.status = 'Dispensasi' THEN 1 ELSE 0 END) as Dispensasi", false)
+            ->select("SUM(CASE WHEN absensi.status = 'Terlambat' THEN 1 ELSE 0 END) as Terlambat", false)
+            ->select("SUM(CASE WHEN absensi.status = 'Sakit' THEN 1 ELSE 0 END) as Sakit", false)
+            ->select("SUM(CASE WHEN absensi.status = 'Izin' THEN 1 ELSE 0 END) as Izin", false)
+            ->select("SUM(CASE WHEN absensi.status = 'Alpa' THEN 1 ELSE 0 END) as Alpa", false)
+            ->join('siswa', 'siswa.id_siswa = absensi.siswa_id')
+            ->join('kelas', 'kelas.id_kelas = absensi.kelas_id', 'left')
+            ->where('MONTH(absensi.tanggal) >=', $bulanMulai)
+            ->where('MONTH(absensi.tanggal) <=', $bulanSelesai)
+            ->where('YEAR(absensi.tanggal)', $tahun)
+            ->groupBy('absensi.siswa_id, absensi.kelas_id');
+
+        if (!empty($kelasId)) {
+            $this->absensiModel->where('absensi.kelas_id', $kelasId);
+        }
+
+        if (!empty($search)) {
+            $this->absensiModel->groupStart()
+                ->like('siswa.nama_siswa', $search)
+                ->orLike('siswa.nis', $search)
+                ->groupEnd();
+        }
+
+        $totalData    = $this->absensiModel->countAllResults(false);
+        $rawPaginated = $this->absensiModel->orderBy('kelas.nama_kelas', 'ASC')->orderBy('siswa.nama_siswa', 'ASC')->paginate($perPage, 'laporan');
+        $pagerLinks   = $this->absensiModel->pager->makeLinks($page, $perPage, $totalData, 'default_full', 0, 'laporan');
+
+        // Menghitung persentase untuk data yang di-paginate
+        $rekapData = [];
+        foreach ($rawPaginated as $row) {
+            $hadir      = (int) $row['Hadir'];
+            $terlambat  = (int) $row['Terlambat'];
+            $dispensasi = (int) $row['Dispensasi'];
+            $sakit      = (int) $row['Sakit'];
+            $izin       = (int) $row['Izin'];
+            $alpa       = (int) $row['Alpa'];
+
+            $totalKehadiran = $hadir + $terlambat + $dispensasi;
+            $totalHari      = $totalKehadiran + $sakit + $izin + $alpa;
+            $persentase     = ($totalHari > 0) ? round(($totalKehadiran / $totalHari) * 100, 2) : 0;
+
+            $row['TotalHari']  = $totalHari;
+            $row['Persentase'] = $persentase;
+            $rekapData[] = $row;
+        }
 
         $listKelas = $isWaliKelas
             ? $this->kelasModel->where('id_kelas', $kelasSession)->findAll()
@@ -118,10 +166,16 @@ class Laporan extends BaseController
             'bulanMulai'   => $bulanMulai,
             'bulanSelesai' => $bulanSelesai,
             'tahun'        => $tahun,
-            'kelasId'      => $kelasId
+            'kelasId'      => $kelasId,
+            'search'       => $search,
+            'pager_links'  => $pagerLinks,
+            'page'         => $page,
+            'perPage'      => $perPage,
+            'total_data'   => $totalData
         ];
 
-        return view('web/laporan/index', $data);
+        // PATH VIEW TELAH DISEJAJARKAN MENJADI web/laporan
+        return view('web/laporan', $data);
     }
 
     public function export()

@@ -5,17 +5,20 @@ namespace App\Controllers\Web;
 use App\Controllers\BaseController;
 use App\Models\SiswaModel;
 use App\Models\AbsensiModel;
+use App\Models\PengaturanModel;
 use CodeIgniter\I18n\Time;
 
 class Dashboard extends BaseController
 {
     protected SiswaModel $siswaModel;
     protected AbsensiModel $absensiModel;
+    protected PengaturanModel $pengaturanModel;
 
     public function __construct()
     {
-        $this->siswaModel   = new SiswaModel();
-        $this->absensiModel = new AbsensiModel();
+        $this->siswaModel      = new SiswaModel();
+        $this->absensiModel    = new AbsensiModel();
+        $this->pengaturanModel = new PengaturanModel();
     }
 
     public function index()
@@ -24,72 +27,60 @@ class Dashboard extends BaseController
         $isWaliKelas  = session()->get('is_wali_kelas');
         $kelasId      = session()->get('kelas_id');
 
-        // ========================================================================
-        // 1. MENGAMBIL STATISTIK UTAMA (Disesuaikan dengan Hak Akses)
-        // ========================================================================
+        // 1. AMBIL KOORDINAT SEKOLAH UNTUK CENTER MAP
+        $pengaturan  = $this->pengaturanModel->first();
+        $latSekolah  = $pengaturan['latitude_sekolah'] ?? '-6.200000';
+        $longSekolah = $pengaturan['longitude_sekolah'] ?? '106.816666';
 
-        // Total Siswa
+        // 2. TOTAL SISWA
         if ($isWaliKelas) {
             $this->siswaModel->where('kelas_id', $kelasId);
         }
         $totalSiswa = $this->siswaModel->countAllResults();
 
-        // Helper function (Closure) untuk efisiensi scope query wali kelas pada tabel absensi
-        $scopeWaliKelas = function ($builder) use ($isWaliKelas, $kelasId) {
-            if ($isWaliKelas) {
-                // Pastikan tabel siswa di-join agar bisa memfilter berdasarkan kelas_id
-                // Menggunakan identifier yang unik jika join belum dilakukan
-                $builder->join('siswa', 'siswa.id_siswa = absensi.siswa_id')
-                    ->where('siswa.kelas_id', $kelasId);
-            }
-            return $builder;
-        };
-
-        // Hadir Hari Ini
-        $builderHadir = $this->absensiModel->where('absensi.tanggal', $hariIni)
-            ->whereIn('absensi.status', ['Hadir', 'Terlambat', 'Dispensasi']);
-        $hadirHariIni = $scopeWaliKelas($builderHadir)->countAllResults();
-
-        // Alpa Hari Ini
-        $builderAlpa = $this->absensiModel->where('absensi.tanggal', $hariIni)
-            ->where('absensi.status', 'Alpa');
-        $alpaHariIni = $scopeWaliKelas($builderAlpa)->countAllResults();
-
-        // Fraud Hari Ini
-        $builderFraud = $this->absensiModel->where('absensi.tanggal', $hariIni)
-            ->groupStart()
-            ->where('absensi.status', 'Manipulasi')
-            ->orWhere('absensi.is_fake_gps', 1)
-            ->groupEnd();
-        $fraudHariIni = $scopeWaliKelas($builderFraud)->countAllResults();
-
-        $data = [
-            'title'          => 'Dashboard Analytics',
-            'total_siswa'    => $totalSiswa,
-            'hadir_hari_ini' => $hadirHariIni,
-            'alpa_hari_ini'  => $alpaHariIni,
-            'fraud_hari_ini' => $fraudHariIni,
-        ];
-
         // ========================================================================
-        // 2. DATA DISTRIBUSI STATUS (Doughnut Chart)
+        // 3. OPTIMASI SUPER: 1 QUERY UNTUK 4 STATISTIK (Hadir, Alpa, Fraud, Distribusi)
+        // Mencegah N+1 query issue, sangat menghemat resource server.
         // ========================================================================
-        $distQuery = $this->absensiModel->select('absensi.status, COUNT(absensi.id_absensi) as total')
+        $builderStats = $this->absensiModel->select('absensi.status, absensi.is_fake_gps, COUNT(absensi.id_absensi) as total')
             ->where('absensi.tanggal', $hariIni)
-            ->groupBy('absensi.status');
+            ->groupBy('absensi.status, absensi.is_fake_gps');
 
-        $distribusi = $scopeWaliKelas($distQuery)->findAll();
+        if ($isWaliKelas) {
+            $builderStats->join('siswa', 'siswa.id_siswa = absensi.siswa_id')
+                ->where('siswa.kelas_id', $kelasId);
+        }
+        $rawStats = $builderStats->findAll();
 
-        $statusMap = ['Hadir' => 0, 'Dispensasi' => 0, 'Terlambat' => 0, 'Sakit' => 0, 'Izin' => 0, 'Alpa' => 0];
-        foreach ($distribusi as $row) {
-            if (isset($statusMap[$row['status']])) {
-                $statusMap[$row['status']] = (int) $row['total'];
+        $hadirHariIni = 0;
+        $alpaHariIni  = 0;
+        $fraudHariIni = 0;
+        $statusMap    = ['Hadir' => 0, 'Dispensasi' => 0, 'Terlambat' => 0, 'Sakit' => 0, 'Izin' => 0, 'Alpa' => 0];
+
+        foreach ($rawStats as $row) {
+            $total  = (int) $row['total'];
+            $status = $row['status'];
+            $isFake = $row['is_fake_gps'];
+
+            // A. Populate Data Distribusi (Doughnut Chart)
+            if (isset($statusMap[$status])) {
+                $statusMap[$status] += $total;
+            }
+
+            // B. Populate Summary Cards
+            if (in_array($status, ['Hadir', 'Terlambat', 'Dispensasi'])) {
+                $hadirHariIni += $total;
+            }
+            if ($status === 'Alpa') {
+                $alpaHariIni += $total;
+            }
+            if ($status === 'Manipulasi' || $isFake == 1) {
+                $fraudHariIni += $total;
             }
         }
-        $data['chart_distribution'] = json_encode(array_values($statusMap));
 
         // ========================================================================
-        // 3. LEADERBOARD KELAS
+        // 4. LEADERBOARD KELAS
         // ========================================================================
         $topQuery = $this->absensiModel
             ->select('kelas.nama_kelas, COUNT(absensi.id_absensi) as total_hadir')
@@ -104,10 +95,10 @@ class Dashboard extends BaseController
         if ($isWaliKelas) {
             $topQuery->where('siswa.kelas_id', $kelasId);
         }
-        $data['top_classes'] = $topQuery->findAll();
+        $topClasses = $topQuery->findAll();
 
         // ========================================================================
-        // 4. DATA TREN KEHADIRAN 7 HARI TERAKHIR (Stacked Bar Chart)
+        // 5. DATA TREN KEHADIRAN 7 HARI TERAKHIR
         // ========================================================================
         $grafikLabels    = [];
         $grafikHadir     = array_fill(0, 7, 0);
@@ -128,7 +119,11 @@ class Dashboard extends BaseController
             ->whereIn('absensi.status', ['Hadir', 'Dispensasi', 'Terlambat', 'Alpa'])
             ->groupBy('absensi.tanggal, absensi.status');
 
-        $rekapTrend = $scopeWaliKelas($trendQuery)->findAll();
+        if ($isWaliKelas) {
+            $trendQuery->join('siswa', 'siswa.id_siswa = absensi.siswa_id')
+                ->where('siswa.kelas_id', $kelasId);
+        }
+        $rekapTrend = $trendQuery->findAll();
 
         foreach ($rekapTrend as $row) {
             $idx = array_search($row['tanggal'], $dates);
@@ -136,18 +131,13 @@ class Dashboard extends BaseController
                 if (in_array($row['status'], ['Hadir', 'Dispensasi'])) {
                     $grafikHadir[$idx] += (int) $row['total'];
                 }
-                if ($row['status'] == 'Terlambat') $grafikTerlambat[$idx] = (int) $row['total'];
-                if ($row['status'] == 'Alpa') $grafikAlpa[$idx] = (int) $row['total'];
+                if ($row['status'] == 'Terlambat') $grafikTerlambat[$idx] += (int) $row['total'];
+                if ($row['status'] == 'Alpa')      $grafikAlpa[$idx]      += (int) $row['total'];
             }
         }
 
-        $data['chart_labels']    = json_encode($grafikLabels);
-        $data['chart_hadir']     = json_encode($grafikHadir);
-        $data['chart_terlambat'] = json_encode($grafikTerlambat);
-        $data['chart_alpa']      = json_encode($grafikAlpa);
-
         // ========================================================================
-        // 5. DATA ANOMALI / FRAUD HARI INI
+        // 6. DATA ANOMALI / FRAUD HARI INI
         // ========================================================================
         $listManipulasiQuery = $this->absensiModel
             ->select('absensi.jam_masuk, absensi.status, absensi.is_fake_gps, absensi.lat_masuk, absensi.long_masuk, siswa.nama_siswa, kelas.nama_kelas as kelas, siswa.nis, siswa.foto_profil')
@@ -164,7 +154,24 @@ class Dashboard extends BaseController
             $listManipulasiQuery->where('siswa.kelas_id', $kelasId);
         }
 
-        $data['list_manipulasi'] = $listManipulasiQuery->findAll();
+        $listManipulasi = $listManipulasiQuery->findAll();
+
+        $data = [
+            'title'              => 'Dashboard Analytics',
+            'lat_sekolah'        => $latSekolah,
+            'long_sekolah'       => $longSekolah,
+            'total_siswa'        => $totalSiswa,
+            'hadir_hari_ini'     => $hadirHariIni,
+            'alpa_hari_ini'      => $alpaHariIni,
+            'fraud_hari_ini'     => $fraudHariIni,
+            'chart_distribution' => json_encode(array_values($statusMap)),
+            'top_classes'        => $topClasses,
+            'chart_labels'       => json_encode($grafikLabels),
+            'chart_hadir'        => json_encode($grafikHadir),
+            'chart_terlambat'    => json_encode($grafikTerlambat),
+            'chart_alpa'         => json_encode($grafikAlpa),
+            'list_manipulasi'    => $listManipulasi,
+        ];
 
         return view('web/dashboard', $data);
     }

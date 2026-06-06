@@ -25,9 +25,10 @@ class Kelas extends BaseController
 
     public function index()
     {
-        // Menggunakan Model untuk mengambil Role
-        $roleGuru = $this->roleModel->where('nama_role', 'Guru')->first();
+        $search = trim((string) $this->request->getGet('search'));
 
+        // Mengambil daftar Guru untuk form dropdown
+        $roleGuru = $this->roleModel->where('nama_role', 'Guru')->first();
         $listGuru = [];
         if ($roleGuru) {
             $listGuru = $this->userModel
@@ -36,19 +37,38 @@ class Kelas extends BaseController
                 ->findAll();
         }
 
-        // PERBAIKAN: Join ke tabel users untuk mengambil nama wali kelas
-        $kelas = $this->kelasModel
+        // Setup Pagination
+        $pager   = \Config\Services::pager();
+        $page    = (int) ($this->request->getGet('page_kelas') ?? 1);
+        $perPage = 10;
+
+        // Query Aggregation & Search
+        $builder = $this->kelasModel
             ->select('kelas.*, users.nama_lengkap as nama_wali, COUNT(siswa.id_siswa) as jumlah_siswa')
             ->join('users', 'users.id_user = kelas.wali_kelas_id', 'left')
             ->join('siswa', 'siswa.kelas_id = kelas.id_kelas', 'left')
-            ->groupBy('kelas.id_kelas')
-            ->orderBy('kelas.nama_kelas', 'ASC')
-            ->findAll();
+            ->groupBy('kelas.id_kelas');
+
+        if (!empty($search)) {
+            $builder->groupStart()
+                ->like('kelas.nama_kelas', $search)
+                ->orLike('users.nama_lengkap', $search)
+                ->groupEnd();
+        }
+
+        $totalData = $builder->countAllResults(false);
+        $kelas = $builder->orderBy('kelas.nama_kelas', 'ASC')->paginate($perPage, 'kelas');
+        $pagerLinks = $this->kelasModel->pager->makeLinks($page, $perPage, $totalData, 'default_full', 0, 'kelas');
 
         $data = [
-            'title'    => 'Manajemen Kelas',
-            'kelas'    => $kelas,
-            'listGuru' => $listGuru
+            'title'       => 'Manajemen Kelas',
+            'kelas'       => $kelas,
+            'listGuru'    => $listGuru,
+            'search'      => $search,
+            'pager_links' => $pagerLinks,
+            'page'        => $page,
+            'perPage'     => $perPage,
+            'total_data'  => $totalData
         ];
 
         return view('web/kelas', $data);
@@ -58,7 +78,6 @@ class Kelas extends BaseController
     {
         $idKelas     = $this->request->getPost('id_kelas');
         $namaKelas   = trim((string) $this->request->getPost('nama_kelas'));
-        // PERBAIKAN: Mengambil ID, bukan Nama
         $waliKelasId = $this->request->getPost('wali_kelas_id');
 
         $aturanValidasi = [
@@ -69,7 +88,6 @@ class Kelas extends BaseController
             return redirect()->back()->with('error', 'Nama kelas wajib diisi.');
         }
 
-        // Tangani null jika dikosongkan ("-- Tanpa Wali Kelas --")
         $waliKelasId = empty($waliKelasId) ? null : (int) $waliKelasId;
 
         if (!empty($idKelas)) {
@@ -82,7 +100,6 @@ class Kelas extends BaseController
                 return redirect()->back()->with('error', 'Gagal update: Nama kelas "' . $namaKelas . '" sudah digunakan.');
             }
 
-            // PERBAIKAN: Field yang disimpan adalah wali_kelas_id
             $this->kelasModel->update($idKelas, [
                 'nama_kelas'    => $namaKelas,
                 'wali_kelas_id' => $waliKelasId
@@ -96,7 +113,6 @@ class Kelas extends BaseController
                 return redirect()->back()->with('error', 'Gagal: Kelas "' . $namaKelas . '" sudah terdaftar.');
             }
 
-            // PERBAIKAN: Field yang disimpan adalah wali_kelas_id
             $this->kelasModel->insert([
                 'nama_kelas'    => $namaKelas,
                 'wali_kelas_id' => $waliKelasId
@@ -105,7 +121,8 @@ class Kelas extends BaseController
             $pesan = "Kelas baru $namaKelas berhasil ditambahkan.";
         }
 
-        return redirect()->to('/admin/kelas')->with('success', $pesan);
+        // Menggunakan back() agar jika admin berada di page_kelas=2, halamannya tidak ter-reset
+        return redirect()->back()->with('success', $pesan);
     }
 
     public function delete(string $id)
@@ -118,9 +135,9 @@ class Kelas extends BaseController
         $this->kelasModel->db->transComplete();
 
         if ($this->kelasModel->db->transStatus() === false) {
-            return redirect()->to('/admin/kelas')->with('error', 'Gagal menghapus kelas.');
+            return redirect()->back()->with('error', 'Gagal menghapus kelas.');
         }
 
-        return redirect()->to('/admin/kelas')->with('success', 'Kelas beserta seluruh siswa di dalamnya berhasil dihapus.');
+        return redirect()->back()->with('success', 'Kelas beserta seluruh siswa di dalamnya berhasil dihapus.');
     }
 }

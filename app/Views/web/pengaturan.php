@@ -39,7 +39,7 @@ $isFirebaseEmpty = empty($envFirebaseUrl);
                 <svg class="w-4 h-4 text-blue-400 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path>
                 </svg>
-                Klik area peta untuk memindahkan titik sekolah
+                Klik peta atau ketik koordinat manual
             </span>
         </div>
 
@@ -68,12 +68,12 @@ $isFirebaseEmpty = empty($envFirebaseUrl);
 
             <div class="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
                 <div>
-                    <label class="text-[10px] font-bold text-gray-400 uppercase">Latitude</label>
-                    <input type="text" id="lat" name="latitude_sekolah" value="<?= esc((string) ($pengaturan['latitude_sekolah'] ?? '')) ?>" class="w-full bg-transparent font-bold text-sm text-gray-800 outline-none" readonly>
+                    <label class="text-[10px] font-bold text-blue-500 uppercase">Latitude</label>
+                    <input type="text" id="lat" name="latitude_sekolah" value="<?= esc((string) ($pengaturan['latitude_sekolah'] ?? '')) ?>" class="w-full bg-transparent font-bold text-sm text-gray-800 outline-none border-b border-gray-200 focus:border-blue-500 pb-1 transition-colors" placeholder="-6.200000">
                 </div>
                 <div>
-                    <label class="text-[10px] font-bold text-gray-400 uppercase">Longitude</label>
-                    <input type="text" id="long" name="longitude_sekolah" value="<?= esc((string) ($pengaturan['longitude_sekolah'] ?? '')) ?>" class="w-full bg-transparent font-bold text-sm text-gray-800 outline-none" readonly>
+                    <label class="text-[10px] font-bold text-blue-500 uppercase">Longitude</label>
+                    <input type="text" id="long" name="longitude_sekolah" value="<?= esc((string) ($pengaturan['longitude_sekolah'] ?? '')) ?>" class="w-full bg-transparent font-bold text-sm text-gray-800 outline-none border-b border-gray-200 focus:border-blue-500 pb-1 transition-colors" placeholder="106.816666">
                 </div>
             </div>
 
@@ -117,10 +117,13 @@ $isFirebaseEmpty = empty($envFirebaseUrl);
             setTimeout(() => {
                 mapHint.classList.add('opacity-0', '-translate-y-4');
                 setTimeout(() => mapHint.remove(), 700);
-            }, 6000); // Pesan hilang setelah 6 detik
+            }, 6000);
         }
 
-        let center = [latInput.value || 0, lngInput.value || 0];
+        // UX: Smart Default Location (Jika DB kosong, fallback ke Jakarta)
+        let defaultLat = latInput.value ? parseFloat(latInput.value) : -6.200000;
+        let defaultLng = lngInput.value ? parseFloat(lngInput.value) : 106.816666;
+        let center = [defaultLat, defaultLng];
 
         // Memakai window.L untuk mencegah indikator "Class L not imported" di VS Code
         let map = window.L.map('map', {
@@ -131,9 +134,11 @@ $isFirebaseEmpty = empty($envFirebaseUrl);
             position: 'bottomright'
         }).addTo(map);
 
-        window.L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; OpenStreetMap &copy; CARTO',
-            maxZoom: 20
+        // Konsistensi Visual: Menggunakan Google Maps Tile Server
+        window.L.tileLayer('http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+            maxZoom: 20,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            attribution: '&copy; Google Maps'
         }).addTo(map);
 
         let schoolIcon = window.L.divIcon({
@@ -170,6 +175,7 @@ $isFirebaseEmpty = empty($envFirebaseUrl);
             radius: radiusInput.value
         }).addTo(map);
 
+        // Event 1: Memindahkan pin jika user mengklik area peta
         map.on('click', function(e) {
             let lat = e.latlng.lat;
             let lng = e.latlng.lng;
@@ -179,6 +185,22 @@ $isFirebaseEmpty = empty($envFirebaseUrl);
             lngInput.value = lng.toFixed(8);
         });
 
+        // Event 2 (Two-Way Binding UX): Memindahkan pin jika user mengetik/paste koordinat manual
+        function updateMapFromInput() {
+            let lat = parseFloat(latInput.value);
+            let lng = parseFloat(lngInput.value);
+
+            if (!isNaN(lat) && !isNaN(lng)) {
+                let newLatLng = new window.L.LatLng(lat, lng);
+                marker.setLatLng(newLatLng);
+                circle.setLatLng(newLatLng);
+                map.panTo(newLatLng);
+            }
+        }
+        latInput.addEventListener('input', updateMapFromInput);
+        lngInput.addEventListener('input', updateMapFromInput);
+
+        // Event 3: Sinkronisasi slider dan radius peta
         function updateRadius(val) {
             circle.setRadius(val);
             radiusInput.value = val;
@@ -187,10 +209,10 @@ $isFirebaseEmpty = empty($envFirebaseUrl);
                 padding: [50, 50]
             });
         }
-
         radiusSlider.addEventListener('input', (e) => updateRadius(e.target.value));
         radiusInput.addEventListener('change', (e) => updateRadius(e.target.value));
 
+        // Loading button state
         document.getElementById('formPengaturan').addEventListener('submit', function() {
             const btn = this.querySelector('.btn-submit');
             if (btn) {

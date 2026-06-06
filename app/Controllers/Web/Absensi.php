@@ -21,9 +21,6 @@ class Absensi extends BaseController
         $this->kelasModel   = new KelasModel();
     }
 
-    /**
-     * PRIVATE HELPER: Memastikan keamanan akses Row-Level Security
-     */
     private function checkAksesWaliKelas(int $targetKelasId): bool
     {
         if (session()->get('is_wali_kelas')) {
@@ -34,14 +31,32 @@ class Absensi extends BaseController
 
     public function index()
     {
+        // 1. Tangkap Parameter Filter & Search
         $tanggalFilter = $this->request->getGet('tanggal') ?? Time::now('Asia/Jakarta')->toDateString();
+        $search        = trim((string) $this->request->getGet('search'));
 
         $isWaliKelas    = session()->get('is_wali_kelas');
         $kelasSessionId = session()->get('kelas_id');
+        $kelasFilter    = $isWaliKelas ? $kelasSessionId : $this->request->getGet('kelas_id');
 
-        // Jika Wali Kelas, paksa filter kelas dari session
-        $kelasFilter = $isWaliKelas ? $kelasSessionId : $this->request->getGet('kelas_id');
+        // 2. Tangkap Parameter Sorting
+        $sort = strtolower(trim((string) $this->request->getGet('sort')));
+        $dir  = strtoupper(trim((string) $this->request->getGet('dir')));
+        $dir  = in_array($dir, ['ASC', 'DESC']) ? $dir : 'DESC';
 
+        $allowedSorts = [
+            'nama_siswa' => 'siswa.nama_siswa',
+            'waktu'      => 'absensi.jam_masuk',
+            'status'     => 'absensi.status'
+        ];
+        $sortColumn = $allowedSorts[$sort] ?? 'absensi.jam_masuk'; // Default urut jam masuk terbaru
+
+        // Parameter Pagination
+        $pager   = \Config\Services::pager();
+        $page    = (int) ($this->request->getGet('page_absensi') ?? 1);
+        $perPage = 15;
+
+        // 3. Bangun Query Absensi
         $this->absensiModel->select('absensi.*, siswa.nama_siswa, siswa.nis, kelas.nama_kelas')
             ->join('siswa', 'siswa.id_siswa = absensi.siswa_id')
             ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left')
@@ -51,15 +66,25 @@ class Absensi extends BaseController
             $this->absensiModel->where('siswa.kelas_id', $kelasFilter);
         }
 
-        $absensi = $this->absensiModel->orderBy('absensi.jam_masuk', 'DESC')->findAll();
+        if (!empty($search)) {
+            $this->absensiModel->groupStart()
+                ->like('siswa.nama_siswa', $search)
+                ->orLike('siswa.nis', $search)
+                ->groupEnd();
+        }
 
-        // Filter Data Siswa untuk dropdown Modal Input Manual
+        $totalData = $this->absensiModel->countAllResults(false);
+        $absensi   = $this->absensiModel->orderBy($sortColumn, $dir)
+            ->paginate($perPage, 'absensi');
+
+        $pagerLinks = $this->absensiModel->pager->makeLinks($page, $perPage, $totalData, 'default_full', 0, 'absensi');
+
+        // 4. Data Modal Input Manual
         $siswaQuery = $this->siswaModel
             ->select('siswa.id_siswa, siswa.nis, siswa.nama_siswa, kelas.nama_kelas')
             ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left')
             ->orderBy('siswa.nama_siswa', 'ASC');
 
-        // Jika Wali Kelas, batasi hanya murid kelasnya
         if ($isWaliKelas) {
             $siswaQuery->where('siswa.kelas_id', $kelasSessionId);
             $listKelas = $this->kelasModel->where('id_kelas', $kelasSessionId)->findAll();
@@ -67,15 +92,21 @@ class Absensi extends BaseController
             $listKelas = $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll();
         }
 
-        $siswa = $siswaQuery->findAll();
+        $siswaData = $siswaQuery->findAll();
 
         $data = [
             'title'       => 'Data Absensi Harian',
             'tanggal'     => $tanggalFilter,
             'kelas_aktif' => $kelasFilter,
+            'search'      => $search,
             'absensi'     => $absensi,
-            'siswa'       => $siswa,
-            'list_kelas'  => $listKelas
+            'siswa'       => $siswaData,
+            'list_kelas'  => $listKelas,
+            'pager_links' => $pagerLinks,
+            'page'        => $page,
+            'perPage'     => $perPage,
+            'total_data'  => $totalData,
+            'is_wali_kelas' => $isWaliKelas
         ];
 
         return view('web/absensi', $data);
@@ -115,7 +146,7 @@ class Absensi extends BaseController
             }
 
             $this->absensiModel->update($absenLama['id_absensi'], [
-                'kelas_id'   => $siswa['kelas_id'], // INJEKSI HISTORICAL SNAPSHOT
+                'kelas_id'   => $siswa['kelas_id'],
                 'jam_masuk'  => $jamMasuk,
                 'status'     => $status,
                 'keterangan' => $keterangan
@@ -126,7 +157,7 @@ class Absensi extends BaseController
 
         $this->absensiModel->insert([
             'siswa_id'   => $siswaId,
-            'kelas_id'   => $siswa['kelas_id'], // INJEKSI HISTORICAL SNAPSHOT
+            'kelas_id'   => $siswa['kelas_id'],
             'tanggal'    => $tanggal,
             'jam_masuk'  => $jamMasuk,
             'status'     => $status,

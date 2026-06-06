@@ -26,16 +26,33 @@ class Jadwal extends BaseController
 
     public function update()
     {
+        // PROTEKSI SPA: Pastikan request berasal dari AJAX Frontend
+        if (!$this->request->isAJAX()) {
+            return redirect()->to(base_url('admin/dashboard'));
+        }
+
         $dataJadwal = $this->request->getPost('jadwal');
 
         if ($dataJadwal && is_array($dataJadwal)) {
             $this->jadwalModel->db->transStart();
 
             foreach ($dataJadwal as $id => $data) {
-                // Keamanan ekstra: filter array
                 $isLibur   = isset($data['is_libur']) ? 1 : 0;
                 $jamMasuk  = empty($data['jam_masuk']) ? null : (string) $data['jam_masuk'];
                 $jamPulang = empty($data['jam_pulang']) ? null : (string) $data['jam_pulang'];
+
+                // VALIDASI LOGIKA WAKTU: Jika tidak libur, jam wajib diisi dan logis
+                if (!$isLibur) {
+                    if (empty($jamMasuk) || empty($jamPulang)) {
+                        $this->jadwalModel->db->transRollback();
+                        return $this->response->setJSON(['status' => 'error', 'message' => 'Hari kerja wajib diisi Jam Masuk dan Jam Pulang secara lengkap.']);
+                    }
+
+                    if (strtotime($jamMasuk) >= strtotime($jamPulang)) {
+                        $this->jadwalModel->db->transRollback();
+                        return $this->response->setJSON(['status' => 'error', 'message' => 'Logika Waktu Salah: Jam Pulang tidak boleh lebih awal dari Jam Masuk.']);
+                    }
+                }
 
                 $this->jadwalModel->update((int) $id, [
                     'jam_masuk'  => $jamMasuk,
@@ -47,12 +64,12 @@ class Jadwal extends BaseController
             $this->jadwalModel->db->transComplete();
 
             if ($this->jadwalModel->db->transStatus() === false) {
-                return redirect()->back()->with('error', 'Gagal memperbarui jadwal ke database.');
+                return $this->response->setJSON(['status' => 'error', 'message' => 'Gagal memperbarui jadwal ke database. Silakan coba lagi.']);
             }
 
-            return redirect()->back()->with('success', 'Konfigurasi jadwal mingguan berhasil disimpan.');
+            return $this->response->setJSON(['status' => 'success', 'message' => 'Konfigurasi jadwal mingguan berhasil disimpan secara permanen.']);
         }
 
-        return redirect()->back()->with('error', 'Payload jadwal tidak valid.');
+        return $this->response->setJSON(['status' => 'error', 'message' => 'Payload jadwal tidak terdeteksi atau tidak valid.']);
     }
 }

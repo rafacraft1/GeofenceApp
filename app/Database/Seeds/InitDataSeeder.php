@@ -19,14 +19,13 @@ class InitDataSeeder extends Seeder
         $this->db->table('jadwal_absen')->truncate();
         $this->db->table('hari_libur')->truncate();
 
-        // 2. Data Master Role (Menyisipkan default warna badge menggunakan class text Tailwind CSS)
+        // 2. Data Master Role
         $this->db->table('roles')->insertBatch([
             ['id_role' => 1, 'nama_role' => 'Admin', 'warna_badge' => 'indigo', 'created_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s')],
             ['id_role' => 2, 'nama_role' => 'Guru',  'warna_badge' => 'emerald', 'created_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s')]
         ]);
 
         // 3. Data Users 
-        // Menggunakan Konstanta Default Password (Meskipun di seeder, kita siapkan struktur rapi)
         $passwordDefault = password_hash('123456', PASSWORD_BCRYPT);
         $this->db->table('users')->insertBatch([
             [
@@ -78,11 +77,11 @@ class InitDataSeeder extends Seeder
             ['id_kelas' => 3, 'nama_kelas' => '11-A', 'wali_kelas_id' => null, 'created_at' => date('Y-m-d H:i:s')],
         ]);
 
-        // 5. Data Pengaturan Sekolah Default (Menyisipkan nama_aplikasi dan nama_sekolah)
+        // 5. Data Pengaturan Sekolah Default
         $this->db->table('pengaturan')->insert([
             'id_pengaturan'     => 1,
-            'nama_aplikasi'     => 'GeofenceApp', // Nama default aplikasi web
-            'nama_sekolah'      => 'SMKN 1 TGB',  // Nama default identitas institusi
+            'nama_aplikasi'     => 'GeofenceApp',
+            'nama_sekolah'      => 'SMKN 1 TGB',
             'latitude_sekolah'  => '-6.200000',
             'longitude_sekolah' => '106.816666',
             'radius_meter'      => 50,
@@ -106,29 +105,43 @@ class InitDataSeeder extends Seeder
 
         $this->db->table('jadwal_absen')->insertBatch($jadwal);
 
-        // 7. TABEL MENUS
+        // 7. TABEL MENUS (Disusun ulang berdasarkan Best Practice UI/UX - Urutan Harian hingga Sistem)
+        // Catatan: id_menu dipertahankan agar tidak merusak hak akses (role_menus)
         $this->db->table('menus')->insertBatch([
-            ['id_menu' => 1,  'nama_menu' => 'Dashboard',        'url' => 'admin/dashboard',  'icon' => 'fas fa-home', 'urutan' => 1, 'is_active' => 1],
-            ['id_menu' => 2,  'nama_menu' => 'Data Siswa',       'url' => 'admin/siswa',      'icon' => 'fas fa-users', 'urutan' => 2, 'is_active' => 1],
-            ['id_menu' => 3,  'nama_menu' => 'Absensi Harian',   'url' => 'admin/absensi',    'icon' => 'fas fa-clipboard-check', 'urutan' => 3, 'is_active' => 1],
-            ['id_menu' => 4,  'nama_menu' => 'Izin & Sakit',     'url' => 'admin/izin',       'icon' => 'fas fa-envelope-open-text', 'urutan' => 4, 'is_active' => 1],
-            ['id_menu' => 5,  'nama_menu' => 'Live Radar',       'url' => 'admin/tracking',   'icon' => 'fas fa-map-marked-alt', 'urutan' => 5, 'is_active' => 1],
-            ['id_menu' => 6,  'nama_menu' => 'Log Fraud',        'url' => 'admin/log-fraud',  'icon' => 'fas fa-shield-alt', 'urutan' => 6, 'is_active' => 1],
-            ['id_menu' => 7,  'nama_menu' => 'Laporan Rekap',    'url' => 'admin/laporan',    'icon' => 'fas fa-file-excel', 'urutan' => 7, 'is_active' => 1],
-            ['id_menu' => 8,  'nama_menu' => 'Data User/Guru',   'url' => 'admin/user',       'icon' => 'fas fa-user-tie', 'urutan' => 8, 'is_active' => 1],
-            ['id_menu' => 9,  'nama_menu' => 'Data Kelas',       'url' => 'admin/kelas',      'icon' => 'fas fa-chalkboard', 'urutan' => 9, 'is_active' => 1],
-            ['id_menu' => 10, 'nama_menu' => 'Pengumuman',       'url' => 'admin/pengumuman', 'icon' => 'fas fa-bullhorn', 'urutan' => 10, 'is_active' => 1],
-            ['id_menu' => 11, 'nama_menu' => 'Hari Libur',       'url' => 'admin/libur',      'icon' => 'fas fa-calendar-times', 'urutan' => 11, 'is_active' => 1],
-            ['id_menu' => 12, 'nama_menu' => 'Jadwal Harian',    'url' => 'admin/jadwal',     'icon' => 'fas fa-clock', 'urutan' => 12, 'is_active' => 1],
-            ['id_menu' => 13, 'nama_menu' => 'Pengaturan',       'url' => 'admin/pengaturan', 'icon' => 'fas fa-cogs', 'urutan' => 13, 'is_active' => 1],
-            ['id_menu' => 14, 'nama_menu' => 'Mutasi Kelas',     'url' => 'admin/mutasi',     'icon' => 'fas fa-exchange-alt', 'urutan' => 14, 'is_active' => 1],
+            // Tingkat 1: Overview & Aktivitas Harian (Paling sering dibuka)
+            ['id_menu' => 1,  'nama_menu' => 'Dashboard',        'url' => 'admin/dashboard',  'icon' => 'fas fa-home',               'urutan' => 1,  'is_active' => 1],
+            ['id_menu' => 3,  'nama_menu' => 'Absensi Harian',   'url' => 'admin/absensi',    'icon' => 'fas fa-clipboard-check',    'urutan' => 2,  'is_active' => 1],
+            ['id_menu' => 4,  'nama_menu' => 'Izin & Sakit',     'url' => 'admin/izin',       'icon' => 'fas fa-envelope-open-text', 'urutan' => 3,  'is_active' => 1],
+            ['id_menu' => 5,  'nama_menu' => 'Live Radar',       'url' => 'admin/tracking',   'icon' => 'fas fa-map-marked-alt',     'urutan' => 4,  'is_active' => 1],
+            ['id_menu' => 6,  'nama_menu' => 'Log Fraud',        'url' => 'admin/log-fraud',  'icon' => 'fas fa-shield-alt',         'urutan' => 5,  'is_active' => 1],
+
+            // Tingkat 2: Analitik & Laporan
+            ['id_menu' => 7,  'nama_menu' => 'Laporan Rekap',    'url' => 'admin/laporan',    'icon' => 'fas fa-file-excel',         'urutan' => 6,  'is_active' => 1],
+
+            // Tingkat 3: Data Master Entitas Inti
+            ['id_menu' => 2,  'nama_menu' => 'Data Siswa',       'url' => 'admin/siswa',      'icon' => 'fas fa-users',              'urutan' => 7,  'is_active' => 1],
+            ['id_menu' => 9,  'nama_menu' => 'Data Kelas',       'url' => 'admin/kelas',      'icon' => 'fas fa-chalkboard',         'urutan' => 8,  'is_active' => 1],
+            ['id_menu' => 14, 'nama_menu' => 'Mutasi Kelas',     'url' => 'admin/mutasi',     'icon' => 'fas fa-exchange-alt',       'urutan' => 9,  'is_active' => 1],
+            ['id_menu' => 8,  'nama_menu' => 'Data User/Guru',   'url' => 'admin/user',       'icon' => 'fas fa-user-tie',           'urutan' => 10, 'is_active' => 1],
+
+            // Tingkat 4: Konfigurasi Operasional & Informasi
+            ['id_menu' => 10, 'nama_menu' => 'Pengumuman',       'url' => 'admin/pengumuman', 'icon' => 'fas fa-bullhorn',           'urutan' => 11, 'is_active' => 1],
+            ['id_menu' => 12, 'nama_menu' => 'Jadwal Harian',    'url' => 'admin/jadwal',     'icon' => 'fas fa-clock',              'urutan' => 12, 'is_active' => 1],
+            ['id_menu' => 11, 'nama_menu' => 'Hari Libur',       'url' => 'admin/libur',      'icon' => 'fas fa-calendar-times',     'urutan' => 13, 'is_active' => 1],
+
+            // Tingkat 5: Sistem Base (Paling jarang diubah)
+            ['id_menu' => 13, 'nama_menu' => 'Pengaturan',       'url' => 'admin/pengaturan', 'icon' => 'fas fa-cogs',               'urutan' => 14, 'is_active' => 1],
         ]);
 
         // 8. Pemetaan Role ke Menu (Role_Menus)
         $roleMenus = [];
+
+        // Admin mendapatkan akses ke seluruh menu (id 1-14)
         for ($i = 1; $i <= 14; $i++) {
             $roleMenus[] = ['id_role' => 1, 'id_menu' => $i];
         }
+
+        // Guru mendapatkan akses ke menu operasional dan data siswa (id 1-7)
         for ($i = 1; $i <= 7; $i++) {
             $roleMenus[] = ['id_role' => 2, 'id_menu' => $i];
         }

@@ -99,6 +99,7 @@
             <?php
             $db = \Config\Database::connect();
             $allowedMenus = $db->table('menus')
+                ->select('menus.url, menus.nama_menu, menus.icon')
                 ->join('role_menus', 'role_menus.id_menu = menus.id_menu')
                 ->where('role_menus.id_role', $roleId)
                 ->where('menus.is_active', 1)
@@ -107,15 +108,22 @@
                 ->getResultArray();
 
             foreach ($allowedMenus as $menu):
-                $urlMenu  = (string) $menu['url'];
+                $urlMenu  = trim((string) $menu['url'], '/');
                 $namaMenu = (string) $menu['nama_menu'];
                 $iconMenu = (string) $menu['icon'];
 
-                $isActive = strpos((string) uri_string(), $urlMenu) !== false;
-                $activeClass = $isActive ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800 hover:text-white';
+                if ($urlMenu === 'admin' || $urlMenu === 'admin/dashboard') {
+                    $isActive = url_is('admin') || url_is('admin/dashboard');
+                } else {
+                    $isActive = url_is($urlMenu) || url_is($urlMenu . '/*');
+                }
+
+                $activeClass = $isActive
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'text-slate-300 hover:bg-slate-800 hover:text-white';
             ?>
-                <a href="<?= base_url($urlMenu) ?>" class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors <?= $activeClass ?>">
-                    <i class="<?= esc($iconMenu) ?> opacity-80 text-center w-5 text-lg"></i>
+                <a href="<?= base_url($urlMenu) ?>" class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group <?= $activeClass ?>">
+                    <i class="<?= esc($iconMenu) ?> <?= $isActive ? 'opacity-100' : 'opacity-70 group-hover:opacity-100' ?> text-center w-5 text-lg transition-opacity duration-200"></i>
                     <span class="font-medium text-sm"><?= esc($namaMenu) ?></span>
                 </a>
             <?php endforeach; ?>
@@ -132,7 +140,7 @@
     </aside>
 
     <div class="flex-1 flex flex-col h-screen overflow-hidden bg-gray-50">
-        <header class="h-16 bg-white shadow-sm border-b border-gray-200 flex items-center justify-between px-4 lg:px-6 z-30 relative">
+        <header class="h-16 bg-white shadow-sm border-b border-gray-200 flex items-center justify-between px-4 lg:px-6 z-30 relative shrink-0">
             <div class="flex items-center gap-4">
                 <button onclick="toggleSidebar()" class="p-2 rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors bg-gray-50 border border-gray-200">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -193,7 +201,7 @@
             </div>
         </header>
 
-        <main class="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6">
+        <main class="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6 pb-28 md:pb-12 relative">
             <div class="max-w-7xl mx-auto">
                 <?= $this->renderSection('content') ?>
             </div>
@@ -211,6 +219,13 @@
             const overlay = document.getElementById('sidebar-overlay');
             if (window.innerWidth >= 768) {
                 sidebar.classList.toggle('sidebar-collapsed');
+
+                // Memicu event resize window agar peta menyadari perubahan ukuran layar
+                // Menggunakan window.Event agar ekstensi PHP tidak mengiranya sebagai Class PHP
+                setTimeout(() => {
+                    window.dispatchEvent(new window.Event('resize'));
+                }, 310);
+
             } else {
                 sidebar.classList.toggle('-translate-x-full');
                 overlay.classList.toggle('hidden');

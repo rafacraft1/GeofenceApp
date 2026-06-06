@@ -31,6 +31,10 @@ class Izin extends BaseController
 
     public function index()
     {
+        // Tangkap Parameter Filter & Search
+        $search       = trim((string) $this->request->getGet('search'));
+        $statusFilter = $this->request->getGet('status');
+
         $this->izinModel
             ->select('pengajuan_izin.*, siswa.nama_siswa, siswa.nis, kelas.nama_kelas')
             ->join('siswa', 'siswa.id_siswa = pengajuan_izin.siswa_id')
@@ -40,14 +44,42 @@ class Izin extends BaseController
             $this->izinModel->where('siswa.kelas_id', session()->get('kelas_id'));
         }
 
-        $daftarIzin = $this->izinModel
-            ->orderBy("FIELD(pengajuan_izin.status, 'Pending', 'Approved', 'Rejected')", '', false)
-            ->orderBy('pengajuan_izin.created_at', 'DESC')
-            ->findAll();
+        if (!empty($statusFilter)) {
+            $this->izinModel->where('pengajuan_izin.status', $statusFilter);
+        }
+
+        if (!empty($search)) {
+            $this->izinModel->groupStart()
+                ->like('siswa.nama_siswa', $search)
+                ->orLike('siswa.nis', $search)
+                ->groupEnd();
+        }
+
+        // UX: Jika tidak ada filter status, prioritaskan yang Pending agar segera diproses
+        if (empty($statusFilter)) {
+            $this->izinModel->orderBy("FIELD(pengajuan_izin.status, 'Pending', 'Approved', 'Rejected')", '', false);
+        }
+
+        $this->izinModel->orderBy('pengajuan_izin.created_at', 'DESC');
+
+        // Server-Side Pagination
+        $pager   = \Config\Services::pager();
+        $page    = (int) ($this->request->getGet('page_izin') ?? 1);
+        $perPage = 15;
+
+        $totalData  = $this->izinModel->countAllResults(false);
+        $daftarIzin = $this->izinModel->paginate($perPage, 'izin');
+        $pagerLinks = $this->izinModel->pager->makeLinks($page, $perPage, $totalData, 'default_full', 0, 'izin');
 
         $data = [
-            'title'      => 'Manajemen Pengajuan Izin',
-            'daftarIzin' => $daftarIzin
+            'title'      => 'Persetujuan Izin & Sakit',
+            'daftarIzin' => $daftarIzin,
+            'search'     => $search,
+            'status'     => $statusFilter,
+            'pager_links' => $pagerLinks,
+            'page'       => $page,
+            'perPage'    => $perPage,
+            'total_data' => $totalData,
         ];
 
         return view('web/izin/index', $data);
@@ -77,9 +109,11 @@ class Izin extends BaseController
         $tglSelesai = Time::parse($izin['tanggal_selesai']);
         $insertData = [];
 
+        // Loop untuk memasukkan data absensi di setiap hari yang diajukan
         while ($tglMulai->toDateString() <= $tglSelesai->toDateString()) {
             $tanggalString = $tglMulai->toDateString();
 
+            // Hapus absensi existing di tanggal tersebut jika ada (timpa data lama)
             $this->absensiModel->where([
                 'siswa_id' => $izin['siswa_id'],
                 'tanggal'  => $tanggalString
@@ -87,9 +121,9 @@ class Izin extends BaseController
 
             $insertData[] = [
                 'siswa_id'   => $izin['siswa_id'],
-                'kelas_id'   => $izin['kelas_id'], // INJEKSI HISTORICAL SNAPSHOT
+                'kelas_id'   => $izin['kelas_id'], // Injeksi snapshot historis
                 'tanggal'    => $tanggalString,
-                'status'     => $izin['jenis'],
+                'status'     => $izin['jenis'], // Izin / Sakit
                 'keterangan' => 'Disetujui via sistem: ' . $izin['alasan']
             ];
 

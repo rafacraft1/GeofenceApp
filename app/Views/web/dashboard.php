@@ -1,8 +1,9 @@
 <?php
 
 /**
- * Petunjuk untuk Intelephense agar tidak error P1008 & P1006
  * @var string $title
+ * @var string $lat_sekolah
+ * @var string $long_sekolah
  * @var int $total_siswa
  * @var int $hadir_hari_ini
  * @var int $alpa_hari_ini
@@ -39,7 +40,6 @@
     </div>
 
     <?php
-    // Logic internal view untuk persentase
     $persenHadir = ($total_siswa > 0) ? round(($hadir_hari_ini / $total_siswa) * 100) : 0;
     ?>
 
@@ -86,18 +86,22 @@
             <?= session()->get('is_wali_kelas') ? 'Performa Kelas Anda' : 'Performa Kelas Terbaik' ?>
         </h3>
         <div class="space-y-5">
-            <?php foreach ($top_classes as $index => $tc): ?>
-                <div class="flex items-center justify-between group">
-                    <div class="flex items-center gap-3">
-                        <span class="w-6 h-6 flex items-center justify-center rounded-lg bg-blue-50 text-blue-600 text-[10px] font-black"><?= $index + 1 ?></span>
-                        <span class="text-sm font-bold text-gray-700 group-hover:text-blue-600 transition-colors"><?= esc((string) $tc['nama_kelas']) ?></span>
+            <?php if (empty($top_classes)): ?>
+                <div class="text-center text-gray-400 text-xs py-5 italic">Belum ada data presensi hari ini.</div>
+            <?php else: ?>
+                <?php foreach ($top_classes as $index => $tc): ?>
+                    <div class="flex items-center justify-between group">
+                        <div class="flex items-center gap-3">
+                            <span class="w-6 h-6 flex items-center justify-center rounded-lg bg-blue-50 text-blue-600 text-[10px] font-black"><?= $index + 1 ?></span>
+                            <span class="text-sm font-bold text-gray-700 group-hover:text-blue-600 transition-colors"><?= esc((string) $tc['nama_kelas']) ?></span>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xs font-black text-emerald-600"><?= (int) $tc['total_hadir'] ?></span>
+                            <p class="text-[8px] text-gray-400 uppercase font-bold">Hadir</p>
+                        </div>
                     </div>
-                    <div class="text-right">
-                        <span class="text-xs font-black text-emerald-600"><?= (int) $tc['total_hadir'] ?></span>
-                        <p class="text-[8px] text-gray-400 uppercase font-bold">Hadir</p>
-                    </div>
-                </div>
-            <?php endforeach; ?>
+                <?php endforeach; ?>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -118,21 +122,22 @@
                 <tbody class="divide-y divide-gray-100">
                     <?php if (empty($list_manipulasi)): ?>
                         <tr>
-                            <td colspan="4" class="py-10 text-center text-gray-400 italic text-xs">Aman terkendali. Tidak ada anomali terdeteksi.</td>
+                            <td colspan="4" class="py-10 text-center text-gray-400 italic text-xs">Aman terkendali. Tidak ada anomali terdeteksi hari ini.</td>
                         </tr>
+                    <?php else: ?>
+                        <?php foreach ($list_manipulasi as $m): ?>
+                            <tr class="hover:bg-red-50/30 transition-colors">
+                                <td class="py-3 font-bold text-gray-800"><?= esc((string) $m['nama_siswa']) ?></td>
+                                <td class="py-3 text-gray-500 text-xs font-medium"><?= esc((string) $m['kelas']) ?></td>
+                                <td class="py-3 text-center">
+                                    <span class="bg-red-100 text-red-600 text-[9px] font-black px-2 py-0.5 rounded shadow-sm border border-red-200">
+                                        <?= $m['is_fake_gps'] ? '🚨 FAKE GPS' : '⚠️ MANIPULASI' ?>
+                                    </span>
+                                </td>
+                                <td class="py-3 text-right text-gray-400 font-mono text-xs"><?= date('H:i', strtotime((string)$m['jam_masuk'])) ?></td>
+                            </tr>
+                        <?php endforeach; ?>
                     <?php endif; ?>
-                    <?php foreach ($list_manipulasi as $m): ?>
-                        <tr class="hover:bg-red-50/30 transition-colors">
-                            <td class="py-3 font-bold text-gray-800"><?= esc((string) $m['nama_siswa']) ?></td>
-                            <td class="py-3 text-gray-500 text-xs font-medium"><?= esc((string) $m['kelas']) ?></td>
-                            <td class="py-3 text-center">
-                                <span class="bg-red-100 text-red-600 text-[9px] font-black px-2 py-0.5 rounded shadow-sm border border-red-200">
-                                    <?= $m['is_fake_gps'] ? '🚨 FAKE GPS' : '⚠️ MANIPULASI' ?>
-                                </span>
-                            </td>
-                            <td class="py-3 text-right text-gray-400 font-mono text-xs"><?= date('H:i', strtotime((string)$m['jam_masuk'])) ?></td>
-                        </tr>
-                    <?php endforeach; ?>
                 </tbody>
             </table>
         </div>
@@ -148,9 +153,30 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", function() {
-        // 1. Inisialisasi Peta (Leaflet)
-        const map = window.L.map('mapFraud').setView([-6.20000000, 106.81666600], 13);
-        window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        // Helper Proteksi XSS
+        const escapeHtml = (unsafe) => {
+            return (unsafe || '').toString()
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        };
+
+        // 1. Inisialisasi Peta
+        const map = window.L.map('mapFraud').setView([<?= esc($lat_sekolah) ?>, <?= esc($long_sekolah) ?>], 14);
+
+        // =========================================================================
+        // TRIK PERFEKSIONIS: Menggunakan Google Maps Server Tile tanpa API Key
+        // lyrs=m berarti peta jalan standard (Street Map). 
+        // Jika ingin satelit ubah lyrs=s. Jika ingin hybrid ubah lyrs=y.
+        // =========================================================================
+        window.L.tileLayer('http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+            maxZoom: 20,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            attribution: '&copy; Google Maps'
+        }).addTo(map);
 
         const listManipulasi = <?= json_encode($list_manipulasi) ?>;
         const markers = [];
@@ -169,24 +195,26 @@
 
                 marker.bindPopup(`
                 <div class="text-[10px]">
-                    <p class="font-black text-gray-800">${m.nama_siswa}</p>
-                    <p class="text-gray-500 mb-1">${m.kelas}</p>
+                    <p class="font-black text-gray-800">${escapeHtml(m.nama_siswa)}</p>
+                    <p class="text-gray-500 mb-1">${escapeHtml(m.kelas)}</p>
                     <span class="bg-red-50 text-red-600 font-bold px-1 rounded border border-red-100">
                         ${m.is_fake_gps == 1 ? 'Fake GPS' : 'Luar Zona'}
                     </span>
                 </div>
-            `);
+                `);
                 markers.push([m.lat_masuk, m.long_masuk]);
             }
         });
 
+        // Zoom otomatis agar semua marker tertangkap layar jika ada pelanggaran
         if (markers.length > 0) {
             map.fitBounds(window.L.latLngBounds(markers), {
-                padding: [30, 30]
+                padding: [30, 30],
+                maxZoom: 16
             });
         }
 
-        // 2. Bar Chart Trend (Dispensasi sudah digabung ke Hadir via Controller)
+        // 2. Bar Chart Trend
         new window.Chart(document.getElementById('attendanceChart'), {
             type: 'bar',
             data: {
@@ -225,14 +253,13 @@
             }
         });
 
-        // 3. Doughnut Chart Distribusi (Dispensasi Dipisah secara Visual)
+        // 3. Doughnut Chart Distribusi
         new window.Chart(document.getElementById('distributionChart'), {
             type: 'doughnut',
             data: {
                 labels: ['Hadir', 'Dispensasi', 'Terlambat', 'Sakit', 'Izin', 'Alpa'],
                 datasets: [{
                     data: <?= $chart_distribution ?>,
-                    // Warna diselaraskan: Hijau, Teal, Kuning, Biru, Indigo, Merah
                     backgroundColor: ['#10B981', '#14B8A6', '#FBBF24', '#60A5FA', '#818CF8', '#EF4444'],
                     borderWidth: 0,
                     cutout: '75%'

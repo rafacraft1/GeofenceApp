@@ -19,21 +19,20 @@ class Mutasi extends BaseController
 
     public function index()
     {
-        // PROTEKSI ABSOLUT: Hanya Admin (Role 1) yang bisa mengakses fitur Mutasi SCD
+        // PROTEKSI ABSOLUT: Hanya Admin (Role 1) yang bisa mengakses fitur Mutasi
         if (session()->get('role_id') != 1) {
             return redirect()->to('/admin/dashboard')->with('error', 'Akses Ditolak: Fitur Mutasi hanya diperuntukkan bagi Administrator.');
         }
 
         $kelasAsalId = $this->request->getGet('asal');
 
-        $listKelas = $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll();
-        $siswaAsal = [];
+        $listKelas     = $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll();
+        $siswaAsal     = [];
         $kelasAsalData = null;
 
         if (!empty($kelasAsalId)) {
             $siswaAsal = $this->siswaModel->where('kelas_id', $kelasAsalId)->orderBy('nama_siswa', 'ASC')->findAll();
 
-            // Ambil detail kelas asal beserta nama wali kelasnya
             $kelasAsalData = $this->kelasModel->select('kelas.*, users.nama_lengkap as nama_wali')
                 ->join('users', 'users.id_user = kelas.wali_kelas_id', 'left')
                 ->where('id_kelas', $kelasAsalId)
@@ -94,21 +93,17 @@ class Mutasi extends BaseController
             return redirect()->back()->with('error', 'Validasi gagal: Pilih minimal satu siswa untuk dimutasi.');
         }
 
-        // =========================================================================
-        // MULAI TRANSAKSI DATABASE (Atomicity dijamin)
-        // =========================================================================
+        // MULAI TRANSAKSI DATABASE
         $this->kelasModel->db->transStart();
 
-        // 1. Eksekusi Pindah Massal Siswa yang dicentang
+        // 1. Eksekusi Pindah Massal
         $this->siswaModel->whereIn('id_siswa', $siswaIds)->set(['kelas_id' => $kelasTujuanId])->update();
 
-        // 2. Eksekusi Pertukaran Jabatan Wali Kelas (SCD Logic)
+        // 2. Eksekusi Pindah Jabatan Wali Kelas
         if ($pindahWali) {
             $kelasAsal = $this->kelasModel->find($kelasAsalId);
             if (!empty($kelasAsal['wali_kelas_id'])) {
-                // Tanamkan ID Wali Kelas asal ke Kelas Tujuan
                 $this->kelasModel->update($kelasTujuanId, ['wali_kelas_id' => $kelasAsal['wali_kelas_id']]);
-                // Cabut jabatan Wali Kelas dari Kelas Asal (dikosongkan)
                 $this->kelasModel->update($kelasAsalId, ['wali_kelas_id' => null]);
             }
         }
