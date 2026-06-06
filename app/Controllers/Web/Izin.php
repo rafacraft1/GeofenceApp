@@ -18,17 +18,6 @@ class Izin extends BaseController
         $this->absensiModel = new AbsensiModel();
     }
 
-    /**
-     * PRIVATE HELPER: Memastikan keamanan akses Row-Level Security
-     */
-    private function checkAksesWaliKelas(int $targetKelasId): bool
-    {
-        if (session()->get('is_wali_kelas')) {
-            return $targetKelasId === session()->get('kelas_id');
-        }
-        return true;
-    }
-
     public function index()
     {
         // Tangkap Parameter Filter & Search
