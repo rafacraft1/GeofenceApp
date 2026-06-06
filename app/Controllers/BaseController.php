@@ -3,49 +3,59 @@
 namespace App\Controllers;
 
 use CodeIgniter\Controller;
+use CodeIgniter\HTTP\CLIRequest;
+use CodeIgniter\HTTP\IncomingRequest;
 use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
 use Psr\Log\LoggerInterface;
 
+/**
+ * Class BaseController
+ * Induk dari semua Controller Web. Menyediakan fungsi utilitas global
+ * untuk menghindari redundansi kode.
+ */
 abstract class BaseController extends Controller
 {
     /**
      * Instance of the main Request object.
-     *
-     * @var \CodeIgniter\HTTP\IncomingRequest|\CodeIgniter\HTTP\CLIRequest
+     * @var CLIRequest|IncomingRequest
      */
     protected $request;
 
     /**
-     * An array of helpers to be loaded automatically upon
-     * class instantiation. These helpers will be available
-     * to all other controllers that extend BaseController.
-     *
-     * @var list<string>
+     * Helper global yang diload otomatis
+     * @var array
      */
-    protected $helpers = ['form', 'url', 'geo', 'security'];
-
-    /**
-     * Komponen global dengan Strict Type-Hinting untuk VSCode Intelephense
-     */
-    protected \CodeIgniter\Session\Session $session;
-    protected \CodeIgniter\Validation\ValidationInterface $validation;
-    protected \CodeIgniter\Database\BaseConnection $db;
-
-    /**
-     * Be sure to declare properties for any property fetch you initialized.
-     * The creation of dynamic property is deprecated in PHP 8.2.
-     */
-    // protected $session;
+    protected $helpers = ['cookie', 'date', 'security'];
 
     public function initController(RequestInterface $request, ResponseInterface $response, LoggerInterface $logger)
     {
-        // Do Not Edit This Line
         parent::initController($request, $response, $logger);
+    }
 
-        // Inisialisasi layanan global
-        $this->session    = \Config\Services::session();
-        $this->validation = \Config\Services::validation();
-        $this->db         = \Config\Database::connect();
+    /**
+     * GLOBAL UTILITY: Proteksi Akses Wali Kelas
+     * Mengunci akses agar Wali Kelas hanya bisa melihat/memodifikasi data kelasnya sendiri.
+     */
+    protected function checkAksesWaliKelas(int $targetKelasId): bool
+    {
+        if (session()->get('is_wali_kelas')) {
+            return $targetKelasId === (int) session()->get('kelas_id');
+        }
+        return true; // Admin punya akses ke semua kelas
+    }
+
+    /**
+     * GLOBAL UTILITY: Setup Konfigurasi Pagination
+     * Menghilangkan duplikasi inisialisasi pagination di setiap controller.
+     * * @return array{pager: \CodeIgniter\Pager\Pager, page: int, perPage: int}
+     */
+    protected function setupPagination(string $paramName = 'page', int $perPage = 15): array
+    {
+        return [
+            'pager'   => \Config\Services::pager(),
+            'page'    => (int) ($this->request->getGet($paramName) ?? 1),
+            'perPage' => $perPage
+        ];
     }
 }

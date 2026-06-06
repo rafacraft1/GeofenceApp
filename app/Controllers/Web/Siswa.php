@@ -2,22 +2,21 @@
 
 namespace App\Controllers\Web;
 
-use CodeIgniter\Controller;
+use App\Controllers\BaseController;
 use App\Models\SiswaModel;
 use App\Models\KelasModel;
 use App\Models\AbsensiModel;
 use App\Models\LogFraudModel;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use App\Services\ExportService;
 use PhpOffice\PhpSpreadsheet\IOFactory;
-use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
 
-class Siswa extends Controller
+class Siswa extends BaseController
 {
     protected SiswaModel $siswaModel;
     protected KelasModel $kelasModel;
     protected AbsensiModel $absensiModel;
     protected LogFraudModel $logFraudModel;
+    protected ExportService $exportService;
 
     public function __construct()
     {
@@ -25,23 +24,16 @@ class Siswa extends Controller
         $this->kelasModel    = new KelasModel();
         $this->absensiModel  = new AbsensiModel();
         $this->logFraudModel = new LogFraudModel();
-    }
-
-    private function checkAksesWaliKelas(int $targetKelasId): bool
-    {
-        if (session()->get('is_wali_kelas')) {
-            return $targetKelasId === session()->get('kelas_id');
-        }
-        return true;
+        $this->exportService = new ExportService();
     }
 
     public function index()
     {
-        $isWaliKelas = session()->get('is_wali_kelas');
+        $isWaliKelas    = session()->get('is_wali_kelas');
         $kelasSessionId = session()->get('kelas_id');
 
         $kelasFilter = $isWaliKelas ? $kelasSessionId : $this->request->getGet('kelas');
-        $search = trim((string) $this->request->getGet('search'));
+        $search      = trim((string) $this->request->getGet('search'));
 
         $sort = strtolower(trim((string) $this->request->getGet('sort')));
         $dir  = strtoupper(trim((string) $this->request->getGet('dir')));
@@ -55,47 +47,39 @@ class Siswa extends Controller
         ];
         $sortColumn = $allowedSorts[$sort] ?? 'siswa.nama_siswa';
 
-        if ($isWaliKelas) {
-            $listKelas = $this->kelasModel->where('id_kelas', $kelasSessionId)->findAll();
-        } else {
-            $listKelas = $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll();
-        }
+        $listKelas = $isWaliKelas
+            ? $this->kelasModel->where('id_kelas', $kelasSessionId)->findAll()
+            : $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll();
 
-        $pager   = \Config\Services::pager();
-        $page    = (int) ($this->request->getGet('page') ?? 1);
-        $perPage = 10;
+        // Menggunakan Utilitas Global dari BaseController
+        $pg = $this->setupPagination('page', 10);
 
         $this->siswaModel->select('siswa.*, kelas.nama_kelas')
             ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
 
-        if (!empty($kelasFilter)) {
-            $this->siswaModel->where('siswa.kelas_id', $kelasFilter);
-        }
+        if (!empty($kelasFilter)) $this->siswaModel->where('siswa.kelas_id', $kelasFilter);
 
         if (!empty($search)) {
-            $this->siswaModel->groupStart()
-                ->like('siswa.nama_siswa', $search)
-                ->orLike('siswa.nis', $search)
-                ->groupEnd();
+            $this->siswaModel->groupStart()->like('siswa.nama_siswa', $search)->orLike('siswa.nis', $search)->groupEnd();
         }
 
         $totalData = $this->siswaModel->countAllResults(false);
-        $offset    = ($page - 1) * $perPage;
+        $offset    = ($pg['page'] - 1) * $pg['perPage'];
 
         $siswa = $this->siswaModel->orderBy($sortColumn, $dir)
             ->orderBy('siswa.nama_siswa', 'ASC')
-            ->findAll($perPage, $offset);
+            ->findAll($pg['perPage'], $offset);
 
         $data = [
-            'title'       => 'Daftar Siswa',
-            'siswa'       => $siswa,
-            'list_kelas'  => $listKelas,
-            'kelas_aktif' => $kelasFilter,
-            'search'      => $search,
-            'pager_links' => $pager->makeLinks($page, $perPage, $totalData, 'default_full'),
-            'page'        => $page,
-            'perPage'     => $perPage,
-            'total_data'  => $totalData,
+            'title'         => 'Daftar Siswa',
+            'siswa'         => $siswa,
+            'list_kelas'    => $listKelas,
+            'kelas_aktif'   => $kelasFilter,
+            'search'        => $search,
+            'pager_links'   => $pg['pager']->makeLinks($pg['page'], $pg['perPage'], $totalData, 'default_full'),
+            'page'          => $pg['page'],
+            'perPage'       => $pg['perPage'],
+            'total_data'    => $totalData,
             'is_wali_kelas' => $isWaliKelas
         ];
 
@@ -114,28 +98,14 @@ class Siswa extends Controller
         $namaFoto = null;
 
         if ($foto && $foto->isValid() && !$foto->hasMoved()) {
-            $aturanValidasi = [
-                'foto' => [
-                    'label'  => 'Foto Profil',
-                    'rules'  => 'max_size[foto,2048]|is_image[foto]|mime_in[foto,image/jpg,image/jpeg,image/png]',
-                    'errors' => [
-                        'max_size' => 'Ukuran foto maksimal 2MB.',
-                        'is_image' => 'File harus berupa gambar.',
-                        'mime_in'  => 'Format foto harus JPG/JPEG/PNG.'
-                    ]
-                ]
-            ];
-
-            if (!$this->validate($aturanValidasi)) {
-                return redirect()->back()->withInput()->with('error', $this->validator->getError('foto'));
+            if (!$this->validate(['foto' => 'max_size[foto,2048]|is_image[foto]|mime_in[foto,image/jpg,image/jpeg,image/png]'])) {
+                return redirect()->back()->withInput()->with('error', 'Format atau ukuran foto tidak valid.');
             }
-
             $namaFoto = $foto->getRandomName();
             $foto->move(FCPATH . 'uploads/siswa', $namaFoto);
         }
 
         $nis = $this->request->getPost('nis');
-
         $this->siswaModel->insert([
             'nis'          => $nis,
             'nama_siswa'   => $this->request->getPost('nama_siswa'),
@@ -144,7 +114,7 @@ class Siswa extends Controller
             'foto_profil'  => $namaFoto
         ]);
 
-        return redirect()->to('/admin/siswa')->with('success', 'Data siswa berhasil ditambahkan.');
+        return redirect()->back()->with('success', 'Data siswa berhasil ditambahkan.');
     }
 
     public function update(string $id)
@@ -152,7 +122,7 @@ class Siswa extends Controller
         $siswaLama = $this->siswaModel->find($id);
 
         if (!$siswaLama || !$this->checkAksesWaliKelas((int)$siswaLama['kelas_id'])) {
-            return redirect()->to('/admin/siswa')->with('error', 'Data siswa tidak ditemukan atau Akses Ditolak.');
+            return redirect()->back()->with('error', 'Data siswa tidak ditemukan atau Akses Ditolak.');
         }
 
         $kelasIdPost = (int) $this->request->getPost('kelas_id');
@@ -164,17 +134,9 @@ class Siswa extends Controller
         $namaFoto = $siswaLama['foto_profil'];
 
         if ($foto && $foto->isValid() && !$foto->hasMoved()) {
-            $aturanValidasi = [
-                'foto' => [
-                    'label'  => 'Foto Profil',
-                    'rules'  => 'max_size[foto,2048]|is_image[foto]|mime_in[foto,image/jpg,image/jpeg,image/png]'
-                ]
-            ];
-
-            if (!$this->validate($aturanValidasi)) {
-                return redirect()->back()->withInput()->with('error', 'Format atau ukuran foto tidak valid (Maks 2MB, JPG/JPEG/PNG).');
+            if (!$this->validate(['foto' => 'max_size[foto,2048]|is_image[foto]|mime_in[foto,image/jpg,image/jpeg,image/png]'])) {
+                return redirect()->back()->withInput()->with('error', 'Format atau ukuran foto tidak valid.');
             }
-
             $namaFoto = $foto->getRandomName();
             $foto->move(FCPATH . 'uploads/siswa', $namaFoto);
 
@@ -190,7 +152,7 @@ class Siswa extends Controller
             'foto_profil'  => $namaFoto
         ]);
 
-        return redirect()->to('/admin/siswa')->with('success', 'Data siswa berhasil diperbarui.');
+        return redirect()->back()->with('success', 'Data siswa berhasil diperbarui.');
     }
 
     public function delete(string $id)
@@ -198,7 +160,7 @@ class Siswa extends Controller
         $siswa = $this->siswaModel->find($id);
 
         if (!$siswa || !$this->checkAksesWaliKelas((int)$siswa['kelas_id'])) {
-            return redirect()->to('/admin/siswa')->with('error', 'Data siswa tidak ditemukan atau Akses Ditolak.');
+            return redirect()->back()->with('error', 'Data siswa tidak ditemukan atau Akses Ditolak.');
         }
 
         if (!empty($siswa['foto_profil']) && file_exists(FCPATH . 'uploads/siswa/' . $siswa['foto_profil'])) {
@@ -206,141 +168,48 @@ class Siswa extends Controller
         }
 
         $this->siswaModel->delete($id);
-
-        return redirect()->to('/admin/siswa')->with('success', 'Data siswa beserta foto berhasil dihapus.');
+        return redirect()->back()->with('success', 'Data siswa beserta foto berhasil dihapus.');
     }
 
     public function resetDevice(string $id)
     {
         $siswa = $this->siswaModel->find($id);
-        if (!$siswa || !$this->checkAksesWaliKelas((int)$siswa['kelas_id'])) {
-            return redirect()->to('/admin/siswa')->with('error', 'Akses Ditolak.');
-        }
+        if (!$siswa || !$this->checkAksesWaliKelas((int)$siswa['kelas_id'])) return redirect()->back()->with('error', 'Akses Ditolak.');
 
         $this->siswaModel->update($id, ['device_id' => null]);
-        return redirect()->to('/admin/siswa')->with('success', 'Perangkat berhasil di-reset.');
+        return redirect()->back()->with('success', 'Perangkat berhasil di-reset.');
     }
 
     public function unblock(string $id)
     {
         $siswa = $this->siswaModel->find($id);
-        if (!$siswa || !$this->checkAksesWaliKelas((int)$siswa['kelas_id'])) {
-            return redirect()->to('/admin/siswa')->with('error', 'Akses Ditolak.');
-        }
+        if (!$siswa || !$this->checkAksesWaliKelas((int)$siswa['kelas_id'])) return redirect()->back()->with('error', 'Akses Ditolak.');
 
-        $this->siswaModel->update($id, [
-            'is_blocked'  => 0,
-            'fraud_count' => 0
-        ]);
-        return redirect()->to('/admin/siswa')->with('success', 'Akun siswa berhasil di-unblock dan fraud count di-reset.');
+        $this->siswaModel->update($id, ['is_blocked' => 0, 'fraud_count' => 0]);
+        return redirect()->back()->with('success', 'Akun siswa berhasil di-unblock.');
     }
 
     public function downloadTemplate()
     {
-        $spreadsheet = new Spreadsheet();
+        $listKelas = session()->get('is_wali_kelas')
+            ? $this->kelasModel->where('id_kelas', session()->get('kelas_id'))->findAll()
+            : $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll();
 
-        if (session()->get('is_wali_kelas')) {
-            $listKelas = $this->kelasModel->where('id_kelas', session()->get('kelas_id'))->findAll();
-        } else {
-            $listKelas = $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll();
-        }
-
-        $totalKelas = count($listKelas);
-
-        if ($totalKelas > 0) {
-            $refSheet = $spreadsheet->createSheet();
-            $refSheet->setTitle('DataKelas');
-            $refRow = 1;
-            foreach ($listKelas as $k) {
-                $refSheet->setCellValue('A' . $refRow++, $k['nama_kelas']);
-            }
-            $spreadsheet->getSheetByName('DataKelas')->setSheetState(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet::SHEETSTATE_VERYHIDDEN);
-        }
-
-        $spreadsheet->setActiveSheetIndex(0);
-        $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('Data Siswa');
-
-        $sheet->setCellValue('A1', 'TEMPLATE IMPORT DATA SISWA');
-        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(12);
-        $sheet->setCellValue('A2', 'Pilih kelas melalui dropdown di kolom C. Jangan mengetik manual di kolom Kelas.');
-        $sheet->getStyle('A2')->getFont()->setItalic(true)->getColor()->setARGB('FFD97706');
-
-        $sheet->setCellValue('A3', 'NIS');
-        $sheet->setCellValue('B3', 'NAMA LENGKAP');
-        $sheet->setCellValue('C3', 'KELAS (Klik untuk pilih)');
-        $sheet->getStyle('A3:C3')->getFont()->setBold(true);
-        $sheet->getStyle('A3:C3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFE0E0E0');
-
-        if ($totalKelas > 0) {
-            $validation = $sheet->getDataValidation('C4:C500');
-            $validation->setType(DataValidation::TYPE_LIST);
-            $validation->setErrorStyle(DataValidation::STYLE_STOP);
-            $validation->setAllowBlank(false);
-            $validation->setShowInputMessage(true);
-            $validation->setShowErrorMessage(true);
-            $validation->setShowDropDown(true);
-            $validation->setErrorTitle('Input Salah');
-            $validation->setError('Silakan pilih kelas yang tersedia dari daftar!');
-            $validation->setPromptTitle('Pilih Kelas');
-            $validation->setPrompt('Klik panah di samping untuk memilih kelas.');
-            $validation->setFormula1('DataKelas!$A$1:$A$' . $totalKelas);
-        }
-
-        foreach (range('A', 'C') as $col) {
-            $sheet->getColumnDimension($col)->setAutoSize(true);
-        }
-
-        $writer = new Xlsx($spreadsheet);
-        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        header('Content-Disposition: attachment;filename="Template_Import_Siswa_V2.xlsx"');
-        header('Cache-Control: max-age=0');
-        $writer->save('php://output');
-        exit;
+        // Mendelegasikan tugas ke ExportService
+        $this->exportService->downloadTemplateSiswa($listKelas);
     }
 
     public function export()
     {
-        if (session()->get('is_wali_kelas')) {
-            $kelasId = session()->get('kelas_id');
-        } else {
-            $kelasId = $this->request->getGet('kelas');
-        }
+        $kelasId = session()->get('is_wali_kelas') ? session()->get('kelas_id') : $this->request->getGet('kelas');
 
-        $this->siswaModel->select('siswa.*, kelas.nama_kelas')
-            ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
+        $this->siswaModel->select('siswa.*, kelas.nama_kelas')->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
+        if (!empty($kelasId)) $this->siswaModel->where('siswa.kelas_id', $kelasId);
 
-        if (!empty($kelasId)) {
-            $this->siswaModel->where('siswa.kelas_id', $kelasId);
-        }
+        $dataSiswa = $this->siswaModel->orderBy('kelas.nama_kelas', 'ASC')->orderBy('siswa.nama_siswa', 'ASC')->findAll();
 
-        $dataSiswa = $this->siswaModel->orderBy('kelas.nama_kelas', 'ASC')
-            ->orderBy('siswa.nama_siswa', 'ASC')
-            ->findAll();
-
-        $spreadsheet = new Spreadsheet();
-        $sheet = $spreadsheet->getActiveSheet();
-
-        $sheet->setCellValue('A1', 'No');
-        $sheet->setCellValue('B1', 'NIS');
-        $sheet->setCellValue('C1', 'Nama Lengkap');
-        $sheet->setCellValue('D1', 'Kelas');
-
-        $row = 2;
-        foreach ($dataSiswa as $index => $siswa) {
-            $sheet->setCellValue('A' . $row, $index + 1);
-            $sheet->setCellValueExplicit('B' . $row, $siswa['nis'], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
-            $sheet->setCellValue('C' . $row, $siswa['nama_siswa']);
-            $sheet->setCellValue('D' . $row, $siswa['nama_kelas']);
-            $row++;
-        }
-
-        $writer = new Xlsx($spreadsheet);
-        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        header('Content-Disposition: attachment;filename="Data_Siswa.xlsx"');
-        header('Cache-Control: max-age=0');
-        $writer->save('php://output');
-        exit;
+        // Mendelegasikan tugas ke ExportService
+        $this->exportService->exportDataSiswa($dataSiswa);
     }
 
     public function import()
@@ -382,73 +251,58 @@ class Siswa extends Controller
                 $skipped++;
                 continue;
             }
-
-            $cek = $this->siswaModel->where('nis', $nis)->countAllResults();
-            if ($cek > 0) {
+            if ($this->siswaModel->where('nis', $nis)->countAllResults() > 0) {
                 $skipped++;
                 continue;
             }
 
             $this->siswaModel->insert([
-                'nis'          => $nis,
-                'nama_siswa'   => $nama,
-                'kelas_id'     => $kelasId,
-                'password'     => password_hash($nis, PASSWORD_BCRYPT)
+                'nis'        => $nis,
+                'nama_siswa' => $nama,
+                'kelas_id'   => $kelasId,
+                'password'   => password_hash($nis, PASSWORD_BCRYPT)
             ]);
             $inserted++;
         }
 
-        return redirect()->to('/admin/siswa')->with('success', "Berhasil import $inserted data siswa. $skipped baris dilewati (NIS duplikat, beda kelas, atau format tidak valid).");
+        return redirect()->back()->with('success', "Berhasil import $inserted data siswa. $skipped baris dilewati.");
     }
 
-    // --- FITUR PROFIL 360 & PAGINATION PRESENSI ---
     public function detail(string $idSiswa)
     {
         $siswa = $this->siswaModel->getSiswaWithKelas($idSiswa);
 
         if (!$siswa || !$this->checkAksesWaliKelas((int)$siswa['kelas_id'])) {
-            return redirect()->to('/admin/siswa')->with('error', 'Data siswa tidak ditemukan atau Akses Ditolak.');
+            return redirect()->back()->with('error', 'Data siswa tidak ditemukan atau Akses Ditolak.');
         }
 
-        // Tangkap parameter filter tanggal
         $startDate = $this->request->getGet('start_date');
         $endDate   = $this->request->getGet('end_date');
 
-        // Parameter Pagination khusus tabel presensi
-        $pageAbsensi    = (int) ($this->request->getGet('page_absensi') ?? 1);
-        $perPageAbsensi = 10;
+        // Menggunakan Utilitas Global dari BaseController
+        $pg = $this->setupPagination('page_absensi', 10);
 
-        // 1. Query Riwayat Presensi (Dilengkapi Pagination)
         $this->absensiModel->where('siswa_id', $idSiswa);
         if (!empty($startDate) && !empty($endDate)) {
             $this->absensiModel->where('tanggal >=', $startDate)->where('tanggal <=', $endDate);
         }
 
         $totalAbsensi = $this->absensiModel->countAllResults(false);
-        $absensi = $this->absensiModel->orderBy('tanggal', 'DESC')->paginate($perPageAbsensi, 'absensi');
+        $absensi = $this->absensiModel->orderBy('tanggal', 'DESC')->paginate($pg['perPage'], 'absensi');
 
-        // Buat objek Pager secara manual agar UI tetap sesuai design system kita
-        $pagerAbsensi = $this->absensiModel->pager;
-        $pagerLinks   = $pagerAbsensi->makeLinks($pageAbsensi, $perPageAbsensi, $totalAbsensi, 'default_full', 0, 'absensi');
+        $logFraud = $this->logFraudModel->where('siswa_id', $idSiswa)->orderBy('created_at', 'DESC')->findAll(10);
 
-        // 2. Query Log Fraud (Dibatasi 10 terakhir agar tabel kanan rapi)
-        $logFraud = $this->logFraudModel->where('siswa_id', $idSiswa)
-            ->orderBy('created_at', 'DESC')
-            ->findAll(10);
-
-        // 3. Query Statistik Presensi Dinamis (Mengikuti Filter Tanggal)
         $this->absensiModel->select('status, COUNT(*) as total')->where('siswa_id', $idSiswa);
         if (!empty($startDate) && !empty($endDate)) {
             $this->absensiModel->where('tanggal >=', $startDate)->where('tanggal <=', $endDate);
         }
-        $rekap = $this->absensiModel->groupBy('status')->findAll();
 
+        $rekap = $this->absensiModel->groupBy('status')->findAll();
         $stats = ['hadir' => 0, 'terlambat' => 0, 'sakit' => 0, 'izin' => 0, 'alpa' => 0];
+
         foreach ($rekap as $r) {
             $statusKey = strtolower($r['status']);
-            if (isset($stats[$statusKey])) {
-                $stats[$statusKey] = (int) $r['total'];
-            }
+            if (isset($stats[$statusKey])) $stats[$statusKey] = (int) $r['total'];
         }
         $stats['total'] = array_sum($stats);
 
@@ -456,9 +310,9 @@ class Siswa extends Controller
             'title'            => 'Profil 360: ' . $siswa['nama_siswa'],
             'siswa'            => $siswa,
             'absensi'          => $absensi,
-            'pager_absensi'    => $pagerLinks,
-            'page_absensi'     => $pageAbsensi,
-            'per_page_absensi' => $perPageAbsensi,
+            'pager_absensi'    => $this->absensiModel->pager->makeLinks($pg['page'], $pg['perPage'], $totalAbsensi, 'default_full', 0, 'absensi'),
+            'page_absensi'     => $pg['page'],
+            'per_page_absensi' => $pg['perPage'],
             'total_absensi'    => $totalAbsensi,
             'logFraud'         => $logFraud,
             'start_date'       => $startDate,
