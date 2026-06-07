@@ -160,9 +160,9 @@ class AbsensiModel extends Model
     }
 
     /**
-     * ✅ OPTIMASI BARU: Memisahkan logika query absensi harian dengan Pagination dan Search
+     * OPTIMASI BARU: Memisahkan logika query absensi harian dengan Pagination, Search & Sort
      */
-    public function getPaginatedAbsensiHarian(string $tanggal, ?int $kelasId = null, ?string $search = null, int $perPage = 20)
+    public function getPaginatedAbsensiHarian(string $tanggal, ?int $kelasId = null, ?string $search = null, int $perPage = 20, string $sortCol = 'jam_masuk', string $sortDir = 'desc')
     {
         $builder = $this->select('absensi.*, siswa.nama_siswa, siswa.nis, kelas.nama_kelas')
             ->join('siswa', 'siswa.id_siswa = absensi.siswa_id')
@@ -180,6 +180,13 @@ class AbsensiModel extends Model
                 ->groupEnd();
         }
 
-        return $builder->orderBy('absensi.jam_masuk', 'DESC')->paginate($perPage, 'default');
+        // Mapping agar kolom tidak ambigous saat di sort
+        $columnMap = [
+            'nama_siswa' => 'siswa.nama_siswa',
+            'jam_masuk'  => 'absensi.jam_masuk'
+        ];
+        $targetCol = $columnMap[$sortCol] ?? 'absensi.jam_masuk';
+
+        return $builder->orderBy($targetCol, $sortDir)->paginate($perPage, 'default');
     }
 }

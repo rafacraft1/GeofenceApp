@@ -34,8 +34,15 @@ class Absensi extends BaseController
         // 1. Tangkap Parameter Request
         $tanggalFilter = $this->request->getGet('tanggal') ?? Time::now('Asia/Jakarta')->toDateString();
         $searchFilter  = $this->request->getGet('search');
-        $page          = (int) ($this->request->getGet('page') ?? 1);
-        $perPage       = 20;
+
+        // Logika Sort (Default: Waktu Presensi Terbaru)
+        $sortParam = $this->request->getGet('sort') ?? 'jam_masuk-desc';
+        $sortParts = explode('-', $sortParam);
+        $sortCol   = $sortParts[0] ?? 'jam_masuk';
+        $sortDir   = $sortParts[1] ?? 'desc';
+
+        $page    = (int) ($this->request->getGet('page') ?? 1);
+        $perPage = 20;
 
         $isWaliKelas    = session()->get('is_wali_kelas');
         $kelasSessionId = session()->get('kelas_id');
@@ -44,11 +51,11 @@ class Absensi extends BaseController
         $kelasFilterRaw = $isWaliKelas ? $kelasSessionId : $this->request->getGet('kelas_id');
         $kelasFilter    = !empty($kelasFilterRaw) ? (int)$kelasFilterRaw : null;
 
-        // 2. Gunakan method optimasi dari Model yang mengembalikan pagination
-        $absensi = $this->absensiModel->getPaginatedAbsensiHarian($tanggalFilter, $kelasFilter, $searchFilter, $perPage);
+        // 2. Tarik Data dengan Pagination & Sort dari Model
+        $absensi = $this->absensiModel->getPaginatedAbsensiHarian($tanggalFilter, $kelasFilter, $searchFilter, $perPage, $sortCol, $sortDir);
         $pager   = $this->absensiModel->pager;
 
-        // 3. Filter Data Siswa untuk dropdown Modal Input Manual
+        // 3. Data Siswa untuk dropdown Modal Input Manual
         $siswaQuery = $this->siswaModel
             ->select('siswa.id_siswa, siswa.nis, siswa.nama_siswa, kelas.nama_kelas')
             ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left')
@@ -66,6 +73,8 @@ class Absensi extends BaseController
             'tanggal'      => $tanggalFilter,
             'kelas_aktif'  => $kelasFilterRaw,
             'search_aktif' => $searchFilter,
+            'sort_col'     => $sortCol,
+            'sort_dir'     => $sortDir,
             'absensi'      => $absensi,
             'siswa'        => $siswaQuery->findAll(),
             'list_kelas'   => $listKelas,

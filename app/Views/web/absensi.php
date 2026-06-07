@@ -5,6 +5,8 @@
  * @var string $tanggal
  * @var string|int|null $kelas_aktif
  * @var string|null $search_aktif
+ * @var string $sort_col
+ * @var string $sort_dir
  * @var array<int, array<string, string|null>> $absensi
  * @var array<int, array<string, string|null>> $siswa
  * @var array<int, array<string, string|null>> $list_kelas
@@ -13,6 +15,25 @@
  * @var int $perPage
  * @var string $pager_links
  */
+
+$buildSortLink = function ($column) use ($tanggal, $kelas_aktif, $search_aktif, $sort_col, $sort_dir) {
+    $newDir = ($sort_col === $column && $sort_dir === 'asc') ? 'desc' : 'asc';
+    $url = base_url('admin/absensi') . "?sort={$column}-{$newDir}&tanggal={$tanggal}";
+    if ($search_aktif) $url .= "&search=" . urlencode($search_aktif);
+    if ($kelas_aktif) $url .= "&kelas_id=" . urlencode($kelas_aktif);
+    return $url;
+};
+
+// Heroicons: chevron-up-down, chevron-up, chevron-down
+$getSortIcon = function ($column) use ($sort_col, $sort_dir) {
+    if ($sort_col !== $column) {
+        return '<svg class="w-3.5 h-3.5 text-gray-300 opacity-50 ml-1" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" /></svg>';
+    }
+    if ($sort_dir === 'asc') {
+        return '<svg class="w-3.5 h-3.5 text-blue-600 ml-1" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg>';
+    }
+    return '<svg class="w-3.5 h-3.5 text-blue-600 ml-1" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>';
+};
 ?>
 <?= $this->extend('layout/admin') ?>
 
@@ -82,8 +103,16 @@
             <thead>
                 <tr class="bg-gray-50/50 text-gray-400 text-[11px] font-bold uppercase tracking-wider border-y border-gray-100">
                     <th class="px-6 py-4">No</th>
-                    <th class="px-6 py-4">Identitas Siswa</th>
-                    <th class="px-6 py-4">Waktu Presensi</th>
+                    <th class="px-6 py-4">
+                        <a href="<?= $buildSortLink('nama_siswa') ?>" class="flex items-center group cursor-pointer transition-colors hover:text-blue-600" title="Urutkan berdasarkan Nama">
+                            Identitas Siswa <?= $getSortIcon('nama_siswa') ?>
+                        </a>
+                    </th>
+                    <th class="px-6 py-4">
+                        <a href="<?= $buildSortLink('jam_masuk') ?>" class="flex items-center group cursor-pointer transition-colors hover:text-blue-600" title="Urutkan berdasarkan Waktu Masuk">
+                            Waktu Presensi <?= $getSortIcon('jam_masuk') ?>
+                        </a>
+                    </th>
                     <th class="px-6 py-4 text-center">Status</th>
                     <th class="px-6 py-4">Keterangan</th>
                 </tr>
@@ -322,7 +351,6 @@
 
 <?= $this->section('scripts') ?>
 <script>
-    // FUNGSI UNTUK MODAL INPUT MANUAL
     function openManualModal() {
         document.getElementById('modal-manual').classList.replace('hidden', 'flex');
         document.body.classList.add('modal-active');
@@ -333,7 +361,7 @@
         document.body.classList.remove('modal-active');
     }
 
-    // FUNGSI UNTUK MODAL DETAIL ABSENSI (FOTO & TITIK KOORDINAT)
+    // FUNGSI UNTUK MODAL DETAIL ABSENSI
     function openDetailModal(data) {
         // Render Header
         document.getElementById('dtl-nama').textContent = data.nama_siswa || '-';
@@ -357,8 +385,8 @@
         const linkMasuk = document.getElementById('dtl-lokasi-masuk');
         if (data.lat_masuk && data.long_masuk) {
             latLongMasuk.textContent = `${data.lat_masuk}, ${data.long_masuk}`;
-            // ✅ PERBAIKAN: Menggunakan template literal yang benar dan format URL Google Maps yang tepat
-            linkMasuk.href = `https://www.google.com/maps/search/?api=1&query=${data.lat_masuk},${data.long_masuk}`;
+            // ✅ PERBAIKAN FORMAT URL GOOGLE MAPS
+            linkMasuk.href = `https://maps.google.com/?q=${data.lat_masuk},${data.long_masuk}`;
             linkMasuk.classList.remove('pointer-events-none', 'text-gray-400');
         } else {
             latLongMasuk.textContent = 'Lokasi tidak tercatat';
@@ -384,8 +412,8 @@
         const linkPulang = document.getElementById('dtl-lokasi-pulang');
         if (data.lat_pulang && data.long_pulang) {
             latLongPulang.textContent = `${data.lat_pulang}, ${data.long_pulang}`;
-            // ✅ PERBAIKAN: Menggunakan template literal yang benar dan format URL Google Maps yang tepat
-            linkPulang.href = `https://www.google.com/maps/search/?api=1&query=${data.lat_pulang},${data.long_pulang}`;
+            // ✅ PERBAIKAN FORMAT URL GOOGLE MAPS
+            linkPulang.href = `https://maps.google.com/?q=${data.lat_pulang},${data.long_pulang}`;
             linkPulang.classList.remove('pointer-events-none', 'text-gray-400');
         } else {
             latLongPulang.textContent = 'Lokasi tidak tercatat';
@@ -403,7 +431,7 @@
         document.body.classList.remove('modal-active');
     }
 
-    // Mencegah double submit form input manual
+    // Mencegah double submit
     document.getElementById('form-manual').addEventListener('submit', function() {
         const btn = this.querySelector('.btn-submit');
         if (btn) {

@@ -18,9 +18,6 @@ class Izin extends BaseController
         $this->absensiModel = new AbsensiModel();
     }
 
-    /**
-     * PRIVATE HELPER: Memastikan keamanan akses Row-Level Security
-     */
     private function checkAksesWaliKelas(int $targetKelasId): bool
     {
         if (session()->get('is_wali_kelas')) {
@@ -31,23 +28,38 @@ class Izin extends BaseController
 
     public function index()
     {
-        $this->izinModel
-            ->select('pengajuan_izin.*, siswa.nama_siswa, siswa.nis, kelas.nama_kelas')
-            ->join('siswa', 'siswa.id_siswa = pengajuan_izin.siswa_id')
-            ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
+        // 1. Tangkap Parameter Request
+        $searchFilter = $this->request->getGet('search');
 
-        if (session()->get('is_wali_kelas')) {
-            $this->izinModel->where('siswa.kelas_id', session()->get('kelas_id'));
-        }
+        // Logika Sort (Default: Terbaru & Pending di atas)
+        $sortParam = $this->request->getGet('sort') ?? 'created_at-desc';
+        $sortParts = explode('-', $sortParam);
+        $sortCol   = $sortParts[0] ?? 'created_at';
+        $sortDir   = $sortParts[1] ?? 'desc';
 
-        $daftarIzin = $this->izinModel
-            ->orderBy("FIELD(pengajuan_izin.status, 'Pending', 'Approved', 'Rejected')", '', false)
-            ->orderBy('pengajuan_izin.created_at', 'DESC')
-            ->findAll();
+        $page    = (int) ($this->request->getGet('page') ?? 1);
+        $perPage = 20;
+
+        // Proteksi Wali Kelas
+        $isWaliKelas = session()->get('is_wali_kelas');
+        $kelasFilter = $isWaliKelas ? (int) session()->get('kelas_id') : null;
+
+        // 2. Tarik Data dengan Pagination & Sort dari Model
+        $daftarIzin = $this->izinModel->getPaginatedIzin($kelasFilter, $searchFilter, $perPage, $sortCol, $sortDir);
+        $pager      = $this->izinModel->pager;
 
         $data = [
-            'title'      => 'Manajemen Pengajuan Izin',
-            'daftarIzin' => $daftarIzin
+            'title'        => 'Manajemen Pengajuan Izin',
+            'search_aktif' => $searchFilter,
+            'sort_col'     => $sortCol,
+            'sort_dir'     => $sortDir,
+            'daftarIzin'   => $daftarIzin,
+
+            // Variabel Pagination
+            'pager_links'  => $pager->links('default', 'tailwind_pagination'),
+            'total_data'   => $pager->getTotal('default'),
+            'page'         => $page,
+            'perPage'      => $perPage
         ];
 
         return view('web/izin/index', $data);
@@ -87,7 +99,7 @@ class Izin extends BaseController
 
             $insertData[] = [
                 'siswa_id'   => $izin['siswa_id'],
-                'kelas_id'   => $izin['kelas_id'], // INJEKSI HISTORICAL SNAPSHOT
+                'kelas_id'   => $izin['kelas_id'],
                 'tanggal'    => $tanggalString,
                 'status'     => $izin['jenis'],
                 'keterangan' => 'Disetujui via sistem: ' . $izin['alasan']
