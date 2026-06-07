@@ -12,7 +12,6 @@ class SiswaModel extends Model
     protected $returnType       = 'array';
     protected $protectFields    = true;
 
-    // Memastikan seluruh kolom yang bisa diupdate terdaftar di sini
     protected $allowedFields    = [
         'kelas_id',
         'nis',
@@ -22,8 +21,8 @@ class SiswaModel extends Model
         'device_id',
         'api_token',
         'fcm_token',
-        'lat_terakhir',   // <-- TAMBAHAN UNTUK LIVE TRACKING
-        'long_terakhir',  // <-- TAMBAHAN UNTUK LIVE TRACKING
+        'lat_terakhir',
+        'long_terakhir',
         'last_login',
         'is_blocked',
         'fraud_count'
@@ -46,5 +45,29 @@ class SiswaModel extends Model
         }
 
         return $this->findAll();
+    }
+
+    /**
+     * Menerapkan filter, pencarian, dan pagination secara native
+     */
+    public function getPaginatedSiswa(?string $kelasFilter, ?string $searchFilter, int $perPage)
+    {
+        $this->select('siswa.*, kelas.nama_kelas')
+            ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
+
+        if (!empty($kelasFilter)) {
+            $this->where('siswa.kelas_id', $kelasFilter);
+        }
+
+        if (!empty($searchFilter)) {
+            $this->groupStart()
+                ->like('siswa.nama_siswa', $searchFilter)
+                ->orLike('siswa.nis', $searchFilter)
+                ->groupEnd();
+        }
+
+        return $this->orderBy('kelas.nama_kelas', 'ASC')
+            ->orderBy('siswa.nama_siswa', 'ASC')
+            ->paginate($perPage, 'default');
     }
 }

@@ -3,17 +3,20 @@
 /**
  * @var array<int, array<string, mixed>> $list_kelas
  * @var string|null $kelas_aktif
+ * @var string|null $search_aktif
  * @var array<int, array<string, mixed>> $siswa
  * @var int $total_data
  * @var int $page
  * @var int $perPage
  * @var string $pager_links
+ * @var bool $is_wali_kelas
  */
 ?>
 <?= $this->extend('layout/admin') ?>
 
 <?= $this->section('content') ?>
 <style>
+    /* Pagination Styles */
     .pagination {
         display: flex;
         flex-wrap: wrap;
@@ -84,34 +87,37 @@
 </div>
 
 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
-
-    <div class="w-full md:w-auto md:flex-1 max-w-sm">
+    <form action="<?= base_url('admin/siswa') ?>" method="GET" class="w-full md:w-auto md:flex-1 max-w-sm">
         <div class="relative w-full">
             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                 </svg>
             </div>
-            <input type="text" id="live-search" placeholder="Cari NIS / Nama Siswa..." class="w-full border-gray-200 rounded-xl py-2.5 pl-9 pr-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+            <input type="text" name="search" value="<?= esc((string)($search_aktif ?? '')) ?>" placeholder="Cari NIS / Nama Siswa..." class="w-full border-gray-200 rounded-xl py-2.5 pl-9 pr-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+
+            <?php if (!empty($kelas_aktif)): ?>
+                <input type="hidden" name="kelas" value="<?= esc((string)$kelas_aktif) ?>">
+            <?php endif; ?>
         </div>
-    </div>
+    </form>
 
     <div class="flex w-full md:w-auto gap-2 items-center overflow-x-auto pb-1 md:pb-0">
-        <a href="<?= base_url('admin/siswa/export') ?>" class="flex items-center justify-center gap-1.5 bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700 shadow-md whitespace-nowrap active:scale-95 transition-all">
+        <a href="<?= base_url('admin/siswa/export' . (!empty($kelas_aktif) ? '?kelas=' . esc((string)$kelas_aktif) : '')) ?>" class="flex items-center justify-center gap-1.5 bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700 shadow-md whitespace-nowrap transition-all">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
             </svg>
             Ekspor
         </a>
 
-        <button onclick="openImportModal()" class="flex items-center justify-center gap-1.5 bg-indigo-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-indigo-700 shadow-md whitespace-nowrap active:scale-95 transition-all">
+        <button onclick="openImportModal()" class="flex items-center justify-center gap-1.5 bg-indigo-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-indigo-700 shadow-md whitespace-nowrap transition-all">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
             </svg>
             Impor
         </button>
 
-        <button onclick="toggleFormTambah()" class="flex items-center justify-center gap-1.5 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-md whitespace-nowrap active:scale-95 transition-all">
+        <button onclick="toggleFormTambah()" class="flex items-center justify-center gap-1.5 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-md whitespace-nowrap transition-all">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
             </svg>
@@ -130,9 +136,9 @@
         <div><label class="block text-xs font-bold text-gray-600 uppercase mb-2">Nama Lengkap</label><input type="text" name="nama_siswa" required class="w-full border-gray-200 rounded-xl p-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="Nama siswa"></div>
         <div>
             <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Pilih Kelas</label>
-            <?php if (session()->get('is_wali_kelas')): ?>
+            <?php if ($is_wali_kelas): ?>
                 <input type="text" value="<?= esc((string) session()->get('nama_kelas')) ?>" class="w-full border-gray-200 rounded-xl p-3 text-sm bg-gray-100 text-gray-500 cursor-not-allowed outline-none" readonly>
-                <input type="hidden" name="kelas_id" value="<?= session()->get('kelas_id') ?>">
+                <input type="hidden" name="kelas_id" value="<?= esc((string) session()->get('kelas_id')) ?>">
             <?php else: ?>
                 <select name="kelas_id" required class="w-full border-gray-200 rounded-xl p-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer">
                     <option value="" disabled selected>-- Pilih Kelas --</option>
@@ -162,7 +168,7 @@
             <tbody class="divide-y divide-gray-100">
                 <?php if (!empty($siswa)) : ?>
                     <?php foreach ($siswa as $s): ?>
-                        <tr class="hover:bg-gray-50/50 transition-colors group data-row" data-nama="<?= strtolower(esc((string) $s['nama_siswa'])) ?>" data-nis="<?= strtolower(esc((string) $s['nis'])) ?>">
+                        <tr class="hover:bg-gray-50/50 transition-colors group">
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs shadow-inner overflow-hidden border border-gray-200 shrink-0">
@@ -179,9 +185,13 @@
                                 </div>
                             </td>
                             <td class="px-6 py-4">
-                                <?php if (!empty($s['device_id'])): ?><div class="flex items-center gap-1.5 text-emerald-600 bg-emerald-50 px-2 py-1.5 rounded-lg text-[10px] font-bold w-fit border border-emerald-100">
+                                <?php if (!empty($s['device_id'])): ?>
+                                    <div class="flex items-center gap-1.5 text-emerald-600 bg-emerald-50 px-2 py-1.5 rounded-lg text-[10px] font-bold w-fit border border-emerald-100">
                                         <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>TERIKAT
-                                    </div><?php else: ?><div class="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1.5 rounded-lg w-fit border border-gray-200">BELUM TERIKAT</div><?php endif; ?>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1.5 rounded-lg w-fit border border-gray-200">BELUM TERIKAT</div>
+                                <?php endif; ?>
                             </td>
                             <td class="px-6 py-4 text-center">
                                 <div class="flex flex-col items-center">
@@ -197,9 +207,11 @@
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                                         </svg></a>
+
                                     <a href="<?= base_url('admin/tracking/siswa/' . (string) $s['id_siswa']) ?>" class="p-2 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 rounded-lg transition-colors" title="Live Tracking"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
                                         </svg></a>
+
                                     <button onclick='openEditModal(<?= htmlspecialchars(json_encode($s), ENT_QUOTES, "UTF-8") ?>)' class="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 rounded-lg transition-colors" title="Edit Data"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                         </svg></button>
@@ -207,40 +219,34 @@
                                     <?php if (!empty($s['device_id'])): ?>
                                         <form action="<?= base_url('admin/siswa/resetDevice/' . (string) $s['id_siswa']) ?>" method="POST" class="inline">
                                             <?= csrf_field() ?>
-                                            <button type="button" class="btn-confirm p-2 text-amber-600 bg-amber-50 hover:bg-amber-100 border border-amber-100 rounded-lg transition-colors" data-text="Akses HP akan direset. Yakin?" data-btn="Ya, Reset HP" title="Reset Device">
-                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <button type="button" class="btn-confirm p-2 text-amber-600 bg-amber-50 hover:bg-amber-100 border border-amber-100 rounded-lg transition-colors" data-text="Akses HP akan direset. Yakin?" data-btn="Ya, Reset HP" title="Reset Device"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-                                                </svg>
-                                            </button>
+                                                </svg></button>
                                         </form>
                                     <?php endif; ?>
 
                                     <?php if (!empty($s['is_blocked'])): ?>
                                         <form action="<?= base_url('admin/siswa/unblock/' . (string) $s['id_siswa']) ?>" method="POST" class="inline">
                                             <?= csrf_field() ?>
-                                            <button type="button" class="btn-confirm p-2 text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 rounded-lg transition-colors" data-text="Buka blokir akun siswa ini?" data-btn="Ya, Buka Blokir" title="Unblock">
-                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <button type="button" class="btn-confirm p-2 text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 rounded-lg transition-colors" data-text="Buka blokir akun siswa ini?" data-btn="Ya, Buka Blokir" title="Unblock"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                                                </svg>
-                                            </button>
+                                                </svg></button>
                                         </form>
                                     <?php endif; ?>
 
                                     <form action="<?= base_url('admin/siswa/delete/' . (string) $s['id_siswa']) ?>" method="POST" class="inline">
                                         <?= csrf_field() ?>
-                                        <button type="button" class="btn-confirm p-2 text-slate-600 bg-slate-50 hover:bg-red-100 hover:text-red-600 border border-slate-200 rounded-lg transition-colors" data-text="Data siswa beserta foto akan dihapus permanen. Lanjutkan?" data-btn="Ya, Hapus Permanen" title="Hapus Siswa">
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <button type="button" class="btn-confirm p-2 text-slate-600 bg-slate-50 hover:bg-red-100 hover:text-red-600 border border-slate-200 rounded-lg transition-colors" data-text="Data siswa beserta foto akan dihapus permanen. Lanjutkan?" data-btn="Ya, Hapus Permanen" title="Hapus Siswa"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                            </svg>
-                                        </button>
+                                            </svg></button>
                                     </form>
                                 </div>
                             </td>
                         </tr>
                     <?php endforeach; ?>
                 <?php else: ?>
-                    <tr id="empty-row">
-                        <td colspan="4" class="py-8 text-center text-gray-500">Belum ada data siswa.</td>
+                    <tr>
+                        <td colspan="4" class="py-8 text-center text-gray-500">Data siswa tidak ditemukan.</td>
                     </tr>
                 <?php endif; ?>
             </tbody>
@@ -249,8 +255,10 @@
 
     <div class="p-5 bg-gray-50/30 flex flex-col md:flex-row justify-between items-center gap-4">
         <div class="text-sm text-gray-500 font-medium">
-            <?php $start = ($page - 1) * $perPage + 1;
-            $end = min($page * $perPage, $total_data); ?>
+            <?php
+            $start = $total_data > 0 ? ($page - 1) * $perPage + 1 : 0;
+            $end = min($page * $perPage, $total_data);
+            ?>
             Menampilkan <span class="font-bold text-gray-800"><?= (int) $start ?></span> - <span class="font-bold text-gray-800"><?= (int) $end ?></span> dari <span class="font-bold text-gray-800"><?= esc((string) ($total_data ?? 0)) ?></span> siswa
         </div>
         <div class="pagination-wrapper"><?= $pager_links ?? '' ?></div>
@@ -272,9 +280,9 @@
             <div><label class="block text-xs font-bold text-gray-600 uppercase mb-2">Nama Lengkap</label><input type="text" id="edit-nama" name="nama_siswa" required class="w-full border-gray-200 rounded-xl p-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all"></div>
             <div>
                 <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Kelas</label>
-                <?php if (session()->get('is_wali_kelas')): ?>
+                <?php if ($is_wali_kelas): ?>
                     <input type="text" value="<?= esc((string) session()->get('nama_kelas')) ?>" class="w-full border-gray-200 rounded-xl p-3 text-sm bg-gray-100 text-gray-500 cursor-not-allowed outline-none" readonly>
-                    <input type="hidden" id="edit-kelas" name="kelas_id" value="<?= session()->get('kelas_id') ?>">
+                    <input type="hidden" id="edit-kelas" name="kelas_id" value="<?= esc((string) session()->get('kelas_id')) ?>">
                 <?php else: ?>
                     <select id="edit-kelas" name="kelas_id" required class="w-full border-gray-200 rounded-xl p-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer">
                         <?php if (!empty($list_kelas)) : ?><?php foreach ($list_kelas as $k): ?><option value="<?= (string) $k['id_kelas'] ?>"><?= esc((string) $k['nama_kelas']) ?></option><?php endforeach; ?><?php endif; ?>
@@ -300,7 +308,8 @@
             <?= csrf_field() ?>
             <div class="p-6 border-2 border-dashed border-slate-300 rounded-2xl text-center bg-slate-50 hover:bg-slate-100 cursor-pointer">
                 <input type="file" name="file_excel" id="file_excel" class="hidden" required accept=".xlsx">
-                <label for="file_excel" class="cursor-pointer block w-full h-full"><svg class="w-12 h-12 text-slate-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <label for="file_excel" class="cursor-pointer block w-full h-full">
+                    <svg class="w-12 h-12 text-slate-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
                     </svg>
                     <p class="text-sm font-medium text-slate-600" id="file-name-preview">Klik pilih file Excel (.xlsx)</p>
@@ -309,7 +318,7 @@
 
             <div class="bg-amber-50 border border-amber-100 p-4 rounded-xl">
                 <p class="text-[11px] text-amber-700 leading-relaxed font-medium text-center">Gunakan format template agar tidak error.</p>
-                <?php if (session()->get('is_wali_kelas')): ?>
+                <?php if ($is_wali_kelas): ?>
                     <p class="text-[11px] text-red-600 leading-relaxed font-bold text-center mt-1">Anda hanya dapat mengimpor data khusus untuk Kelas <?= esc((string) session()->get('nama_kelas')) ?>.</p>
                 <?php endif; ?>
                 <a href="<?= base_url('admin/siswa/downloadTemplate') ?>" class="block text-center text-amber-900 font-bold text-xs mt-2 underline">Unduh Template</a>
@@ -323,17 +332,14 @@
 
 <?= $this->section('scripts') ?>
 <script>
-    // Preview nama file excel
     document.getElementById('file_excel').addEventListener('change', function(e) {
         document.getElementById('file-name-preview').textContent = e.target.files[0] ? e.target.files[0].name : "Klik pilih file Excel (.xlsx)";
     });
 
-    // Toggel form tambah
     function toggleFormTambah() {
         document.getElementById('form-tambah').classList.toggle('hidden');
     }
 
-    // Modal Edit
     function openEditModal(data) {
         document.getElementById('edit-nis').value = data.nis;
         document.getElementById('edit-nama').value = data.nama_siswa;
@@ -349,7 +355,6 @@
         document.body.classList.remove('modal-active');
     }
 
-    // Modal Import
     function openImportModal() {
         document.getElementById('modal-import').classList.replace('hidden', 'flex');
         document.body.classList.add('modal-active');
@@ -359,10 +364,9 @@
         document.getElementById('modal-import').classList.replace('flex', 'hidden');
         document.body.classList.remove('modal-active');
         document.getElementById('file_excel').value = '';
-        document.getElementById('file-name-preview').textContent = "Belum ada file dipilih";
+        document.getElementById('file-name-preview').textContent = "Klik pilih file Excel (.xlsx)";
     }
 
-    // Efek loading tombol submit menggunakan Vanilla JS
     document.querySelectorAll('#formSiswa, #form-edit-action, #formImport').forEach(function(form) {
         form.addEventListener('submit', function() {
             const btn = this.querySelector('.btn-submit');
@@ -371,41 +375,6 @@
                 btn.setAttribute('disabled', 'true');
             }
         });
-    });
-
-    // Live Search Table Siswa (Filter instan tanpa reload)
-    document.getElementById('live-search').addEventListener('input', function(e) {
-        const keyword = e.target.value.toLowerCase();
-        const rows = document.querySelectorAll('#siswa-table tbody tr.data-row');
-        let visibleCount = 0;
-
-        rows.forEach(function(row) {
-            const nama = row.getAttribute('data-nama');
-            const nis = row.getAttribute('data-nis');
-
-            if (nama.includes(keyword) || nis.includes(keyword)) {
-                row.style.display = '';
-                visibleCount++;
-            } else {
-                row.style.display = 'none';
-            }
-        });
-
-        // Tampilkan pesan jika tidak ada hasil pencarian
-        let emptyRow = document.getElementById('search-empty');
-        if (visibleCount === 0 && rows.length > 0) {
-            if (!emptyRow) {
-                const tbody = document.querySelector('#siswa-table tbody');
-                emptyRow = document.createElement('tr');
-                emptyRow.id = 'search-empty';
-                emptyRow.innerHTML = '<td colspan="4" class="py-8 text-center text-gray-500">Pencarian tidak ditemukan.</td>';
-                tbody.appendChild(emptyRow);
-            } else {
-                emptyRow.style.display = '';
-            }
-        } else if (emptyRow) {
-            emptyRow.style.display = 'none';
-        }
     });
 </script>
 <?= $this->endSection() ?>

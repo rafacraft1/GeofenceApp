@@ -29,59 +29,69 @@ class Siswa extends Controller
 
     /**
      * PRIVATE HELPER: Memastikan keamanan akses Row-Level Security
-     * Jika role adalah wali kelas, pastikan ID kelas target cocok dengan session
      */
     private function checkAksesWaliKelas(int $targetKelasId): bool
     {
         if (session()->get('is_wali_kelas')) {
             return $targetKelasId === session()->get('kelas_id');
         }
-        return true; // Admin Super bebas akses
+        return true;
+    }
+
+    private function handleUploadFoto(?\CodeIgniter\HTTP\Files\UploadedFile $foto, ?string $fotoLama = null): array
+    {
+        if ($foto && $foto->isValid() && !$foto->hasMoved()) {
+            $aturanFoto = [
+                'foto' => [
+                    'label'  => 'Foto Profil',
+                    'rules'  => 'max_size[foto,2048]|is_image[foto]|mime_in[foto,image/jpg,image/jpeg,image/png]'
+                ]
+            ];
+
+            if (!$this->validate($aturanFoto)) {
+                return ['status' => false, 'error' => $this->validator->getError('foto')];
+            }
+
+            $namaFoto = $foto->getRandomName();
+            $foto->move(FCPATH . 'uploads/siswa', $namaFoto);
+
+            if (!empty($fotoLama) && file_exists(FCPATH . 'uploads/siswa/' . $fotoLama)) {
+                unlink(FCPATH . 'uploads/siswa/' . $fotoLama);
+            }
+
+            return ['status' => true, 'data' => $namaFoto];
+        }
+
+        return ['status' => true, 'data' => $fotoLama];
     }
 
     public function index()
     {
-        $isWaliKelas = session()->get('is_wali_kelas');
+        $isWaliKelas    = session()->get('is_wali_kelas');
         $kelasSessionId = session()->get('kelas_id');
 
-        // Jika Wali Kelas, paksa filter kelas dari session. Jika bukan, ambil dari request (Dropdown)
-        $kelasFilter = $isWaliKelas ? $kelasSessionId : $this->request->getGet('kelas');
+        $kelasFilter  = $isWaliKelas ? $kelasSessionId : $this->request->getGet('kelas');
+        $searchFilter = $this->request->getGet('search');
+        $page         = (int) ($this->request->getGet('page') ?? 1);
+        $perPage      = 10;
 
-        // Dropdown Kelas: Wali kelas hanya melihat kelasnya sendiri, Admin melihat semua
-        if ($isWaliKelas) {
-            $listKelas = $this->kelasModel->where('id_kelas', $kelasSessionId)->findAll();
-        } else {
-            $listKelas = $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll();
-        }
+        $listKelas = $isWaliKelas
+            ? $this->kelasModel->where('id_kelas', $kelasSessionId)->findAll()
+            : $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll();
 
-        $pager   = \Config\Services::pager();
-        $page    = (int) ($this->request->getGet('page') ?? 1);
-        $perPage = 10;
-
-        $this->siswaModel->select('siswa.*, kelas.nama_kelas')
-            ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
-
-        if (!empty($kelasFilter)) {
-            $this->siswaModel->where('siswa.kelas_id', $kelasFilter);
-        }
-
-        $totalData = $this->siswaModel->countAllResults(false);
-        $offset    = ($page - 1) * $perPage;
-
-        $siswa = $this->siswaModel->orderBy('kelas.nama_kelas', 'ASC')
-            ->orderBy('siswa.nama_siswa', 'ASC')
-            ->findAll($perPage, $offset);
+        $siswa = $this->siswaModel->getPaginatedSiswa($kelasFilter, $searchFilter, $perPage);
 
         $data = [
-            'title'       => 'Daftar Siswa',
-            'siswa'       => $siswa,
-            'list_kelas'  => $listKelas,
-            'kelas_aktif' => $kelasFilter,
-            'pager_links' => $pager->makeLinks($page, $perPage, $totalData, 'default_full'),
-            'page'        => $page,
-            'perPage'     => $perPage,
-            'total_data'  => $totalData,
-            'is_wali_kelas' => $isWaliKelas // Lempar ke View agar UI bisa menyesuaikan (misal: mematikan filter)
+            'title'         => 'Daftar Siswa',
+            'siswa'         => $siswa,
+            'list_kelas'    => $listKelas,
+            'kelas_aktif'   => $kelasFilter,
+            'search_aktif'  => $searchFilter,
+            'pager_links'   => $this->siswaModel->pager->links('default', 'default_full'),
+            'total_data'    => $this->siswaModel->pager->getTotal('default'),
+            'page'          => $page,
+            'perPage'       => $perPage,
+            'is_wali_kelas' => $isWaliKelas
         ];
 
         return view('web/siswa', $data);
@@ -91,33 +101,25 @@ class Siswa extends Controller
     {
         $kelasIdPost = (int) $this->request->getPost('kelas_id');
 
-        // Proteksi Otorisasi
         if (!$this->checkAksesWaliKelas($kelasIdPost)) {
             return redirect()->back()->with('error', 'Akses Ditolak: Anda tidak dapat menambahkan siswa ke kelas lain.');
         }
 
-        $foto = $this->request->getFile('foto');
-        $namaFoto = null;
+        $aturanValidasi = [
+            'nis'        => [
+                'rules'  => 'required|is_unique[siswa.nis]',
+                'errors' => ['is_unique' => 'NIS sudah terdaftar. Gunakan NIS lain.']
+            ],
+            'nama_siswa' => 'required'
+        ];
 
-        if ($foto && $foto->isValid() && !$foto->hasMoved()) {
-            $aturanValidasi = [
-                'foto' => [
-                    'label'  => 'Foto Profil',
-                    'rules'  => 'max_size[foto,2048]|is_image[foto]|mime_in[foto,image/jpg,image/jpeg,image/png]',
-                    'errors' => [
-                        'max_size' => 'Ukuran foto maksimal 2MB.',
-                        'is_image' => 'File harus berupa gambar.',
-                        'mime_in'  => 'Format foto harus JPG/JPEG/PNG.'
-                    ]
-                ]
-            ];
+        if (!$this->validate($aturanValidasi)) {
+            return redirect()->back()->withInput()->with('error', $this->validator->getError('nis') ?: 'Mohon lengkapi semua data wajib.');
+        }
 
-            if (!$this->validate($aturanValidasi)) {
-                return redirect()->back()->withInput()->with('error', $this->validator->getError('foto'));
-            }
-
-            $namaFoto = $foto->getRandomName();
-            $foto->move(FCPATH . 'uploads/siswa', $namaFoto);
+        $uploadFoto = $this->handleUploadFoto($this->request->getFile('foto'));
+        if (!$uploadFoto['status']) {
+            return redirect()->back()->withInput()->with('error', $uploadFoto['error']);
         }
 
         $nis = $this->request->getPost('nis');
@@ -127,7 +129,7 @@ class Siswa extends Controller
             'nama_siswa'   => $this->request->getPost('nama_siswa'),
             'kelas_id'     => $kelasIdPost,
             'password'     => password_hash($nis, PASSWORD_BCRYPT),
-            'foto_profil'  => $namaFoto
+            'foto_profil'  => $uploadFoto['data']
         ]);
 
         return redirect()->to('/admin/siswa')->with('success', 'Data siswa berhasil ditambahkan.');
@@ -146,34 +148,28 @@ class Siswa extends Controller
             return redirect()->back()->with('error', 'Akses Ditolak: Anda tidak dapat memindahkan siswa ke kelas lain.');
         }
 
-        $foto = $this->request->getFile('foto');
-        $namaFoto = $siswaLama['foto_profil'];
+        $aturanValidasi = [
+            'nis'        => [
+                'rules'  => "required|is_unique[siswa.nis,id_siswa,{$id}]",
+                'errors' => ['is_unique' => 'NIS tersebut sudah dipakai oleh siswa lain.']
+            ],
+            'nama_siswa' => 'required'
+        ];
 
-        if ($foto && $foto->isValid() && !$foto->hasMoved()) {
-            $aturanValidasi = [
-                'foto' => [
-                    'label'  => 'Foto Profil',
-                    'rules'  => 'max_size[foto,2048]|is_image[foto]|mime_in[foto,image/jpg,image/jpeg,image/png]'
-                ]
-            ];
+        if (!$this->validate($aturanValidasi)) {
+            return redirect()->back()->withInput()->with('error', $this->validator->getError('nis') ?: 'Cek kembali isian Anda.');
+        }
 
-            if (!$this->validate($aturanValidasi)) {
-                return redirect()->back()->withInput()->with('error', 'Format atau ukuran foto tidak valid (Maks 2MB, JPG/JPEG/PNG).');
-            }
-
-            $namaFoto = $foto->getRandomName();
-            $foto->move(FCPATH . 'uploads/siswa', $namaFoto);
-
-            if (!empty($siswaLama['foto_profil']) && file_exists(FCPATH . 'uploads/siswa/' . $siswaLama['foto_profil'])) {
-                unlink(FCPATH . 'uploads/siswa/' . $siswaLama['foto_profil']);
-            }
+        $uploadFoto = $this->handleUploadFoto($this->request->getFile('foto'), $siswaLama['foto_profil']);
+        if (!$uploadFoto['status']) {
+            return redirect()->back()->withInput()->with('error', $uploadFoto['error']);
         }
 
         $this->siswaModel->update($id, [
             'nis'          => $this->request->getPost('nis'),
             'nama_siswa'   => $this->request->getPost('nama_siswa'),
             'kelas_id'     => $kelasIdPost,
-            'foto_profil'  => $namaFoto
+            'foto_profil'  => $uploadFoto['data']
         ]);
 
         return redirect()->to('/admin/siswa')->with('success', 'Data siswa berhasil diperbarui.');
@@ -187,13 +183,19 @@ class Siswa extends Controller
             return redirect()->to('/admin/siswa')->with('error', 'Data siswa tidak ditemukan atau Akses Ditolak.');
         }
 
+        $this->siswaModel->db->transStart();
+        $this->siswaModel->delete($id);
+        $this->siswaModel->db->transComplete();
+
+        if ($this->siswaModel->db->transStatus() === false) {
+            return redirect()->to('/admin/siswa')->with('error', 'Gagal menghapus data siswa dari database.');
+        }
+
         if (!empty($siswa['foto_profil']) && file_exists(FCPATH . 'uploads/siswa/' . $siswa['foto_profil'])) {
             unlink(FCPATH . 'uploads/siswa/' . $siswa['foto_profil']);
         }
 
-        $this->siswaModel->delete($id);
-
-        return redirect()->to('/admin/siswa')->with('success', 'Data siswa beserta foto berhasil dihapus.');
+        return redirect()->to('/admin/siswa')->with('success', 'Data siswa beserta foto berhasil dihapus permanen.');
     }
 
     public function resetDevice(string $id)
@@ -225,7 +227,6 @@ class Siswa extends Controller
     {
         $spreadsheet = new Spreadsheet();
 
-        // Wali Kelas hanya mendapat template khusus untuk kelasnya sendiri
         if (session()->get('is_wali_kelas')) {
             $listKelas = $this->kelasModel->where('id_kelas', session()->get('kelas_id'))->findAll();
         } else {
@@ -288,7 +289,6 @@ class Siswa extends Controller
 
     public function export()
     {
-        // Paksa filter dari session jika wali kelas
         if (session()->get('is_wali_kelas')) {
             $kelasId = session()->get('kelas_id');
         } else {
@@ -351,10 +351,12 @@ class Siswa extends Controller
             $kelasMap[strtolower(trim((string)$k['nama_kelas']))] = $k['id_kelas'];
         }
 
+        $this->siswaModel->db->transStart();
+
         foreach ($dataSiswa as $index => $row) {
             if ($index < 3) continue;
 
-            $nis       = isset($row[0]) ? trim((string)$row[0]) : '';
+            $nis       = isset($row[0]) ? preg_replace('/\s+/', '', (string)$row[0]) : '';
             $nama      = isset($row[1]) ? trim((string)$row[1]) : '';
             $namaKelas = isset($row[2]) ? strtolower(trim((string)$row[2])) : '';
 
@@ -366,8 +368,6 @@ class Siswa extends Controller
             }
             $kelasId = (int) $kelasMap[$namaKelas];
 
-            // PENTING: Proteksi Import
-            // Abaikan baris excel jika Wali Kelas mencoba import untuk kelas lain
             if (!$this->checkAksesWaliKelas($kelasId)) {
                 $skipped++;
                 continue;
@@ -388,6 +388,12 @@ class Siswa extends Controller
             $inserted++;
         }
 
+        $this->siswaModel->db->transComplete();
+
+        if ($this->siswaModel->db->transStatus() === false) {
+            return redirect()->back()->with('error', 'Terjadi kesalahan sistem saat proses import. Data dibatalkan.');
+        }
+
         return redirect()->to('/admin/siswa')->with('success', "Berhasil import $inserted data siswa. $skipped baris dilewati (NIS duplikat, beda kelas, atau format tidak valid).");
     }
 
@@ -395,7 +401,7 @@ class Siswa extends Controller
     {
         $siswa = $this->siswaModel->getSiswaWithKelas($idSiswa);
 
-        if (!$siswa || !$this->checkAksesWaliKelas((int)$siswa['kelas_id'])) {
+        if (!$siswa || (!$this->checkAksesWaliKelas((int)$siswa['kelas_id']))) {
             return redirect()->to('/admin/siswa')->with('error', 'Data siswa tidak ditemukan atau Akses Ditolak.');
         }
 

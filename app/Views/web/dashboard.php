@@ -1,12 +1,13 @@
 <?php
 
 /**
- * Petunjuk untuk Intelephense agar tidak error P1008 & P1006
  * @var string $title
+ * @var bool $is_wali_kelas
  * @var int $total_siswa
  * @var int $hadir_hari_ini
  * @var int $alpa_hari_ini
  * @var int $fraud_hari_ini
+ * @var int $persen_hadir
  * @var string $chart_labels
  * @var string $chart_hadir
  * @var string $chart_terlambat
@@ -37,16 +38,10 @@
         <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Siswa Terdaftar</p>
         <p class="text-2xl font-black text-gray-800"><?= number_format($total_siswa) ?></p>
     </div>
-
-    <?php
-    // Logic internal view untuk persentase
-    $persenHadir = ($total_siswa > 0) ? round(($hadir_hari_ini / $total_siswa) * 100) : 0;
-    ?>
-
     <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
         <p class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Tingkat Kehadiran</p>
         <div class="flex items-end gap-2">
-            <p class="text-2xl font-black text-gray-800"><?= (int) $persenHadir ?>%</p>
+            <p class="text-2xl font-black text-gray-800"><?= (int) $persen_hadir ?>%</p>
             <p class="text-[10px] text-gray-400 mb-1">(<?= (int) $hadir_hari_ini ?> Siswa)</p>
         </div>
     </div>
@@ -83,27 +78,30 @@
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 h-fit">
         <h3 class="text-xs font-bold text-gray-700 mb-6 uppercase tracking-wider">
-            <?= session()->get('is_wali_kelas') ? 'Performa Kelas Anda' : 'Performa Kelas Terbaik' ?>
+            <?= $is_wali_kelas ? 'Performa Kelas Anda' : 'Performa Kelas Terbaik' ?>
         </h3>
         <div class="space-y-5">
             <?php foreach ($top_classes as $index => $tc): ?>
                 <div class="flex items-center justify-between group">
                     <div class="flex items-center gap-3">
                         <span class="w-6 h-6 flex items-center justify-center rounded-lg bg-blue-50 text-blue-600 text-[10px] font-black"><?= $index + 1 ?></span>
-                        <span class="text-sm font-bold text-gray-700 group-hover:text-blue-600 transition-colors"><?= esc((string) $tc['nama_kelas']) ?></span>
+                        <span class="text-sm font-bold text-gray-700 group-hover:text-blue-600 transition-colors"><?= esc((string) ($tc['nama_kelas'] ?? '')) ?></span>
                     </div>
                     <div class="text-right">
-                        <span class="text-xs font-black text-emerald-600"><?= (int) $tc['total_hadir'] ?></span>
+                        <span class="text-xs font-black text-emerald-600"><?= (int) ($tc['total_hadir'] ?? 0) ?></span>
                         <p class="text-[8px] text-gray-400 uppercase font-bold">Hadir</p>
                     </div>
                 </div>
             <?php endforeach; ?>
+            <?php if (empty($top_classes)): ?>
+                <p class="text-xs text-center text-gray-400 italic">Belum ada data performa kelas.</p>
+            <?php endif; ?>
         </div>
     </div>
 
     <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <h3 class="text-xs font-bold text-gray-700 mb-4 uppercase tracking-wider">Visualisasi Pelanggaran Lokasi</h3>
-        <div id="mapFraud" class="h-64 rounded-xl border border-gray-100 shadow-sm mb-6 z-10"></div>
+        <div id="mapFraud" class="h-64 rounded-xl border border-gray-100 shadow-sm mb-6 z-0 relative"></div>
 
         <div class="overflow-x-auto">
             <table class="w-full text-left text-sm">
@@ -120,19 +118,20 @@
                         <tr>
                             <td colspan="4" class="py-10 text-center text-gray-400 italic text-xs">Aman terkendali. Tidak ada anomali terdeteksi.</td>
                         </tr>
+                    <?php else: ?>
+                        <?php foreach ($list_manipulasi as $m): ?>
+                            <tr class="hover:bg-red-50/30 transition-colors">
+                                <td class="py-3 font-bold text-gray-800"><?= esc((string) ($m['nama_siswa'] ?? '')) ?></td>
+                                <td class="py-3 text-gray-500 text-xs font-medium"><?= esc((string) ($m['kelas'] ?? '-')) ?></td>
+                                <td class="py-3 text-center">
+                                    <span class="bg-red-100 text-red-600 text-[9px] font-black px-2 py-0.5 rounded shadow-sm border border-red-200">
+                                        <?= !empty($m['is_fake_gps']) ? '🚨 FAKE GPS' : '⚠️ MANIPULASI' ?>
+                                    </span>
+                                </td>
+                                <td class="py-3 text-right text-gray-400 font-mono text-xs"><?= date('H:i', strtotime((string)($m['jam_masuk'] ?? '00:00:00'))) ?></td>
+                            </tr>
+                        <?php endforeach; ?>
                     <?php endif; ?>
-                    <?php foreach ($list_manipulasi as $m): ?>
-                        <tr class="hover:bg-red-50/30 transition-colors">
-                            <td class="py-3 font-bold text-gray-800"><?= esc((string) $m['nama_siswa']) ?></td>
-                            <td class="py-3 text-gray-500 text-xs font-medium"><?= esc((string) $m['kelas']) ?></td>
-                            <td class="py-3 text-center">
-                                <span class="bg-red-100 text-red-600 text-[9px] font-black px-2 py-0.5 rounded shadow-sm border border-red-200">
-                                    <?= $m['is_fake_gps'] ? '🚨 FAKE GPS' : '⚠️ MANIPULASI' ?>
-                                </span>
-                            </td>
-                            <td class="py-3 text-right text-gray-400 font-mono text-xs"><?= date('H:i', strtotime((string)$m['jam_masuk'])) ?></td>
-                        </tr>
-                    <?php endforeach; ?>
                 </tbody>
             </table>
         </div>
@@ -157,7 +156,8 @@
 
         listManipulasi.forEach(m => {
             if (m.lat_masuk && m.long_masuk) {
-                const markerColor = m.is_fake_gps == 1 ? '#EF4444' : '#F59E0B';
+                const isFake = m.is_fake_gps == 1;
+                const markerColor = isFake ? '#EF4444' : '#F59E0B';
                 const marker = window.L.circleMarker([m.lat_masuk, m.long_masuk], {
                     radius: 8,
                     fillColor: markerColor,
@@ -167,12 +167,16 @@
                     fillOpacity: 0.9
                 }).addTo(map);
 
+                // Keamanan XSS untuk innerHTML peta
+                const mapSiswa = m.nama_siswa ? m.nama_siswa.replace(/</g, "&lt;").replace(/>/g, "&gt;") : '';
+                const mapKelas = m.kelas ? m.kelas.replace(/</g, "&lt;").replace(/>/g, "&gt;") : '';
+
                 marker.bindPopup(`
                 <div class="text-[10px]">
-                    <p class="font-black text-gray-800">${m.nama_siswa}</p>
-                    <p class="text-gray-500 mb-1">${m.kelas}</p>
+                    <p class="font-black text-gray-800">${mapSiswa}</p>
+                    <p class="text-gray-500 mb-1">${mapKelas}</p>
                     <span class="bg-red-50 text-red-600 font-bold px-1 rounded border border-red-100">
-                        ${m.is_fake_gps == 1 ? 'Fake GPS' : 'Luar Zona'}
+                        ${isFake ? 'Fake GPS' : 'Luar Zona'}
                     </span>
                 </div>
             `);
@@ -186,7 +190,7 @@
             });
         }
 
-        // 2. Bar Chart Trend (Dispensasi sudah digabung ke Hadir via Controller)
+        // 2. Bar Chart Trend
         new window.Chart(document.getElementById('attendanceChart'), {
             type: 'bar',
             data: {
@@ -225,14 +229,13 @@
             }
         });
 
-        // 3. Doughnut Chart Distribusi (Dispensasi Dipisah secara Visual)
+        // 3. Doughnut Chart Distribusi
         new window.Chart(document.getElementById('distributionChart'), {
             type: 'doughnut',
             data: {
                 labels: ['Hadir', 'Dispensasi', 'Terlambat', 'Sakit', 'Izin', 'Alpa'],
                 datasets: [{
                     data: <?= $chart_distribution ?>,
-                    // Warna diselaraskan: Hijau, Teal, Kuning, Biru, Indigo, Merah
                     backgroundColor: ['#10B981', '#14B8A6', '#FBBF24', '#60A5FA', '#818CF8', '#EF4444'],
                     borderWidth: 0,
                     cutout: '75%'
