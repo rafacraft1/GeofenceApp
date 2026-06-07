@@ -4,6 +4,9 @@
  * @var array<int, array<string, mixed>> $list_kelas
  * @var string|null $kelas_aktif
  * @var string|null $search_aktif
+ * @var string|null $sort_aktif
+ * @var string $sort_col
+ * @var string $sort_dir
  * @var array<int, array<string, mixed>> $siswa
  * @var int $total_data
  * @var int $page
@@ -11,71 +14,42 @@
  * @var string $pager_links
  * @var bool $is_wali_kelas
  */
+
+$buildSortLink = function ($column) use ($search_aktif, $kelas_aktif, $sort_col, $sort_dir) {
+    $newDir = ($sort_col === $column && $sort_dir === 'asc') ? 'desc' : 'asc';
+    $url = base_url('admin/siswa') . "?sort={$column}-{$newDir}";
+    if ($search_aktif) $url .= "&search=" . urlencode($search_aktif);
+    if ($kelas_aktif) $url .= "&kelas=" . urlencode($kelas_aktif);
+    return $url;
+};
+
+// Heroicons: chevron-up-down, chevron-up, chevron-down
+$getSortIcon = function ($column) use ($sort_col, $sort_dir) {
+    if ($sort_col !== $column) {
+        return '<svg class="w-3.5 h-3.5 text-gray-300 opacity-50 ml-1" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" /></svg>';
+    }
+    if ($sort_dir === 'asc') {
+        return '<svg class="w-3.5 h-3.5 text-blue-600 ml-1" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg>';
+    }
+    return '<svg class="w-3.5 h-3.5 text-blue-600 ml-1" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>';
+};
 ?>
 <?= $this->extend('layout/admin') ?>
 
 <?= $this->section('content') ?>
+
 <style>
-    /* Pagination Styles */
-    .pagination {
-        display: flex;
-        flex-wrap: wrap;
-        list-style: none;
-        padding: 0;
-        margin: 0;
-        gap: 0.35rem;
-    }
-
-    .pagination li a,
-    .pagination li.active span,
-    .pagination li.disabled span {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        height: 38px;
-        min-width: 38px;
-        padding: 0 0.85rem;
-        font-size: 0.875rem;
-        font-weight: 600;
-        border-radius: 0.75rem;
-        border: 1px solid #e5e7eb;
-        background-color: #fff;
-        color: #4b5563;
-        text-decoration: none;
-        transition: all 0.2s ease-in-out;
-    }
-
-    .pagination li a span {
-        display: inline;
-        padding: 0;
-        border: none;
-        background: transparent;
-        color: inherit;
-    }
-
-    .pagination li a:hover {
-        background-color: #f8fafc;
-        color: #1e293b;
-        border-color: #cbd5e1;
-        transform: translateY(-1px);
-    }
-
-    .pagination li.active span {
-        background-color: #2563eb;
-        color: #ffffff;
-        border-color: #2563eb;
-        box-shadow: 0 4px 10px -2px rgba(37, 99, 235, 0.3);
-    }
-
-    .pagination li.disabled span {
-        color: #94a3b8;
-        background-color: #f1f5f9;
-        cursor: not-allowed;
-        border-color: #e2e8f0;
-    }
-
     .modal-active {
         overflow: hidden;
+    }
+
+    .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+    }
+
+    .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
     }
 </style>
 
@@ -87,41 +61,35 @@
 </div>
 
 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
-    <form action="<?= base_url('admin/siswa') ?>" method="GET" class="w-full md:w-auto md:flex-1 max-w-sm">
+    <form action="<?= base_url('admin/siswa') ?>" method="GET" class="w-full md:flex-1 max-w-2xl">
         <div class="relative w-full">
             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
                 </svg>
             </div>
-            <input type="text" name="search" value="<?= esc((string)($search_aktif ?? '')) ?>" placeholder="Cari NIS / Nama Siswa..." class="w-full border-gray-200 rounded-xl py-2.5 pl-9 pr-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all">
-
-            <?php if (!empty($kelas_aktif)): ?>
-                <input type="hidden" name="kelas" value="<?= esc((string)$kelas_aktif) ?>">
-            <?php endif; ?>
+            <input type="text" name="search" value="<?= esc((string)($search_aktif ?? '')) ?>" placeholder="Cari NIS / Nama Siswa..." class="w-full border-gray-200 rounded-xl py-2.5 pl-10 pr-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all">
         </div>
+        <?php if (!empty($kelas_aktif)): ?>
+            <input type="hidden" name="kelas" value="<?= esc((string)$kelas_aktif) ?>">
+        <?php endif; ?>
     </form>
 
-    <div class="flex w-full md:w-auto gap-2 items-center overflow-x-auto pb-1 md:pb-0">
+    <div class="flex w-full md:w-auto gap-2 items-center overflow-x-auto pb-1 md:pb-0 scrollbar-hide">
         <a href="<?= base_url('admin/siswa/export' . (!empty($kelas_aktif) ? '?kelas=' . esc((string)$kelas_aktif) : '')) ?>" class="flex items-center justify-center gap-1.5 bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700 shadow-md whitespace-nowrap transition-all">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-            </svg>
-            Ekspor
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+            </svg> Ekspor
         </a>
-
         <button onclick="openImportModal()" class="flex items-center justify-center gap-1.5 bg-indigo-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-indigo-700 shadow-md whitespace-nowrap transition-all">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-            </svg>
-            Impor
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+            </svg> Impor
         </button>
-
         <button onclick="toggleFormTambah()" class="flex items-center justify-center gap-1.5 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-md whitespace-nowrap transition-all">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-            </svg>
-            Tambah
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg> Tambah
         </button>
     </div>
 </div>
@@ -159,9 +127,29 @@
         <table class="w-full text-left" id="siswa-table">
             <thead>
                 <tr class="bg-gray-50/50 text-gray-400 text-[11px] font-bold uppercase tracking-wider border-y border-gray-100">
-                    <th class="px-6 py-4">Informasi Siswa</th>
-                    <th class="px-6 py-4">Status HP</th>
-                    <th class="px-6 py-4 text-center">Keamanan</th>
+                    <th class="px-6 py-4">
+                        <div class="flex items-center gap-3">
+                            <a href="<?= $buildSortLink('nama_siswa') ?>" class="flex items-center group cursor-pointer transition-colors hover:text-blue-600" title="Urutkan berdasarkan Nama">
+                                Siswa <?= $getSortIcon('nama_siswa') ?>
+                            </a>
+                            <span class="text-gray-200">|</span>
+                            <a href="<?= $buildSortLink('nis') ?>" class="flex items-center group cursor-pointer transition-colors hover:text-blue-600" title="Urutkan berdasarkan NIS">
+                                NIS <?= $getSortIcon('nis') ?>
+                            </a>
+                        </div>
+                    </th>
+                    <th class="px-6 py-4">
+                        <a href="<?= $buildSortLink('device_id') ?>" class="flex items-center group cursor-pointer transition-colors hover:text-blue-600">
+                            Status HP <?= $getSortIcon('device_id') ?>
+                        </a>
+                    </th>
+                    <th class="px-6 py-4 text-center">
+                        <div class="flex justify-center">
+                            <a href="<?= $buildSortLink('fraud_count') ?>" class="flex items-center group cursor-pointer transition-colors hover:text-blue-600">
+                                Keamanan <?= $getSortIcon('fraud_count') ?>
+                            </a>
+                        </div>
+                    </th>
                     <th class="px-6 py-4 text-right">Aksi</th>
                 </tr>
             </thead>
@@ -203,42 +191,54 @@
                             </td>
                             <td class="px-6 py-4 text-right">
                                 <div class="flex justify-end gap-2">
-                                    <a href="<?= base_url('admin/siswa/detail/' . (string) $s['id_siswa']) ?>" class="p-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 rounded-lg transition-colors" title="Profil 360"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                        </svg></a>
+                                    <a href="<?= base_url('admin/siswa/detail/' . (string) $s['id_siswa']) ?>" class="p-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 rounded-lg transition-colors" title="Profil 360">
+                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                    </a>
 
-                                    <a href="<?= base_url('admin/tracking/siswa/' . (string) $s['id_siswa']) ?>" class="p-2 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 rounded-lg transition-colors" title="Live Tracking"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
-                                        </svg></a>
+                                    <a href="<?= base_url('admin/tracking/siswa/' . (string) $s['id_siswa']) ?>" class="p-2 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 rounded-lg transition-colors" title="Live Tracking">
+                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z" />
+                                        </svg>
+                                    </a>
 
-                                    <button onclick='openEditModal(<?= htmlspecialchars(json_encode($s), ENT_QUOTES, "UTF-8") ?>)' class="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 rounded-lg transition-colors" title="Edit Data"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                                        </svg></button>
+                                    <button onclick='openEditModal(<?= htmlspecialchars(json_encode($s), ENT_QUOTES, "UTF-8") ?>)' class="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 rounded-lg transition-colors" title="Edit Data">
+                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                                        </svg>
+                                    </button>
 
                                     <?php if (!empty($s['device_id'])): ?>
                                         <form action="<?= base_url('admin/siswa/resetDevice/' . (string) $s['id_siswa']) ?>" method="POST" class="inline">
                                             <?= csrf_field() ?>
-                                            <button type="button" class="btn-confirm p-2 text-amber-600 bg-amber-50 hover:bg-amber-100 border border-amber-100 rounded-lg transition-colors" data-text="Akses HP akan direset. Yakin?" data-btn="Ya, Reset HP" title="Reset Device"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-                                                </svg></button>
+                                            <button type="button" class="btn-confirm p-2 text-amber-600 bg-amber-50 hover:bg-amber-100 border border-amber-100 rounded-lg transition-colors" data-text="Akses HP akan direset. Yakin?" data-btn="Ya, Reset HP" title="Reset Device">
+                                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                                                </svg>
+                                            </button>
                                         </form>
                                     <?php endif; ?>
 
                                     <?php if (!empty($s['is_blocked'])): ?>
                                         <form action="<?= base_url('admin/siswa/unblock/' . (string) $s['id_siswa']) ?>" method="POST" class="inline">
                                             <?= csrf_field() ?>
-                                            <button type="button" class="btn-confirm p-2 text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 rounded-lg transition-colors" data-text="Buka blokir akun siswa ini?" data-btn="Ya, Buka Blokir" title="Unblock"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                                                </svg></button>
+                                            <button type="button" class="btn-confirm p-2 text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 rounded-lg transition-colors" data-text="Buka blokir akun siswa ini?" data-btn="Ya, Buka Blokir" title="Unblock">
+                                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                                                </svg>
+                                            </button>
                                         </form>
                                     <?php endif; ?>
 
                                     <form action="<?= base_url('admin/siswa/delete/' . (string) $s['id_siswa']) ?>" method="POST" class="inline">
                                         <?= csrf_field() ?>
-                                        <button type="button" class="btn-confirm p-2 text-slate-600 bg-slate-50 hover:bg-red-100 hover:text-red-600 border border-slate-200 rounded-lg transition-colors" data-text="Data siswa beserta foto akan dihapus permanen. Lanjutkan?" data-btn="Ya, Hapus Permanen" title="Hapus Siswa"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                            </svg></button>
+                                        <button type="button" class="btn-confirm p-2 text-slate-600 bg-slate-50 hover:bg-red-100 hover:text-red-600 border border-slate-200 rounded-lg transition-colors" data-text="Data siswa beserta foto akan dihapus permanen. Lanjutkan?" data-btn="Ya, Hapus Permanen" title="Hapus Siswa">
+                                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                                            </svg>
+                                        </button>
                                     </form>
                                 </div>
                             </td>
@@ -246,22 +246,28 @@
                     <?php endforeach; ?>
                 <?php else: ?>
                     <tr>
-                        <td colspan="4" class="py-8 text-center text-gray-500">Data siswa tidak ditemukan.</td>
+                        <td colspan="4" class="py-10 text-center text-gray-400 italic">Data siswa tidak ditemukan.</td>
                     </tr>
                 <?php endif; ?>
             </tbody>
         </table>
     </div>
 
-    <div class="p-5 bg-gray-50/30 flex flex-col md:flex-row justify-between items-center gap-4">
-        <div class="text-sm text-gray-500 font-medium">
+    <div class="p-6 bg-gray-50/30 flex flex-col lg:flex-row justify-between items-center gap-6 border-t border-gray-100">
+        <div class="text-sm text-gray-500 font-semibold whitespace-nowrap">
             <?php
-            $start = $total_data > 0 ? ($page - 1) * $perPage + 1 : 0;
-            $end = min($page * $perPage, $total_data);
+            $safePage    = max(1, (int)($page ?? 1));
+            $safePerPage = max(1, (int)($perPage ?? 10));
+            $safeTotal   = max(0, (int)($total_data ?? 0));
+            $start = $safeTotal > 0 ? (($safePage - 1) * $safePerPage) + 1 : 0;
+            $end   = min($safePage * $safePerPage, $safeTotal);
             ?>
-            Menampilkan <span class="font-bold text-gray-800"><?= (int) $start ?></span> - <span class="font-bold text-gray-800"><?= (int) $end ?></span> dari <span class="font-bold text-gray-800"><?= esc((string) ($total_data ?? 0)) ?></span> siswa
+            Menampilkan <?= $start ?> - <?= $end ?> dari <?= $safeTotal ?> data
         </div>
-        <div class="pagination-wrapper"><?= $pager_links ?? '' ?></div>
+
+        <div class="w-full flex justify-center lg:justify-end">
+            <?= $pager_links ?? '' ?>
+        </div>
     </div>
 </div>
 
@@ -270,9 +276,11 @@
     <div class="bg-white rounded-3xl shadow-2xl z-10 w-full max-w-lg p-8 relative">
         <div class="flex justify-between items-center mb-6">
             <h3 class="text-xl font-bold text-gray-800">Edit Data Siswa</h3>
-            <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path d="M6 18L18 6M6 6l12 12"></path>
-                </svg></button>
+            <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
         </div>
         <form id="form-edit-action" method="POST" enctype="multipart/form-data" class="space-y-5">
             <?= csrf_field() ?>
@@ -300,17 +308,19 @@
     <div class="bg-white rounded-3xl shadow-2xl z-10 w-full max-w-md p-8 relative">
         <div class="flex justify-between items-center mb-6">
             <h3 class="text-xl font-bold text-gray-800">Import Data</h3>
-            <button onclick="closeImportModal()" class="text-gray-400 hover:text-gray-600"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path d="M6 18L18 6M6 6l12 12"></path>
-                </svg></button>
+            <button onclick="closeImportModal()" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
         </div>
         <form action="<?= base_url('admin/siswa/import') ?>" method="POST" enctype="multipart/form-data" id="formImport" class="space-y-6">
             <?= csrf_field() ?>
             <div class="p-6 border-2 border-dashed border-slate-300 rounded-2xl text-center bg-slate-50 hover:bg-slate-100 cursor-pointer">
                 <input type="file" name="file_excel" id="file_excel" class="hidden" required accept=".xlsx">
                 <label for="file_excel" class="cursor-pointer block w-full h-full">
-                    <svg class="w-12 h-12 text-slate-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                    <svg class="w-12 h-12 text-slate-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12l-3-3m0 0l-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                     </svg>
                     <p class="text-sm font-medium text-slate-600" id="file-name-preview">Klik pilih file Excel (.xlsx)</p>
                 </label>

@@ -21,9 +21,6 @@ class Absensi extends BaseController
         $this->kelasModel   = new KelasModel();
     }
 
-    /**
-     * PRIVATE HELPER: Memastikan keamanan akses Row-Level Security
-     */
     private function checkAksesWaliKelas(int $targetKelasId): bool
     {
         if (session()->get('is_wali_kelas')) {
@@ -34,32 +31,29 @@ class Absensi extends BaseController
 
     public function index()
     {
+        // 1. Tangkap Parameter Request
         $tanggalFilter = $this->request->getGet('tanggal') ?? Time::now('Asia/Jakarta')->toDateString();
+        $searchFilter  = $this->request->getGet('search');
+        $page          = (int) ($this->request->getGet('page') ?? 1);
+        $perPage       = 20;
 
         $isWaliKelas    = session()->get('is_wali_kelas');
         $kelasSessionId = session()->get('kelas_id');
 
         // Jika Wali Kelas, paksa filter kelas dari session
-        $kelasFilter = $isWaliKelas ? $kelasSessionId : $this->request->getGet('kelas_id');
+        $kelasFilterRaw = $isWaliKelas ? $kelasSessionId : $this->request->getGet('kelas_id');
+        $kelasFilter    = !empty($kelasFilterRaw) ? (int)$kelasFilterRaw : null;
 
-        $this->absensiModel->select('absensi.*, siswa.nama_siswa, siswa.nis, kelas.nama_kelas')
-            ->join('siswa', 'siswa.id_siswa = absensi.siswa_id')
-            ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left')
-            ->where('absensi.tanggal', $tanggalFilter);
+        // 2. Gunakan method optimasi dari Model yang mengembalikan pagination
+        $absensi = $this->absensiModel->getPaginatedAbsensiHarian($tanggalFilter, $kelasFilter, $searchFilter, $perPage);
+        $pager   = $this->absensiModel->pager;
 
-        if (!empty($kelasFilter)) {
-            $this->absensiModel->where('siswa.kelas_id', $kelasFilter);
-        }
-
-        $absensi = $this->absensiModel->orderBy('absensi.jam_masuk', 'DESC')->findAll();
-
-        // Filter Data Siswa untuk dropdown Modal Input Manual
+        // 3. Filter Data Siswa untuk dropdown Modal Input Manual
         $siswaQuery = $this->siswaModel
             ->select('siswa.id_siswa, siswa.nis, siswa.nama_siswa, kelas.nama_kelas')
             ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left')
             ->orderBy('siswa.nama_siswa', 'ASC');
 
-        // Jika Wali Kelas, batasi hanya murid kelasnya
         if ($isWaliKelas) {
             $siswaQuery->where('siswa.kelas_id', $kelasSessionId);
             $listKelas = $this->kelasModel->where('id_kelas', $kelasSessionId)->findAll();
@@ -67,15 +61,20 @@ class Absensi extends BaseController
             $listKelas = $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll();
         }
 
-        $siswa = $siswaQuery->findAll();
-
         $data = [
-            'title'       => 'Data Absensi Harian',
-            'tanggal'     => $tanggalFilter,
-            'kelas_aktif' => $kelasFilter,
-            'absensi'     => $absensi,
-            'siswa'       => $siswa,
-            'list_kelas'  => $listKelas
+            'title'        => 'Data Absensi Harian',
+            'tanggal'      => $tanggalFilter,
+            'kelas_aktif'  => $kelasFilterRaw,
+            'search_aktif' => $searchFilter,
+            'absensi'      => $absensi,
+            'siswa'        => $siswaQuery->findAll(),
+            'list_kelas'   => $listKelas,
+
+            // Variabel Pagination
+            'pager_links'  => $pager->links('default', 'tailwind_pagination'),
+            'total_data'   => $pager->getTotal('default'),
+            'page'         => $page,
+            'perPage'      => $perPage
         ];
 
         return view('web/absensi', $data);
@@ -115,7 +114,7 @@ class Absensi extends BaseController
             }
 
             $this->absensiModel->update($absenLama['id_absensi'], [
-                'kelas_id'   => $siswa['kelas_id'], // INJEKSI HISTORICAL SNAPSHOT
+                'kelas_id'   => $siswa['kelas_id'],
                 'jam_masuk'  => $jamMasuk,
                 'status'     => $status,
                 'keterangan' => $keterangan
@@ -126,7 +125,7 @@ class Absensi extends BaseController
 
         $this->absensiModel->insert([
             'siswa_id'   => $siswaId,
-            'kelas_id'   => $siswa['kelas_id'], // INJEKSI HISTORICAL SNAPSHOT
+            'kelas_id'   => $siswa['kelas_id'],
             'tanggal'    => $tanggal,
             'jam_masuk'  => $jamMasuk,
             'status'     => $status,

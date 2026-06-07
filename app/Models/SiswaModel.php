@@ -32,25 +32,18 @@ class SiswaModel extends Model
     protected $createdField     = 'created_at';
     protected $updatedField     = 'updated_at';
 
-    /**
-     * Mengambil data siswa beserta nama kelasnya
-     */
     public function getSiswaWithKelas(?string $id = null)
     {
-        $this->select('siswa.*, kelas.nama_kelas');
-        $this->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
+        $this->select('siswa.*, kelas.nama_kelas')
+            ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
 
         if ($id) {
             return $this->where('id_siswa', $id)->first();
         }
-
         return $this->findAll();
     }
 
-    /**
-     * Menerapkan filter, pencarian, dan pagination secara native
-     */
-    public function getPaginatedSiswa(?string $kelasFilter, ?string $searchFilter, int $perPage)
+    public function getPaginatedSiswa(?string $kelasFilter, ?string $searchFilter, int $perPage, string $sortCol = 'nama_siswa', string $sortDir = 'asc')
     {
         $this->select('siswa.*, kelas.nama_kelas')
             ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
@@ -66,8 +59,84 @@ class SiswaModel extends Model
                 ->groupEnd();
         }
 
+        $allowedColumns = [
+            'nama_siswa'  => 'siswa.nama_siswa',
+            'nis'         => 'siswa.nis',
+            'nama_kelas'  => 'kelas.nama_kelas',
+            'fraud_count' => 'siswa.fraud_count',
+            'device_id'   => 'siswa.device_id'
+        ];
+
+        $orderColumn = $allowedColumns[$sortCol] ?? 'siswa.nama_siswa';
+        $orderDir    = strtolower($sortDir) === 'desc' ? 'DESC' : 'ASC';
+
+        return $this->orderBy($orderColumn, $orderDir)
+            ->paginate($perPage, 'default');
+    }
+
+    public function getSiswaForExport(?int $kelasId = null): array
+    {
+        $this->select('siswa.*, kelas.nama_kelas')
+            ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
+
+        if ($kelasId !== null) {
+            $this->where('siswa.kelas_id', $kelasId);
+        }
+
         return $this->orderBy('kelas.nama_kelas', 'ASC')
             ->orderBy('siswa.nama_siswa', 'ASC')
-            ->paginate($perPage, 'default');
+            ->findAll();
+    }
+
+    public function processBulkImport(array $dataSiswa, array $kelasMap, bool $isWaliKelas, ?int $waliKelasId): array
+    {
+        $inserted = 0;
+        $skipped  = 0;
+
+        $this->db->transStart();
+
+        foreach ($dataSiswa as $index => $row) {
+            if ($index < 3) continue;
+
+            $nis       = isset($row[0]) ? preg_replace('/\s+/', '', (string)$row[0]) : '';
+            $nama      = isset($row[1]) ? trim((string)$row[1]) : '';
+            $namaKelas = isset($row[2]) ? strtolower(trim((string)$row[2])) : '';
+
+            if (empty($nis) || empty($nama) || empty($namaKelas)) continue;
+
+            if (!isset($kelasMap[$namaKelas])) {
+                $skipped++;
+                continue;
+            }
+
+            $kelasIdTarget = (int) $kelasMap[$namaKelas];
+
+            if ($isWaliKelas && $kelasIdTarget !== $waliKelasId) {
+                $skipped++;
+                continue;
+            }
+
+            if ($this->where('nis', $nis)->countAllResults() > 0) {
+                $skipped++;
+                continue;
+            }
+
+            $this->insert([
+                'nis'          => $nis,
+                'nama_siswa'   => $nama,
+                'kelas_id'     => $kelasIdTarget,
+                'password'     => password_hash($nis, PASSWORD_BCRYPT)
+            ]);
+
+            $inserted++;
+        }
+
+        $this->db->transComplete();
+
+        return [
+            'status'   => $this->db->transStatus(),
+            'inserted' => $inserted,
+            'skipped'  => $skipped
+        ];
     }
 }

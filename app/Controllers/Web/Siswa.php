@@ -3,6 +3,7 @@
 namespace App\Controllers\Web;
 
 use CodeIgniter\Controller;
+use CodeIgniter\HTTP\Files\UploadedFile;
 use App\Models\SiswaModel;
 use App\Models\KelasModel;
 use App\Models\AbsensiModel;
@@ -27,9 +28,6 @@ class Siswa extends Controller
         $this->logFraudModel = new LogFraudModel();
     }
 
-    /**
-     * PRIVATE HELPER: Memastikan keamanan akses Row-Level Security
-     */
     private function checkAksesWaliKelas(int $targetKelasId): bool
     {
         if (session()->get('is_wali_kelas')) {
@@ -38,7 +36,7 @@ class Siswa extends Controller
         return true;
     }
 
-    private function handleUploadFoto(?\CodeIgniter\HTTP\Files\UploadedFile $foto, ?string $fotoLama = null): array
+    private function handleUploadFoto(?UploadedFile $foto, ?string $fotoLama = null): array
     {
         if ($foto && $foto->isValid() && !$foto->hasMoved()) {
             $aturanFoto = [
@@ -75,11 +73,16 @@ class Siswa extends Controller
         $page         = (int) ($this->request->getGet('page') ?? 1);
         $perPage      = 10;
 
+        $sortParam = $this->request->getGet('sort') ?? 'nama_siswa-asc';
+        $sortParts = explode('-', $sortParam);
+        $sortCol   = $sortParts[0] ?? 'nama_siswa';
+        $sortDir   = $sortParts[1] ?? 'asc';
+
         $listKelas = $isWaliKelas
             ? $this->kelasModel->where('id_kelas', $kelasSessionId)->findAll()
             : $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll();
 
-        $siswa = $this->siswaModel->getPaginatedSiswa($kelasFilter, $searchFilter, $perPage);
+        $siswa = $this->siswaModel->getPaginatedSiswa($kelasFilter, $searchFilter, $perPage, $sortCol, $sortDir);
 
         $data = [
             'title'         => 'Daftar Siswa',
@@ -87,7 +90,10 @@ class Siswa extends Controller
             'list_kelas'    => $listKelas,
             'kelas_aktif'   => $kelasFilter,
             'search_aktif'  => $searchFilter,
-            'pager_links'   => $this->siswaModel->pager->links('default', 'default_full'),
+            'sort_aktif'    => $sortParam,
+            'sort_col'      => $sortCol,
+            'sort_dir'      => $sortDir,
+            'pager_links'   => $this->siswaModel->pager->links('default', 'tailwind_pagination'),
             'total_data'    => $this->siswaModel->pager->getTotal('default'),
             'page'          => $page,
             'perPage'       => $perPage,
@@ -289,22 +295,10 @@ class Siswa extends Controller
 
     public function export()
     {
-        if (session()->get('is_wali_kelas')) {
-            $kelasId = session()->get('kelas_id');
-        } else {
-            $kelasId = $this->request->getGet('kelas');
-        }
+        $isWaliKelas = session()->get('is_wali_kelas');
+        $kelasId     = $isWaliKelas ? session()->get('kelas_id') : $this->request->getGet('kelas');
 
-        $this->siswaModel->select('siswa.*, kelas.nama_kelas')
-            ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
-
-        if (!empty($kelasId)) {
-            $this->siswaModel->where('siswa.kelas_id', $kelasId);
-        }
-
-        $dataSiswa = $this->siswaModel->orderBy('kelas.nama_kelas', 'ASC')
-            ->orderBy('siswa.nama_siswa', 'ASC')
-            ->findAll();
+        $dataSiswa = $this->siswaModel->getSiswaForExport(empty($kelasId) ? null : (int)$kelasId);
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
@@ -335,15 +329,12 @@ class Siswa extends Controller
     {
         $file = $this->request->getFile('file_excel');
 
-        if (!$file->isValid() || $file->getExtension() !== 'xlsx') {
+        if (!$file || !$file->isValid() || $file->getExtension() !== 'xlsx') {
             return redirect()->back()->with('error', 'Format file tidak valid. Gunakan file .xlsx');
         }
 
         $spreadsheet = IOFactory::load($file->getTempName());
-        $dataSiswa = $spreadsheet->getActiveSheet()->toArray();
-
-        $inserted = 0;
-        $skipped  = 0;
+        $dataSiswa   = $spreadsheet->getActiveSheet()->toArray();
 
         $allKelas = $this->kelasModel->findAll();
         $kelasMap = [];
@@ -351,50 +342,16 @@ class Siswa extends Controller
             $kelasMap[strtolower(trim((string)$k['nama_kelas']))] = $k['id_kelas'];
         }
 
-        $this->siswaModel->db->transStart();
+        $isWaliKelas = session()->get('is_wali_kelas');
+        $waliKelasId = $isWaliKelas ? session()->get('kelas_id') : null;
 
-        foreach ($dataSiswa as $index => $row) {
-            if ($index < 3) continue;
+        $result = $this->siswaModel->processBulkImport($dataSiswa, $kelasMap, $isWaliKelas, $waliKelasId);
 
-            $nis       = isset($row[0]) ? preg_replace('/\s+/', '', (string)$row[0]) : '';
-            $nama      = isset($row[1]) ? trim((string)$row[1]) : '';
-            $namaKelas = isset($row[2]) ? strtolower(trim((string)$row[2])) : '';
-
-            if (empty($nis) || empty($nama) || empty($namaKelas)) continue;
-
-            if (!isset($kelasMap[$namaKelas])) {
-                $skipped++;
-                continue;
-            }
-            $kelasId = (int) $kelasMap[$namaKelas];
-
-            if (!$this->checkAksesWaliKelas($kelasId)) {
-                $skipped++;
-                continue;
-            }
-
-            $cek = $this->siswaModel->where('nis', $nis)->countAllResults();
-            if ($cek > 0) {
-                $skipped++;
-                continue;
-            }
-
-            $this->siswaModel->insert([
-                'nis'          => $nis,
-                'nama_siswa'   => $nama,
-                'kelas_id'     => $kelasId,
-                'password'     => password_hash($nis, PASSWORD_BCRYPT)
-            ]);
-            $inserted++;
-        }
-
-        $this->siswaModel->db->transComplete();
-
-        if ($this->siswaModel->db->transStatus() === false) {
+        if (!$result['status']) {
             return redirect()->back()->with('error', 'Terjadi kesalahan sistem saat proses import. Data dibatalkan.');
         }
 
-        return redirect()->to('/admin/siswa')->with('success', "Berhasil import $inserted data siswa. $skipped baris dilewati (NIS duplikat, beda kelas, atau format tidak valid).");
+        return redirect()->to('/admin/siswa')->with('success', "Berhasil import {$result['inserted']} data siswa. {$result['skipped']} baris dilewati (NIS duplikat/salah kelas).");
     }
 
     public function detail(string $idSiswa)
@@ -405,33 +362,36 @@ class Siswa extends Controller
             return redirect()->to('/admin/siswa')->with('error', 'Data siswa tidak ditemukan atau Akses Ditolak.');
         }
 
-        $absensi = $this->absensiModel->where('siswa_id', $idSiswa)
-            ->orderBy('tanggal', 'DESC')
-            ->findAll(10);
+        // 1. Tangkap parameter filter & halaman
+        $startDate   = $this->request->getGet('start_date');
+        $endDate     = $this->request->getGet('end_date');
+        $pageAbsensi = (int) ($this->request->getGet('page_absensi') ?? 1);
+        $perPage     = 10;
+
+        // 2. Ambil data riwayat yang sudah ter-filter dan ter-paginasi
+        $absensi = $this->absensiModel->getRiwayatAbsensiSiswa($idSiswa, $startDate, $endDate, $perPage);
+        $pager   = $this->absensiModel->pager;
 
         $logFraud = $this->logFraudModel->where('siswa_id', $idSiswa)
             ->orderBy('created_at', 'DESC')
-            ->findAll(10);
+            ->findAll(10); // Log fraud tetap dibatasi 10 terakhir saja untuk efisiensi
 
-        $statHadir = $this->absensiModel->where(['siswa_id' => $idSiswa, 'status' => 'Hadir'])->countAllResults();
-        $statTelat = $this->absensiModel->where(['siswa_id' => $idSiswa, 'status' => 'Terlambat'])->countAllResults();
-        $statSakit = $this->absensiModel->where(['siswa_id' => $idSiswa, 'status' => 'Sakit'])->countAllResults();
-        $statIzin  = $this->absensiModel->where(['siswa_id' => $idSiswa, 'status' => 'Izin'])->countAllResults();
-        $statAlpa  = $this->absensiModel->where(['siswa_id' => $idSiswa, 'status' => 'Alpa'])->countAllResults();
+        $stats = $this->absensiModel->getStatistikSiswa($idSiswa);
 
         $data = [
-            'title'    => 'Profil 360: ' . $siswa['nama_siswa'],
-            'siswa'    => $siswa,
-            'absensi'  => $absensi,
-            'logFraud' => $logFraud,
-            'stats'    => [
-                'hadir'     => $statHadir,
-                'terlambat' => $statTelat,
-                'sakit'     => $statSakit,
-                'izin'      => $statIzin,
-                'alpa'      => $statAlpa,
-                'total'     => $statHadir + $statTelat + $statSakit + $statIzin + $statAlpa
-            ]
+            'title'        => 'Profil 360: ' . $siswa['nama_siswa'],
+            'siswa'        => $siswa,
+            'absensi'      => $absensi,
+            'logFraud'     => $logFraud,
+            'stats'        => $stats,
+
+            // Variabel khusus Pagination & Filter Riwayat
+            'start_date'   => $startDate,
+            'end_date'     => $endDate,
+            'pager_links'  => $pager->links('absensi', 'tailwind_pagination'), // Gunakan template kita
+            'total_data'   => $pager->getTotal('absensi'),
+            'page'         => $pageAbsensi,
+            'perPage'      => $perPage
         ];
 
         return view('web/siswa_detail', $data);

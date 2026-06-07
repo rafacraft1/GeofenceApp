@@ -24,23 +24,19 @@ class Dashboard extends BaseController
         $isWaliKelas = session()->get('is_wali_kelas');
         $kelasId     = $isWaliKelas ? session()->get('kelas_id') : null;
 
-        // 1. Total Siswa (Dihitung di model)
         if ($isWaliKelas) {
             $this->siswaModel->where('kelas_id', $kelasId);
         }
         $totalSiswa = $this->siswaModel->countAllResults();
 
-        // 2. Mengambil Seluruh Metrik dari Model Terpusat (Skinny Controller)
         $stats      = $this->absensiModel->getDashboardStats($hariIni, $kelasId);
         $distribusi = $this->absensiModel->getDashboardDistribution($hariIni, $kelasId);
         $topClasses = $this->absensiModel->getLeaderboardKelas($hariIni, $kelasId);
         $manipulasi = $this->absensiModel->getFraudList($hariIni, $kelasId);
 
-        // Menghitung Persentase murni di Controller (Pindah dari View)
         $hadirHariIni = $stats['hadir'];
         $persenHadir  = ($totalSiswa > 0) ? round(($hadirHariIni / $totalSiswa) * 100) : 0;
 
-        // 3. Merakit Data Tren 7 Hari Terakhir
         $grafikLabels    = [];
         $grafikHadir     = array_fill(0, 7, 0);
         $grafikTerlambat = array_fill(0, 7, 0);

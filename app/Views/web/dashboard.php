@@ -147,7 +147,6 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", function() {
-        // 1. Inisialisasi Peta (Leaflet)
         const map = window.L.map('mapFraud').setView([-6.20000000, 106.81666600], 13);
         window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
@@ -167,7 +166,7 @@
                     fillOpacity: 0.9
                 }).addTo(map);
 
-                // Keamanan XSS untuk innerHTML peta
+                // Proteksi XSS pada Popup Marker
                 const mapSiswa = m.nama_siswa ? m.nama_siswa.replace(/</g, "&lt;").replace(/>/g, "&gt;") : '';
                 const mapKelas = m.kelas ? m.kelas.replace(/</g, "&lt;").replace(/>/g, "&gt;") : '';
 
@@ -190,7 +189,6 @@
             });
         }
 
-        // 2. Bar Chart Trend
         new window.Chart(document.getElementById('attendanceChart'), {
             type: 'bar',
             data: {
@@ -229,7 +227,6 @@
             }
         });
 
-        // 3. Doughnut Chart Distribusi
         new window.Chart(document.getElementById('distributionChart'), {
             type: 'doughnut',
             data: {

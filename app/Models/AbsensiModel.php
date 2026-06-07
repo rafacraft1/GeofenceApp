@@ -14,7 +14,7 @@ class AbsensiModel extends Model
 
     protected $allowedFields    = [
         'siswa_id',
-        'kelas_id', // Historical snapshot
+        'kelas_id',
         'tanggal',
         'jam_masuk',
         'jam_pulang',
@@ -34,21 +34,9 @@ class AbsensiModel extends Model
     protected $createdField     = 'created_at';
     protected $updatedField     = 'updated_at';
 
-    // ========================================================================
-    // LOGIKA ANALYTICS (Best Practice: Fat Model)
-    // ========================================================================
-
-    /**
-     * Helper internal untuk memfilter query berdasarkan ID Kelas jika role-nya wali kelas.
-     * Mengembalikan instance AbsensiModel (bukan BaseBuilder) agar bisa dirantai (chaining).
-     * * @param AbsensiModel $model
-     * @param int|null $kelasId
-     * @return AbsensiModel
-     */
     private function applyScopeKelas(AbsensiModel $model, ?int $kelasId = null): AbsensiModel
     {
         if ($kelasId !== null) {
-            // Menggunakan prefix 'absensi.' agar aman saat ada JOIN
             $model->where('absensi.kelas_id', $kelasId);
         }
         return $model;
@@ -56,28 +44,19 @@ class AbsensiModel extends Model
 
     public function getDashboardStats(string $tanggal, ?int $kelasId = null): array
     {
-        // Dalam CI4, countAllResults() otomatis mereset builder, 
-        // jadi kita bisa memanggilnya berurutan tanpa saling menimpa query.
+        $this->select('
+            SUM(CASE WHEN absensi.status IN ("Hadir", "Terlambat", "Dispensasi") THEN 1 ELSE 0 END) as hadir,
+            SUM(CASE WHEN absensi.status = "Alpa" THEN 1 ELSE 0 END) as alpa,
+            SUM(CASE WHEN absensi.status = "Manipulasi" OR absensi.is_fake_gps = 1 THEN 1 ELSE 0 END) as fraud
+        ')->where('absensi.tanggal', $tanggal);
 
-        $hadir = $this->applyScopeKelas($this, $kelasId)
-            ->where('absensi.tanggal', $tanggal)
-            ->whereIn('absensi.status', ['Hadir', 'Terlambat', 'Dispensasi'])
-            ->countAllResults();
+        $result = $this->applyScopeKelas($this, $kelasId)->first();
 
-        $alpa  = $this->applyScopeKelas($this, $kelasId)
-            ->where('absensi.tanggal', $tanggal)
-            ->where('absensi.status', 'Alpa')
-            ->countAllResults();
-
-        $fraud = $this->applyScopeKelas($this, $kelasId)
-            ->where('absensi.tanggal', $tanggal)
-            ->groupStart()
-            ->where('absensi.status', 'Manipulasi')
-            ->orWhere('absensi.is_fake_gps', 1)
-            ->groupEnd()
-            ->countAllResults();
-
-        return ['hadir' => $hadir, 'alpa' => $alpa, 'fraud' => $fraud];
+        return [
+            'hadir' => (int) ($result['hadir'] ?? 0),
+            'alpa'  => (int) ($result['alpa'] ?? 0),
+            'fraud' => (int) ($result['fraud'] ?? 0)
+        ];
     }
 
     public function getDashboardDistribution(string $tanggal, ?int $kelasId = null): array
@@ -137,5 +116,70 @@ class AbsensiModel extends Model
             ->orderBy('absensi.jam_masuk', 'DESC');
 
         return $this->findAll();
+    }
+
+    public function getStatistikSiswa(string $idSiswa): array
+    {
+        $this->select('
+            SUM(CASE WHEN status = "Hadir" THEN 1 ELSE 0 END) as hadir,
+            SUM(CASE WHEN status = "Terlambat" THEN 1 ELSE 0 END) as terlambat,
+            SUM(CASE WHEN status = "Sakit" THEN 1 ELSE 0 END) as sakit,
+            SUM(CASE WHEN status = "Izin" THEN 1 ELSE 0 END) as izin,
+            SUM(CASE WHEN status = "Alpa" THEN 1 ELSE 0 END) as alpa
+        ')->where('siswa_id', $idSiswa);
+
+        $result = $this->first();
+
+        $total = (int)($result['hadir'] ?? 0) + (int)($result['terlambat'] ?? 0) +
+            (int)($result['sakit'] ?? 0) + (int)($result['izin'] ?? 0) +
+            (int)($result['alpa'] ?? 0);
+
+        return [
+            'hadir'     => (int) ($result['hadir'] ?? 0),
+            'terlambat' => (int) ($result['terlambat'] ?? 0),
+            'sakit'     => (int) ($result['sakit'] ?? 0),
+            'izin'      => (int) ($result['izin'] ?? 0),
+            'alpa'      => (int) ($result['alpa'] ?? 0),
+            'total'     => $total
+        ];
+    }
+
+    public function getRiwayatAbsensiSiswa(string $idSiswa, ?string $startDate, ?string $endDate, int $perPage)
+    {
+        $builder = $this->where('siswa_id', $idSiswa);
+
+        if (!empty($startDate)) {
+            $builder->where('tanggal >=', $startDate);
+        }
+
+        if (!empty($endDate)) {
+            $builder->where('tanggal <=', $endDate);
+        }
+
+        return $builder->orderBy('tanggal', 'DESC')->paginate($perPage, 'absensi');
+    }
+
+    /**
+     * ✅ OPTIMASI BARU: Memisahkan logika query absensi harian dengan Pagination dan Search
+     */
+    public function getPaginatedAbsensiHarian(string $tanggal, ?int $kelasId = null, ?string $search = null, int $perPage = 20)
+    {
+        $builder = $this->select('absensi.*, siswa.nama_siswa, siswa.nis, kelas.nama_kelas')
+            ->join('siswa', 'siswa.id_siswa = absensi.siswa_id')
+            ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left')
+            ->where('absensi.tanggal', $tanggal);
+
+        if (!empty($kelasId)) {
+            $builder->where('siswa.kelas_id', $kelasId);
+        }
+
+        if (!empty($search)) {
+            $builder->groupStart()
+                ->like('siswa.nama_siswa', $search)
+                ->orLike('siswa.nis', $search)
+                ->groupEnd();
+        }
+
+        return $builder->orderBy('absensi.jam_masuk', 'DESC')->paginate($perPage, 'default');
     }
 }
