@@ -23,9 +23,6 @@ class Tracking extends BaseController
         $this->absensiModel    = new AbsensiModel();
     }
 
-    /**
-     * PRIVATE HELPER: Memastikan keamanan akses Row-Level Security
-     */
     private function checkAksesWaliKelas(int $targetKelasId): bool
     {
         if (session()->get('is_wali_kelas')) {
@@ -34,23 +31,19 @@ class Tracking extends BaseController
         return true;
     }
 
-    /**
-     * Menampilkan halaman utama Radar Tracking
-     */
     public function index(string|null $targetId = null)
     {
         $keyword = $this->request->getGet('keyword');
         $config = $this->pengaturanModel->find(1);
 
-        $this->siswaModel->select('siswa.id_siswa, siswa.nis, siswa.nama_siswa, kelas.nama_kelas')
+        // ✅ PERBAIKAN: Menambahkan siswa.device_id ke dalam select data
+        $this->siswaModel->select('siswa.id_siswa, siswa.nis, siswa.nama_siswa, siswa.device_id, kelas.nama_kelas')
             ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
 
-        // PROTEKSI WALI KELAS: Batasi siswa yang dirender ke map
         if (session()->get('is_wali_kelas')) {
             $this->siswaModel->where('siswa.kelas_id', session()->get('kelas_id'));
         }
 
-        // Filter Pencarian Backend
         if (!empty($keyword)) {
             $this->siswaModel->groupStart()
                 ->like('siswa.nama_siswa', $keyword)
@@ -73,66 +66,77 @@ class Tracking extends BaseController
         return view('web/tracking', $data);
     }
 
-    /**
-     * Endpoint API Internal untuk AJAX Frontend
-     */
     public function getLocation(string $idSiswa)
     {
         $siswa = $this->siswaModel->find($idSiswa);
 
-        // Keamanan API: Tolak jika ID siswa bukan dari kelasnya
         if (!$siswa || !$this->checkAksesWaliKelas((int)$siswa['kelas_id'])) {
-            return $this->response->setJSON(['status' => 404, 'message' => 'Siswa tidak ditemukan atau diluar jangkauan akses Anda.']);
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Akses ditolak.']);
         }
 
-        if (!empty($siswa['lat_terakhir']) && !empty($siswa['long_terakhir'])) {
-            return $this->response->setJSON([
-                'status'      => 200,
-                'lat'         => (float) $siswa['lat_terakhir'],
-                'lng'         => (float) $siswa['long_terakhir'],
-                'nama'        => $siswa['nama_siswa'],
-                'last_update' => $siswa['updated_at']
-            ]);
-        }
-
+        $points = [];
         $hariIni = \CodeIgniter\I18n\Time::now('Asia/Jakarta')->toDateString();
         $absen = $this->absensiModel->where(['siswa_id' => $idSiswa, 'tanggal' => $hariIni])->first();
 
-        if ($absen && ($absen['lat_masuk'] || $absen['lat_pulang'])) {
-            $lat = $absen['lat_pulang'] ?? $absen['lat_masuk'];
-            $lng = $absen['long_pulang'] ?? $absen['long_masuk'];
-            $waktu = $absen['jam_pulang'] ?? $absen['jam_masuk'];
-
-            return $this->response->setJSON([
-                'status'      => 200,
-                'lat'         => (float) $lat,
-                'lng'         => (float) $lng,
-                'nama'        => $siswa['nama_siswa'],
-                'last_update' => $waktu
-            ]);
+        if ($absen && !empty($absen['lat_masuk']) && !empty($absen['long_masuk'])) {
+            $points[] = [
+                'lat'   => (float) $absen['lat_masuk'],
+                'lng'   => (float) $absen['long_masuk'],
+                'waktu' => $absen['jam_masuk'] . ' (Absen Masuk)',
+                'tipe'  => 'riwayat'
+            ];
         }
 
-        return $this->response->setJSON(['status' => 404, 'message' => 'Belum ada data lokasi terbaru.']);
+        if ($absen && !empty($absen['lat_pulang']) && !empty($absen['long_pulang'])) {
+            $points[] = [
+                'lat'   => (float) $absen['lat_pulang'],
+                'lng'   => (float) $absen['long_pulang'],
+                'waktu' => $absen['jam_pulang'] . ' (Absen Pulang)',
+                'tipe'  => 'riwayat'
+            ];
+        }
+
+        if (!empty($siswa['lat_terakhir']) && !empty($siswa['long_terakhir'])) {
+            $points[] = [
+                'lat'   => (float) $siswa['lat_terakhir'],
+                'lng'   => (float) $siswa['long_terakhir'],
+                'waktu' => date('H:i:s', strtotime($siswa['updated_at'])) . ' (Live Update)',
+                'tipe'  => 'live'
+            ];
+        }
+
+        if (empty($points)) {
+            return $this->response->setJSON(['status' => 'pending', 'message' => 'Belum ada data lokasi terbaru.']);
+        }
+
+        $uniquePoints = [];
+        $lastCoord = '';
+        foreach ($points as $pt) {
+            $coord = $pt['lat'] . ',' . $pt['lng'];
+            if ($coord !== $lastCoord) {
+                $uniquePoints[] = $pt;
+                $lastCoord = $coord;
+            } else {
+                $lastIndex = count($uniquePoints) - 1;
+                $uniquePoints[$lastIndex]['waktu'] .= ' & ' . $pt['waktu'];
+                $uniquePoints[$lastIndex]['tipe'] = $pt['tipe'];
+            }
+        }
+
+        return $this->response->setJSON(['status' => 'success', 'data' => $uniquePoints]);
     }
 
-    /**
-     * Endpoint API Internal untuk Ping Paksa
-     */
     public function pingSiswa(string $idSiswa)
     {
         helper('fcm');
         $siswa = $this->siswaModel->find($idSiswa);
 
-        // Keamanan API: Cegah PING paksa ke device siswa kelas lain
         if (!$siswa || !$this->checkAksesWaliKelas((int)$siswa['kelas_id'])) {
             return $this->response->setJSON(['status' => 404, 'message' => 'Data siswa tidak ditemukan atau diluar akses.']);
         }
 
         if (empty($siswa['fcm_token'])) {
-            return $this->response->setJSON([
-                'status'  => 400,
-                'message' => 'Token FCM Kosong!'
-            ]);
+            return $this->response->setJSON(['status' => 400, 'message' => 'Perangkat siswa belum tersambung (Token FCM Kosong).']);
         }
 
         $result = send_fcm_notification(
@@ -143,16 +147,13 @@ class Tracking extends BaseController
         );
 
         if ($result === false) {
-            return $this->response->setJSON(['status' => 500, 'message' => 'Gagal menghubungi server Google.']);
+            return $this->response->setJSON(['status' => 500, 'message' => 'Gagal menghubungi Firebase Cloud.']);
         }
 
         $responseJson = json_decode($result, true);
 
         if (isset($responseJson['error'])) {
-            return $this->response->setJSON([
-                'status'  => 400,
-                'message' => 'FIREBASE ERROR: ' . $responseJson['error']['message']
-            ]);
+            return $this->response->setJSON(['status' => 400, 'message' => 'Error HP Siswa: ' . $responseJson['error']['message']]);
         }
 
         return $this->response->setJSON(['status' => 200, 'message' => 'Sinyal PING berhasil dikirim ke perangkat.']);
