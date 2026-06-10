@@ -23,13 +23,19 @@ class AbsensiApi extends ResourceController
         helper(['security']);
     }
 
+    /**
+     * @return array
+     */
     private function getSiswaAuth(): array
     {
-        /** @var mixed $request */
-        $request = $this->request;
-        return (array) $request->siswaAuth;
+        return (array) ($this->request->siswaAuth ?? []);
     }
 
+    /**
+     * @param string $tanggalSekarang
+     * @param string $kodeHari
+     * @return array
+     */
     private function getJadwalHariIni(string $tanggalSekarang, string $kodeHari): array
     {
         $cacheKeyLibur = 'hari_libur_' . $tanggalSekarang;
@@ -53,20 +59,25 @@ class AbsensiApi extends ResourceController
         return ['is_libur' => false, 'jam_masuk' => $jadwal['jam_masuk'], 'jam_pulang' => $jadwal['jam_pulang']];
     }
 
-    private function handleFileUpload(?UploadedFile $file, string $tipe, string $siswaId): ?string
+    /**
+     * @param UploadedFile|null $file
+     * @return string|null
+     */
+    private function handleFileUpload(?UploadedFile $file): ?string
     {
         if ($file === null || !$file->isValid() || $file->hasMoved()) {
             return null;
         }
 
-        $extension = $file->getExtension() ?: 'jpg';
-        $fileName  = $siswaId . '_' . $tipe . '_' . time() . '.' . $extension;
-
+        $fileName = $file->getRandomName();
         $file->move(FCPATH . 'uploads/absensi/', $fileName);
 
         return $fileName;
     }
 
+    /**
+     * @return mixed
+     */
     public function masuk()
     {
         $siswa = $this->getSiswaAuth();
@@ -90,7 +101,6 @@ class AbsensiApi extends ResourceController
         if ($jadwal['is_libur']) return $this->failForbidden('Hari ini libur: ' . $jadwal['keterangan']);
 
         $absenHariIni = $this->absensiModel->where(['siswa_id' => $siswa['id_siswa'], 'tanggal' => $tanggalSekarang])->first();
-
         $isDispensasi = ($absenHariIni && $absenHariIni['status'] === 'Dispensasi');
 
         if ($absenHariIni && !$isDispensasi) {
@@ -101,20 +111,10 @@ class AbsensiApi extends ResourceController
             return $this->failResourceExists('Anda sudah mengirim bukti tiba di lokasi kegiatan hari ini.');
         }
 
-        $waktuMasuk = Time::parse($tanggalSekarang . ' ' . $jadwal['jam_masuk'], 'Asia/Jakarta');
-        $waktuPulang = Time::parse($tanggalSekarang . ' ' . $jadwal['jam_pulang'], 'Asia/Jakarta');
-
+        $evaluasiWaktu = [];
         if (!$isDispensasi) {
-            $batasAwalMasuk = $waktuMasuk->subMinutes(30);
-            $batasAkhirMasuk = $waktuPulang->subMinutes(30);
-
-            if ($sekarang->isBefore($batasAwalMasuk)) {
-                return $this->failForbidden('Belum waktunya presensi masuk. Absen dibuka pukul ' . $batasAwalMasuk->toTimeString());
-            }
-
-            if ($sekarang->isAfter($batasAkhirMasuk)) {
-                return $this->failForbidden('Batas waktu presensi masuk hari ini telah habis.');
-            }
+            $evaluasiWaktu = $this->absensiService->evaluasiWaktuMasuk($sekarang, $jadwal['jam_masuk'], $jadwal['jam_pulang']);
+            if (!$evaluasiWaktu['status']) return $this->failForbidden($evaluasiWaktu['message']);
         }
 
         $lat       = (float) $this->request->getPost('latitude');
@@ -123,78 +123,61 @@ class AbsensiApi extends ResourceController
 
         $status     = $isDispensasi ? 'Dispensasi' : 'Hadir';
         $keterangan = $isDispensasi ? 'Hadir di Lokasi Kegiatan' : 'Tepat Waktu';
-        $menitTelat = 0;
+        $menitTelat = $evaluasiWaktu['menit_telat'] ?? 0;
 
         if (!$isDispensasi) {
-            $validasi = $this->absensiService->validasiGeofencing($lat, $lon, $isFakeGps);
-            if ($validasi['status'] === 'Error') return $this->failServerError($validasi['message']);
+            $validasiGeo = $this->absensiService->validasiGeofencing($lat, $lon, $isFakeGps);
+            if ($validasiGeo['status'] === 'Error') return $this->failServerError($validasiGeo['message']);
 
-            if (!$validasi['is_valid']) {
+            if (!$validasiGeo['is_valid']) {
                 $status     = 'Manipulasi';
-                $keterangan = $validasi['message'];
-            } elseif ($sekarang->isAfter($waktuMasuk)) {
+                $keterangan = $validasiGeo['message'];
+            } elseif ($evaluasiWaktu['is_telat']) {
                 $status     = 'Terlambat';
-                $menitTelat = abs($sekarang->difference($waktuMasuk)->getMinutes());
                 $keterangan = "Terlambat {$menitTelat} Menit";
             }
-        } else {
-            if ($isFakeGps) {
-                $keterangan = 'Hadir di Lokasi Kegiatan (Fake GPS Terdeteksi)';
-            }
+        } elseif ($isFakeGps) {
+            $keterangan = 'Hadir di Lokasi Kegiatan (Fake GPS Terdeteksi)';
         }
 
         $fileFoto = $this->request->getFile('foto');
-        $fileName = $this->handleFileUpload($fileFoto, 'masuk', (string)$siswa['id_siswa']);
+        $fileName = $this->handleFileUpload($fileFoto);
 
         if (!$fileName) return $this->failValidationErrors('Gagal mengunggah file foto atau format tidak valid.');
 
         $realtimeSiswa = $this->db->table('siswa')->select('kelas_id')->where('id_siswa', $siswa['id_siswa'])->get()->getRowArray();
-        $snapshotKelasId = $realtimeSiswa['kelas_id'] ?? null;
+
+        $dataAbsen = [
+            'kelas_id'    => $realtimeSiswa['kelas_id'] ?? null,
+            'jam_masuk'   => $sekarang->toTimeString(),
+            'foto_masuk'  => $fileName,
+            'lat_masuk'   => $lat,
+            'long_masuk'  => $lon,
+            'is_fake_gps' => $isFakeGps,
+            'menit_telat' => $menitTelat,
+            'keterangan'  => $keterangan
+        ];
 
         try {
             if ($isDispensasi) {
-                $this->absensiModel->update($absenHariIni['id_absensi'], [
-                    'kelas_id'    => $snapshotKelasId,
-                    'jam_masuk'   => $sekarang->toTimeString(),
-                    'foto_masuk'  => $fileName,
-                    'lat_masuk'   => $lat,
-                    'long_masuk'  => $lon,
-                    'is_fake_gps' => $isFakeGps,
-                    'menit_telat' => 0,
-                    'keterangan'  => $keterangan
-                ]);
-
-                return $this->respondCreated([
-                    'status'  => 201,
-                    'message' => 'Bukti kehadiran di lokasi kegiatan berhasil tercatat.',
-                    'detail'  => $keterangan
-                ]);
+                $this->absensiModel->update($absenHariIni['id_absensi'], $dataAbsen);
+                $message = 'Bukti kehadiran di lokasi kegiatan berhasil tercatat.';
             } else {
-                $this->absensiModel->insert([
-                    'siswa_id'    => $siswa['id_siswa'],
-                    'kelas_id'    => $snapshotKelasId,
-                    'tanggal'     => $tanggalSekarang,
-                    'jam_masuk'   => $sekarang->toTimeString(),
-                    'status'      => $status,
-                    'foto_masuk'  => $fileName,
-                    'lat_masuk'   => $lat,
-                    'long_masuk'  => $lon,
-                    'is_fake_gps' => $isFakeGps,
-                    'menit_telat' => $menitTelat,
-                    'keterangan'  => $keterangan
-                ]);
-
-                return $this->respondCreated([
-                    'status'  => 201,
-                    'message' => 'Presensi masuk berhasil tercatat.',
-                    'detail'  => $keterangan
-                ]);
+                $dataAbsen['siswa_id'] = $siswa['id_siswa'];
+                $dataAbsen['tanggal']  = $tanggalSekarang;
+                $dataAbsen['status']   = $status;
+                $this->absensiModel->insert($dataAbsen);
+                $message = 'Presensi masuk berhasil tercatat.';
             }
+            return $this->respondCreated(['status' => 201, 'message' => $message, 'detail' => $keterangan]);
         } catch (\Exception $e) {
             return $this->failServerError('Gagal menyimpan data absensi.');
         }
     }
 
+    /**
+     * @return mixed
+     */
     public function pulang()
     {
         $siswa = $this->getSiswaAuth();
@@ -224,23 +207,12 @@ class AbsensiApi extends ResourceController
         $isDispensasi = ($absen['status'] === 'Dispensasi');
 
         if (!$isDispensasi) {
-            $waktuPulang = Time::parse($tanggalSekarang . ' ' . $jadwal['jam_pulang'], 'Asia/Jakarta');
-            $batasAkhirPulang = Time::parse($tanggalSekarang . ' 23:00:00', 'Asia/Jakarta');
-
-            if ($sekarang->isBefore($waktuPulang)) {
-                return $this->failForbidden('Belum waktunya presensi pulang. Jadwal pulang pukul ' . $waktuPulang->toTimeString());
-            }
-
-            if ($sekarang->isAfter($batasAkhirPulang)) {
-                return $this->failForbidden('Batas waktu presensi pulang (23:00) telah habis.');
-            }
+            $evaluasiPulang = $this->absensiService->evaluasiWaktuPulang($sekarang, $jadwal['jam_pulang']);
+            if (!$evaluasiPulang['status']) return $this->failForbidden($evaluasiPulang['message']);
         }
 
-        $lat  = (float) $this->request->getPost('latitude');
-        $lon  = (float) $this->request->getPost('longitude');
-
         $fileFoto = $this->request->getFile('foto');
-        $fileName = $this->handleFileUpload($fileFoto, 'pulang', (string)$siswa['id_siswa']);
+        $fileName = $this->handleFileUpload($fileFoto);
 
         if (!$fileName) return $this->failValidationErrors('Gagal mengunggah file foto atau format tidak valid.');
 
@@ -248,22 +220,23 @@ class AbsensiApi extends ResourceController
             $this->absensiModel->update($absen['id_absensi'], [
                 'jam_pulang'  => $sekarang->toTimeString(),
                 'foto_pulang' => $fileName,
-                'lat_pulang'  => $lat,
-                'long_pulang' => $lon
+                'lat_pulang'  => (float) $this->request->getPost('latitude'),
+                'long_pulang' => (float) $this->request->getPost('longitude')
             ]);
 
             $pesanSukses = $isDispensasi ? 'Tugas selesai, bukti pulang kegiatan berhasil disimpan!' : 'Presensi pulang berhasil. Hati-hati di jalan!';
-
             return $this->respondUpdated(['status' => 200, 'message' => $pesanSukses]);
         } catch (\Exception $e) {
             return $this->failServerError('Gagal menyimpan presensi pulang.');
         }
     }
 
+    /**
+     * @return mixed
+     */
     public function riwayat()
     {
-        $siswa = $this->getSiswaAuth();
-
+        $siswa   = $this->getSiswaAuth();
         $riwayat = $this->absensiModel
             ->where('siswa_id', $siswa['id_siswa'])
             ->orderBy('tanggal', 'DESC')

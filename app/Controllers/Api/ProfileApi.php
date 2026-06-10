@@ -15,18 +15,21 @@ class ProfileApi extends ResourceController
         $this->siswaModel = new SiswaModel();
     }
 
+    /**
+     * @return array
+     */
     private function getSiswaAuth(): array
     {
-        /** @var mixed $request */
-        $request = $this->request;
-        return (array) $request->siswaAuth;
+        return (array) ($this->request->siswaAuth ?? []);
     }
 
+    /**
+     * @return mixed
+     */
     public function uploadFoto()
     {
         $siswa = $this->getSiswaAuth();
 
-        // Standarisasi Validasi CI4
         $aturanValidasi = [
             'foto' => [
                 'rules'  => 'uploaded[foto]|is_image[foto]|mime_in[foto,image/jpg,image/jpeg,image/png]|max_size[foto,2048]',
@@ -47,12 +50,15 @@ class ProfileApi extends ResourceController
 
         if ($foto && $foto->isValid() && !$foto->hasMoved()) {
             $namaFoto = $foto->getRandomName();
-            // Gunakan FCPATH agar path selalu absolut dan aman
             $foto->move(FCPATH . 'uploads/siswa', $namaFoto);
 
-            // Hapus foto lama jika ada
-            if (!empty($siswa['foto_profil']) && file_exists(FCPATH . 'uploads/siswa/' . $siswa['foto_profil'])) {
-                unlink(FCPATH . 'uploads/siswa/' . $siswa['foto_profil']);
+            if (!empty($siswa['foto_profil'])) {
+                $safeOldFileName = basename($siswa['foto_profil']);
+                $oldFilePath     = FCPATH . 'uploads/siswa/' . $safeOldFileName;
+
+                if (file_exists($oldFilePath) && is_file($oldFilePath)) {
+                    unlink($oldFilePath);
+                }
             }
 
             $this->siswaModel->update($siswa['id_siswa'], [
