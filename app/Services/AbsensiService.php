@@ -17,7 +17,6 @@ class AbsensiService
      */
     public function validasiGeofencing(float $latSiswa, float $lonSiswa, int $isFakeGps): array
     {
-        // 1. Deteksi Mock Location dari Android
         if ($isFakeGps === 1) {
             return [
                 'is_valid' => false,
@@ -26,25 +25,25 @@ class AbsensiService
             ];
         }
 
-        // 2. Ambil titik pusat sekolah & radius dari tabel pengaturan
-        $pengaturan = $this->db->table('pengaturan')->where('id_pengaturan', 1)->get()->getRowArray();
+        // ✅ PERBAIKAN: Gunakan Cache (Valid 24 Jam) agar tidak query DB setiap detik
+        $pengaturan = cache()->remember('koordinat_sekolah', 86400, function () {
+            return $this->db->table('pengaturan')->where('id_pengaturan', 1)->get()->getRowArray();
+        });
 
         if (!$pengaturan) {
             return [
                 'is_valid' => false,
                 'status'   => 'Error',
-                'message'  => 'Koordinat pusat sekolah belum dikonfigurasi oleh Admin.'
+                'message'  => 'Koordinat pusat sekolah belum dikonfigurasi.'
             ];
         }
 
-        $latSekolah = (float) $pengaturan['latitude_sekolah'];
-        $lonSekolah = (float) $pengaturan['longitude_sekolah'];
+        $latSekolah     = (float) $pengaturan['latitude_sekolah'];
+        $lonSekolah     = (float) $pengaturan['longitude_sekolah'];
         $radiusMaksimal = (int) $pengaturan['radius_meter'];
 
-        // 3. Eksekusi Rumus Haversine murni dari Helper
         $jarakMeter = hitung_jarak_haversine($latSiswa, $lonSiswa, $latSekolah, $lonSekolah);
 
-        // 4. Deteksi jarak (Apakah di luar jangkauan pagar gaib/geofence?)
         if ($jarakMeter > $radiusMaksimal) {
             return [
                 'is_valid' => false,
@@ -53,7 +52,6 @@ class AbsensiService
             ];
         }
 
-        // Jika lolos semua validasi
         return [
             'is_valid'    => true,
             'status'      => 'Aman',

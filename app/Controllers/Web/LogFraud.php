@@ -16,24 +16,28 @@ class LogFraud extends BaseController
 
     public function index()
     {
+        // Optimasi: Pemilihan kolom spesifik untuk menghemat alokasi memori
         $this->logFraudModel
-            ->select('log_fraud.*, siswa.nama_siswa, siswa.nis, kelas.nama_kelas')
+            ->select('log_fraud.id_log, log_fraud.tipe_fraud, log_fraud.lat_fraud, log_fraud.long_fraud, log_fraud.user_agent, log_fraud.created_at, siswa.nama_siswa, siswa.nis, kelas.nama_kelas')
             ->join('siswa', 'siswa.id_siswa = log_fraud.siswa_id')
             ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
 
         // PROTEKSI OTORITAS WALI KELAS:
-        // Jika user adalah wali kelas, query dibatasi murni hanya untuk siswa di kelasnya
         if (session()->get('is_wali_kelas')) {
             $this->logFraudModel->where('siswa.kelas_id', session()->get('kelas_id'));
         }
 
+        // ✅ PERBAIKAN: Gunakan Pagination untuk tabel Log, dilarang menggunakan findAll()
+        $perPage  = 20;
         $logFraud = $this->logFraudModel
             ->orderBy('log_fraud.created_at', 'DESC')
-            ->findAll();
+            ->paginate($perPage, 'default');
 
         $data = [
-            'title'    => 'Log Keamanan & Pelanggaran',
-            'logFraud' => $logFraud
+            'title'       => 'Log Keamanan & Pelanggaran',
+            'logFraud'    => $logFraud,
+            // Kirim variabel pager untuk dirender di View (menggunakan template tailwind kita)
+            'pager_links' => $this->logFraudModel->pager->links('default', 'tailwind_pagination'),
         ];
 
         return view('web/fraud/index', $data);

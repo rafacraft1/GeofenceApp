@@ -11,9 +11,14 @@ class JWTAuth
 
     public function __construct()
     {
-        // Mengambil secret key dari file .env
-        // Menyediakan nilai fallback untuk mencegah error jika lupa set di .env
-        $this->key = getenv('JWT_SECRET_KEY') ?: 'GeofenceApp_Fallback_Secret_2026';
+        // ✅ Wajib mengambil secret key dari file .env
+        $secretKey = getenv('JWT_SECRET_KEY');
+
+        if (empty($secretKey)) {
+            throw new \Exception('Kunci JWT (JWT_SECRET_KEY) belum dikonfigurasi di file .env. Hal ini berbahaya untuk keamanan.');
+        }
+
+        $this->key = $secretKey;
     }
 
     /**

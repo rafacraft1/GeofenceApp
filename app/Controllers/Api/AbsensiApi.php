@@ -32,12 +32,22 @@ class AbsensiApi extends ResourceController
 
     private function getJadwalHariIni(string $tanggalSekarang, string $kodeHari): array
     {
-        $libur = $this->db->table('hari_libur')->where('tanggal', $tanggalSekarang)->get()->getRowArray();
+        // ✅ PERBAIKAN: Cache cek hari libur selama 12 jam
+        $cacheKeyLibur = 'hari_libur_' . $tanggalSekarang;
+        $libur = cache()->remember($cacheKeyLibur, 43200, function () use ($tanggalSekarang) {
+            return $this->db->table('hari_libur')->where('tanggal', $tanggalSekarang)->get()->getRowArray();
+        });
+
         if ($libur) {
             return ['is_libur' => true, 'keterangan' => $libur['keterangan'], 'jam_masuk' => null, 'jam_pulang' => null];
         }
 
-        $jadwal = $this->db->table('jadwal_absen')->where('kode_hari', $kodeHari)->get()->getRowArray();
+        // ✅ PERBAIKAN: Cache jadwal harian selama 12 jam
+        $cacheKeyJadwal = 'jadwal_hari_' . $kodeHari;
+        $jadwal = cache()->remember($cacheKeyJadwal, 43200, function () use ($kodeHari) {
+            return $this->db->table('jadwal_absen')->where('kode_hari', $kodeHari)->get()->getRowArray();
+        });
+
         if (!$jadwal || $jadwal['is_libur'] == 1) {
             return ['is_libur' => true, 'keterangan' => 'Hari Libur / Akhir Pekan', 'jam_masuk' => null, 'jam_pulang' => null];
         }

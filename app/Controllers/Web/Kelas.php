@@ -25,16 +25,17 @@ class Kelas extends BaseController
 
     public function index()
     {
-        // Menggunakan Model untuk mengambil Role
-        $roleGuru = $this->roleModel->where('nama_role', 'Guru')->first();
-
-        $listGuru = [];
-        if ($roleGuru) {
-            $listGuru = $this->userModel
-                ->where('role_id', $roleGuru['id_role'])
-                ->orderBy('nama_lengkap', 'ASC')
-                ->findAll();
-        }
+        // ✅ OPTIMASI: Gunakan Cache (1 Jam) untuk menghindari join dan load tabel users terus menerus
+        $listGuru = cache()->remember('list_dropdown_guru', 3600, function () {
+            $roleGuru = $this->roleModel->where('nama_role', 'Guru')->first();
+            if ($roleGuru) {
+                return $this->userModel
+                    ->where('role_id', $roleGuru['id_role'])
+                    ->orderBy('nama_lengkap', 'ASC')
+                    ->findAll();
+            }
+            return [];
+        });
 
         // PERBAIKAN: Join ke tabel users untuk mengambil nama wali kelas
         $kelas = $this->kelasModel

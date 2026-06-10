@@ -20,8 +20,10 @@ class Pengumuman extends BaseController
     public function index()
     {
         $data = [
-            'title'      => 'Broadcast Pengumuman',
-            'pengumuman' => $this->pengumumanModel->orderBy('created_at', 'DESC')->findAll()
+            'title'       => 'Broadcast Pengumuman',
+            // ✅ PERBAIKAN: Gunakan Pagination batas 20 data per halaman
+            'pengumuman'  => $this->pengumumanModel->orderBy('created_at', 'DESC')->paginate(20, 'default'),
+            'pager_links' => $this->pengumumanModel->pager->links('default', 'tailwind_pagination')
         ];
 
         return view('web/pengumuman', $data);

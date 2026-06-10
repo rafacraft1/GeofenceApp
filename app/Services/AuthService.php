@@ -21,8 +21,7 @@ class AuthService
      */
     public function attemptLogin(string $nis, string $password, ?string $deviceId): array
     {
-        // PERBAIKAN: Tambahkan select dan join untuk menarik 'nama_kelas'
-        $siswa = $this->siswaModel->select('siswa.*, kelas.nama_kelas')
+        $siswa = $this->siswaModel->select('siswa.id_siswa, siswa.nis, siswa.password, siswa.is_blocked, siswa.device_id, siswa.nama_siswa, siswa.kelas_id, siswa.foto_profil, kelas.nama_kelas')
             ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left')
             ->where('nis', $nis)
             ->first();

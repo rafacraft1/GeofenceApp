@@ -65,12 +65,12 @@ class Tracking extends BaseController
         return view('web/tracking', $data);
     }
 
-    /**
-     * ✅ OPTIMASI: Merangkai Array Lokasi dari DB dan Cache Android
-     */
     public function getLocation(string $idSiswa)
     {
-        $siswa = $this->siswaModel->find($idSiswa);
+        // 1. CACHE DATA SISWA (Valid 5 Menit): Cegah kueri database berulang tiap 3 detik
+        $siswa = cache()->remember('siswa_track_' . $idSiswa, 300, function () use ($idSiswa) {
+            return $this->siswaModel->find($idSiswa);
+        });
 
         if (!$siswa || !$this->checkAksesWaliKelas((int)$siswa['kelas_id'])) {
             return $this->response->setJSON(['status' => 'error', 'message' => 'Akses ditolak.']);
@@ -78,9 +78,13 @@ class Tracking extends BaseController
 
         $points = [];
         $hariIni = \CodeIgniter\I18n\Time::now('Asia/Jakarta')->toDateString();
-        $absen = $this->absensiModel->where(['siswa_id' => $idSiswa, 'tanggal' => $hariIni])->first();
 
-        // 1. TITIK AWAL: Absen Masuk (Dari Database)
+        // 2. CACHE DATA ABSENSI HARI INI (Valid 1 Menit)
+        $absen = cache()->remember('absen_track_' . $idSiswa . '_' . $hariIni, 60, function () use ($idSiswa, $hariIni) {
+            return $this->absensiModel->where(['siswa_id' => $idSiswa, 'tanggal' => $hariIni])->first();
+        });
+
+        // 3. TITIK AWAL: Absen Masuk (Dari Cache DB)
         if ($absen && !empty($absen['lat_masuk']) && !empty($absen['long_masuk'])) {
             $points[] = [
                 'lat'   => (float) $absen['lat_masuk'],
@@ -90,13 +94,12 @@ class Tracking extends BaseController
             ];
         }
 
-        // 2. TITIK TENGAH: Live Tracking Array (Tarik dari Cache kiriman APK Android)
+        // 4. TITIK TENGAH: Live Tracking Array (Tarik dari Cache kiriman APK Android)
         $cacheKey = 'tracking_siswa_' . $idSiswa;
-        $liveLocations = cache($cacheKey);
+        $liveLocations = cache($cacheKey); // Akses RAM, super cepat!
 
         if (is_array($liveLocations) && !empty($liveLocations)) {
             foreach ($liveLocations as $loc) {
-                // Mendukung berbagai format penamaan key JSON dari Android
                 $lat = $loc['lat'] ?? $loc['latitude'] ?? 0;
                 $lng = $loc['lng'] ?? $loc['longitude'] ?? 0;
                 $waktuStr = $loc['waktu'] ?? $loc['timestamp'] ?? date('H:i:s');
@@ -111,7 +114,7 @@ class Tracking extends BaseController
                 }
             }
         } elseif (!empty($siswa['lat_terakhir']) && !empty($siswa['long_terakhir'])) {
-            // Fallback (Cadangan): Jika cache kosong, tarik 1 titik dari DB
+            // Fallback: Jika cache RAM kosong
             $points[] = [
                 'lat'   => (float) $siswa['lat_terakhir'],
                 'lng'   => (float) $siswa['long_terakhir'],
@@ -120,7 +123,7 @@ class Tracking extends BaseController
             ];
         }
 
-        // 3. TITIK AKHIR: Absen Pulang (Dari Database)
+        // 5. TITIK AKHIR: Absen Pulang (Dari Cache DB)
         if ($absen && !empty($absen['lat_pulang']) && !empty($absen['long_pulang'])) {
             $points[] = [
                 'lat'   => (float) $absen['lat_pulang'],
@@ -134,7 +137,7 @@ class Tracking extends BaseController
             return $this->response->setJSON(['status' => 'pending', 'message' => 'Belum ada data lokasi terbaru.']);
         }
 
-        // 4. FILTER PINTAR: Hapus duplikat bertumpuk jika siswa diam di satu tempat
+        // 6. FILTER PINTAR: Hapus duplikat titik koordinat yang bertumpuk
         $uniquePoints = [];
         $lastCoord = '';
         foreach ($points as $pt) {
@@ -143,7 +146,6 @@ class Tracking extends BaseController
                 $uniquePoints[] = $pt;
                 $lastCoord = $coord;
             } else {
-                // Jika lokasi sama persis, gabungkan keterangan waktunya
                 $lastIndex = count($uniquePoints) - 1;
                 $uniquePoints[$lastIndex]['waktu'] .= ' & ' . $pt['waktu'];
                 $uniquePoints[$lastIndex]['tipe'] = $pt['tipe'];

@@ -4,7 +4,6 @@ namespace App\Controllers\Web;
 
 use App\Controllers\BaseController;
 use App\Models\UserModel;
-use App\Models\RoleModel;
 use App\Models\PengaturanModel;
 
 class AuthWeb extends BaseController
@@ -20,19 +19,23 @@ class AuthWeb extends BaseController
     public function login()
     {
         $userModel       = new UserModel();
-        $roleModel       = new RoleModel();
         $pengaturanModel = new PengaturanModel();
 
         $username = (string) $this->request->getPost('username');
         $password = (string) $this->request->getPost('password');
 
-        $user = $userModel->where('username', $username)->first();
+        // ✅ Optimasi: Gabungkan pencarian user dan role dalam 1 kueri
+        $user = $userModel->select('users.*, roles.nama_role, roles.warna_badge')
+            ->join('roles', 'roles.id_role = users.role_id', 'left')
+            ->where('username', $username)
+            ->first();
 
         if ($user && password_verify($password, (string)$user['password_hash'])) {
 
-            // ✅ Ambil Data Dinamis dari DB
-            $role       = $roleModel->find($user['role_id']);
-            $pengaturan = $pengaturanModel->find(1);
+            // ✅ Optimasi: Gunakan Cache untuk pengaturan (Valid 24 jam / 86400 detik)
+            $pengaturan = cache()->remember('pengaturan_global', 86400, function () use ($pengaturanModel) {
+                return $pengaturanModel->find(1);
+            });
 
             // ✅ Injeksi Konfigurasi Global ke Session
             $sessionData = [
@@ -40,8 +43,8 @@ class AuthWeb extends BaseController
                 'nama_lengkap'  => $user['nama_lengkap'],
                 'username'      => $user['username'],
                 'role_id'       => $user['role_id'],
-                'nama_role'     => $role['nama_role'] ?? 'User',
-                'warna_badge'   => $role['warna_badge'] ?? 'gray',
+                'nama_role'     => $user['nama_role'] ?? 'User',
+                'warna_badge'   => $user['warna_badge'] ?? 'gray',
                 'foto'          => $user['foto'],
                 'nama_aplikasi' => $pengaturan['nama_aplikasi'] ?? 'GeofenceApp',
                 'nama_sekolah'  => $pengaturan['nama_sekolah'] ?? 'Sekolah',

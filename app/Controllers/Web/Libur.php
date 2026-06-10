@@ -48,12 +48,21 @@ class Libur extends BaseController
             'keterangan' => $keterangan,
         ]);
 
+        // ✅ PERBAIKAN: Hapus cache di API agar hari ini otomatis jadi libur di HP Siswa
+        cache()->delete('hari_libur_' . $tanggal);
+
         return redirect()->to('/admin/libur')->with('success', 'Hari libur berhasil ditambahkan.');
     }
 
     public function delete(string $id)
     {
-        $this->liburModel->delete($id);
+        // ✅ PERBAIKAN: Cari tanggalnya dulu sebelum dihapus untuk membersihkan cache
+        $libur = $this->liburModel->find($id);
+        if ($libur) {
+            cache()->delete('hari_libur_' . $libur['tanggal']);
+            $this->liburModel->delete($id);
+        }
+
         return redirect()->to('/admin/libur')->with('success', 'Hari libur berhasil dihapus.');
     }
 }

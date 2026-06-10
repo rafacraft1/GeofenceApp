@@ -3,6 +3,7 @@
 /**
  * @var string $title
  * @var array<int, array<string, mixed>> $pengumuman
+ * @var string|null $pager_links
  */
 ?>
 <?= $this->extend('layout/admin') ?>
@@ -59,10 +60,10 @@
     <div class="lg:col-span-2">
         <div class="flex items-center justify-between mb-6">
             <h2 class="text-xl font-black text-gray-800">Riwayat Pengumuman</h2>
-            <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold"><?= count($pengumuman) ?> Pesan Tersimpan</span>
+            <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold">Data Log</span>
         </div>
 
-        <div class="space-y-4 h-[calc(100vh-180px)] overflow-y-auto pr-2" id="riwayatContainer">
+        <div class="space-y-4 h-[calc(100vh-220px)] overflow-y-auto pr-2" id="riwayatContainer">
             <?php if (empty($pengumuman)): ?>
                 <div class="bg-white border-2 border-dashed border-gray-200 rounded-2xl p-10 flex flex-col items-center justify-center text-center">
                     <i class="fas fa-bullhorn text-4xl text-gray-300 mb-3"></i>
@@ -129,6 +130,13 @@
                 <?php endforeach; ?>
             <?php endif; ?>
         </div>
+
+        <?php if (isset($pager_links)) : ?>
+            <div class="mt-4 pt-4 border-t border-gray-100 flex justify-center">
+                <?= $pager_links ?>
+            </div>
+        <?php endif; ?>
+
     </div>
 </div>
 <?= $this->endSection() ?>

@@ -229,6 +229,19 @@ class Siswa extends Controller
         return redirect()->to('/admin/siswa')->with('success', 'Akun siswa berhasil di-unblock dan fraud count di-reset.');
     }
 
+    public function block(string $id)
+    {
+        $siswa = $this->siswaModel->find($id);
+        if (!$siswa || !$this->checkAksesWaliKelas((int)$siswa['kelas_id'])) {
+            return redirect()->to('/admin/siswa')->with('error', 'Akses Ditolak.');
+        }
+
+        $this->siswaModel->update($id, [
+            'is_blocked' => 1 // Kunci akses API & Login
+        ]);
+        return redirect()->to('/admin/siswa')->with('success', 'Akses absensi dan login siswa berhasil dikunci sementara.');
+    }
+
     public function downloadTemplate()
     {
         $spreadsheet = new Spreadsheet();

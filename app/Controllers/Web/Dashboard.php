@@ -20,19 +20,33 @@ class Dashboard extends BaseController
 
     public function index()
     {
-        $hariIni     = Time::now('Asia/Jakarta')->toDateString();
+        // ✅ Optimasi: Inisialisasi waktu hanya 1x di awal
+        $sekarang    = Time::now('Asia/Jakarta');
+        $hariIni     = $sekarang->toDateString();
+
         $isWaliKelas = session()->get('is_wali_kelas');
         $kelasId     = $isWaliKelas ? session()->get('kelas_id') : null;
 
-        if ($isWaliKelas) {
-            $this->siswaModel->where('kelas_id', $kelasId);
-        }
-        $totalSiswa = $this->siswaModel->countAllResults();
+        // Identifier unik untuk Cache agar data Admin dan Wali Kelas tidak tertukar
+        $cacheSuffix = $kelasId ?? 'all';
 
+        // ✅ Optimasi 1: Cache Total Siswa (Valid 12 Jam)
+        $totalSiswa = cache()->remember('total_siswa_' . $cacheSuffix, 43200, function () use ($isWaliKelas, $kelasId) {
+            if ($isWaliKelas) {
+                $this->siswaModel->where('kelas_id', $kelasId);
+            }
+            return $this->siswaModel->countAllResults();
+        });
+
+        // ⚡ Data Real-Time (Tetap akses langsung ke DB karena sangat sensitif waktu)
         $stats      = $this->absensiModel->getDashboardStats($hariIni, $kelasId);
         $distribusi = $this->absensiModel->getDashboardDistribution($hariIni, $kelasId);
-        $topClasses = $this->absensiModel->getLeaderboardKelas($hariIni, $kelasId);
         $manipulasi = $this->absensiModel->getFraudList($hariIni, $kelasId);
+
+        // ✅ Optimasi 2: Cache Leaderboard (Valid 10 Menit)
+        $topClasses = cache()->remember('leaderboard_' . $cacheSuffix, 600, function () use ($hariIni, $kelasId) {
+            return $this->absensiModel->getLeaderboardKelas($hariIni, $kelasId);
+        });
 
         $hadirHariIni = $stats['hadir'];
         $persenHadir  = ($totalSiswa > 0) ? round(($hadirHariIni / $totalSiswa) * 100) : 0;
@@ -43,13 +57,19 @@ class Dashboard extends BaseController
         $grafikAlpa      = array_fill(0, 7, 0);
         $dates           = [];
 
+        // ✅ Optimasi 3: Memanipulasi subDays tanpa memanggil ulang construct Time::now()
         for ($i = 6; $i >= 0; $i--) {
-            $tgl = Time::now('Asia/Jakarta')->subDays($i)->toDateString();
+            // Gunakan subDays pada clone atau instance baru dari timestamp yang sama jika diperlukan
+            // Namun di CI4, subDays memodifikasi objek, jadi lebih aman parse dari string
+            $tgl = Time::parse($hariIni, 'Asia/Jakarta')->subDays($i)->toDateString();
             $dates[] = $tgl;
             $grafikLabels[] = date('d M', strtotime($tgl));
         }
 
-        $rekapTrend = $this->absensiModel->getTrendKehadiran($dates[0], $dates[6], $kelasId);
+        // ✅ Optimasi 4: Cache Data Tren Mingguan (Valid 1 Jam)
+        $rekapTrend = cache()->remember('trend_mingguan_' . $cacheSuffix, 3600, function () use ($dates, $kelasId) {
+            return $this->absensiModel->getTrendKehadiran($dates[0], $dates[6], $kelasId);
+        });
 
         foreach ($rekapTrend as $row) {
             $idx = array_search($row['tanggal'], $dates);

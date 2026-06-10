@@ -2,6 +2,7 @@
 
 /**
  * @var array<int, array<string, mixed>> $logFraud
+ * @var string|null $pager_links
  */
 ?>
 <?= $this->extend('layout/admin') ?>
@@ -59,5 +60,11 @@
             </tbody>
         </table>
     </div>
+
+    <?php if (isset($pager_links)) : ?>
+        <div class="p-4 border-t border-gray-100 bg-white">
+            <?= $pager_links ?>
+        </div>
+    <?php endif; ?>
 </div>
 <?= $this->endSection() ?>

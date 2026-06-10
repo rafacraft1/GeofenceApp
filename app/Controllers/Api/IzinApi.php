@@ -95,7 +95,7 @@ class IzinApi extends ResourceController
         $riwayat = $this->izinModel
             ->where('siswa_id', $siswa['id_siswa'])
             ->orderBy('created_at', 'DESC')
-            ->findAll();
+            ->findAll(20); // ✅ Batasi hanya 20 data pengajuan terakhir
 
         return $this->respond([
             'status' => 200,

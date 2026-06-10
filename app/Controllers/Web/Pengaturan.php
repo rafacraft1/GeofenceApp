@@ -50,11 +50,15 @@ class Pengaturan extends BaseController
 
         $this->pengaturanModel->update(1, $data);
 
-        // ✅ Update Session secara Real-time agar Header langsung berubah tanpa perlu relogin
+        // Update Session secara Real-time agar Header langsung berubah
         session()->set([
             'nama_aplikasi' => $data['nama_aplikasi'],
             'nama_sekolah'  => $data['nama_sekolah']
         ]);
+
+        // ✅ PERBAIKAN KRITIS: Hapus Cache Global agar sinkron dengan Modul 1 dan Modul 3
+        cache()->delete('koordinat_sekolah');
+        cache()->delete('pengaturan_global');
 
         return redirect()->to(base_url('admin/pengaturan'))->with('success', 'Pengaturan sistem berhasil diperbarui.');
     }

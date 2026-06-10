@@ -39,6 +39,7 @@ $routes->group('admin', ['filter' => ['webAuth', 'dynamicAccess'], 'namespace' =
 
         $routes->post('resetDevice/(:num)', 'Siswa::resetDevice/$1');
         $routes->post('unblock/(:num)', 'Siswa::unblock/$1');
+        $routes->post('block/(:segment)', 'Siswa::block/$1');
 
         $routes->get('export', 'Siswa::export');
         $routes->post('import', 'Siswa::import');

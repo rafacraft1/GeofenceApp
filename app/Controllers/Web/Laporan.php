@@ -19,20 +19,18 @@ class Laporan extends BaseController
         $this->kelasModel   = new KelasModel();
     }
 
-    /**
-     * REFAKTORISASI SCD (Slowly Changing Dimension):
-     * Query ini memastikan riwayat kelas tidak bergeser walaupun siswa sudah naik kelas.
-     */
     private function getRekapData(string $bulanMulai, string $bulanSelesai, string $tahun, string $kelasId): array
     {
-        // 1. Ambil Data Agregasi Kehadiran langsung dari tabel Absensi (Group by Siswa, Kelas Historis, dan Status)
-        // Perhatikan: JOIN tabel kelas sekarang dikunci ke absensi.kelas_id
+        // ✅ OPTIMASI DATABASE: Konversi bulan & tahun menjadi rentang tanggal absolut
+        // Ini memastikan MySQL tetap menggunakan Index pada kolom `tanggal` (Sangat Cepat!)
+        $startDate = date('Y-m-d', strtotime("$tahun-$bulanMulai-01"));
+        $endDate   = date('Y-m-t', strtotime("$tahun-$bulanSelesai-01")); // 't' otomatis mengambil tanggal terakhir di bulan tersebut
+
         $this->absensiModel->select('absensi.siswa_id, absensi.kelas_id, absensi.status, COUNT(absensi.id_absensi) as total, siswa.nis, siswa.nama_siswa, kelas.nama_kelas')
             ->join('siswa', 'siswa.id_siswa = absensi.siswa_id')
             ->join('kelas', 'kelas.id_kelas = absensi.kelas_id', 'left')
-            ->where('MONTH(absensi.tanggal) >=', $bulanMulai)
-            ->where('MONTH(absensi.tanggal) <=', $bulanSelesai)
-            ->where('YEAR(absensi.tanggal)', $tahun);
+            ->where('absensi.tanggal >=', $startDate)
+            ->where('absensi.tanggal <=', $endDate);
 
         if (!empty($kelasId)) {
             $this->absensiModel->where('absensi.kelas_id', $kelasId);
@@ -44,7 +42,7 @@ class Laporan extends BaseController
         $rekapMap = [];
 
         foreach ($dataAbsen as $row) {
-            $key = $row['siswa_id'] . '_' . $row['kelas_id']; // Kunci unik gabungan siswa dan kelas historisnya
+            $key = $row['siswa_id'] . '_' . $row['kelas_id'];
 
             if (!isset($rekapMap[$key])) {
                 $rekapMap[$key] = [
@@ -107,9 +105,12 @@ class Laporan extends BaseController
 
         $rekapData = $this->getRekapData($bulanMulai, $bulanSelesai, $tahun, (string)$kelasId);
 
-        $listKelas = $isWaliKelas
-            ? $this->kelasModel->where('id_kelas', $kelasSession)->findAll()
-            : $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll();
+        // ✅ OPTIMASI MEMORI: Gunakan Cache untuk dropdown pilihan kelas
+        $listKelas = cache()->remember('dropdown_kelas_laporan_' . ($isWaliKelas ? $kelasSession : 'all'), 43200, function () use ($isWaliKelas, $kelasSession) {
+            return $isWaliKelas
+                ? $this->kelasModel->where('id_kelas', $kelasSession)->findAll()
+                : $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll();
+        });
 
         $data = [
             'title'        => 'Laporan Kehadiran',
@@ -126,6 +127,10 @@ class Laporan extends BaseController
 
     public function export()
     {
+        // ✅ PROTEKSI SERVER: Tingkatkan limit RAM dan matikan timeout untuk proses ekspor data besar
+        ini_set('memory_limit', '512M');
+        set_time_limit(0);
+
         $bulanMulai   = $this->request->getGet('bulan_mulai') ?? date('m');
         $bulanSelesai = $this->request->getGet('bulan_selesai') ?? date('m');
         $tahun        = $this->request->getGet('tahun') ?? date('Y');

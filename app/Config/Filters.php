@@ -78,6 +78,6 @@ class Filters extends BaseFilters
      * before or after URI patterns.
      */
     public array $filters = [
-        'throttle' => ['before' => ['api/*']],
+        'throttle' => ['before' => ['api/*', 'admin/login']],
     ];
 }
