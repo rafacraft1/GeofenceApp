@@ -63,7 +63,8 @@ class Pengumuman extends BaseController
             $fileGambar->move(FCPATH . 'uploads/pengumuman', $namaGambar);
         }
 
-        $this->pengumumanModel->insert([
+        // ✅ SINKRONISASI 1: Tangkap ID yang baru saja dimasukkan ke database
+        $insertedId = $this->pengumumanModel->insert([
             'judul'  => $judul,
             'isi'    => $isi,
             'tipe'   => $tipe,
@@ -76,7 +77,20 @@ class Pengumuman extends BaseController
 
         if (!empty($tokenList)) {
             helper('fcm');
-            send_fcm_notification($tokenList, "📢 " . $judul, substr(strip_tags($isi), 0, 100) . "...");
+
+            // ✅ SINKRONISASI 2: Buat Array Data Payload untuk Flutter
+            $dataPayload = [
+                'type'   => 'pengumuman',
+                'id_ref' => (string) $insertedId // HTTP v1 mensyaratkan tipe string
+            ];
+
+            // ✅ SINKRONISASI 3: Kirim Array Payload sebagai parameter ke-4
+            send_fcm_notification(
+                $tokenList,
+                "📢 " . $judul,
+                substr(strip_tags($isi), 0, 100) . "...",
+                $dataPayload
+            );
         }
 
         return redirect()->to(base_url('admin/pengumuman'))->with('success', 'Pengumuman berhasil disebarkan!');

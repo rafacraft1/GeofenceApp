@@ -57,26 +57,29 @@ class TrackingApi extends ResourceController
      */
     public function storeLocation()
     {
+        // 🚨 PERANGKAP LOG: Mencatat semua request mentah yang masuk ke API
+        $rawInput = $this->request->getBody();
+        file_put_contents(WRITEPATH . 'logs/debug_tracking.txt', date('Y-m-d H:i:s') . " - PAYLOAD: " . $rawInput . "\n", FILE_APPEND);
+
         $json = $this->request->getJSON(true);
         $siswaId = $json['siswa_id'] ?? null;
         $locations = $json['locations'] ?? [];
 
         if (empty($siswaId) || empty($locations)) {
-            // PERBAIKAN ERROR 2: Gunakan fungsi bawaan CI4 failValidationErrors
+            file_put_contents(WRITEPATH . 'logs/debug_tracking.txt', date('Y-m-d H:i:s') . " - ERROR: Format JSON tidak valid atau kosong\n", FILE_APPEND);
             return $this->failValidationErrors(['error' => 'Data siswa_id dan array locations wajib dikirim.']);
         }
 
-        // MENGGUNAKAN CACHE SEBAGAI JEMBATAN SEMENTARA (TTL: 60 Detik)
-        // Memori akan otomatis bersih setelah 60 detik (tidak membebani database)
         $cacheKey = 'tracking_siswa_' . $siswaId;
         cache()->save($cacheKey, $locations, 60);
+
+        file_put_contents(WRITEPATH . 'logs/debug_tracking.txt', date('Y-m-d H:i:s') . " - SUKSES: Cache tersimpan untuk ID " . $siswaId . "\n", FILE_APPEND);
 
         return $this->respond([
             'status'  => 'success',
             'message' => 'Data 4 titik lokasi berhasil diunggah ke memori sementara server.'
         ]);
     }
-
     /**
      * 3. DIPANGGIL OLEH WEB ADMIN (POLLING)
      * Mengambil data dari Cache untuk digambar di peta web
