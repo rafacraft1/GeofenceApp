@@ -7,9 +7,15 @@ use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
 use Config\Services;
 use App\Models\SiswaModel;
+use App\Libraries\JWTAuth;
 
 class ApiAuthFilter implements FilterInterface
 {
+    /**
+     * @param RequestInterface $request
+     * @param array|null $arguments
+     * @return mixed
+     */
     public function before(RequestInterface $request, $arguments = null)
     {
         $header = $request->getHeaderLine('Authorization');
@@ -21,32 +27,38 @@ class ApiAuthFilter implements FilterInterface
                 ->setStatusCode(401);
         }
 
-        // Menggunakan SiswaModel agar standar interaksi DB tetap terjaga
-        $siswaModel = new SiswaModel();
+        $jwtAuth = new JWTAuth();
+        $decoded = $jwtAuth->decodeToken($token);
 
-        // Asumsi SiswaModel me-return 'array' (standar CI4)
-        $siswa = $siswaModel->where('api_token', $token)->first();
-
-        if (!$siswa) {
+        if (!$decoded) {
             return Services::response()
                 ->setJSON(['status' => 401, 'message' => 'Token tidak valid atau sesi telah berakhir.'])
                 ->setStatusCode(401);
         }
 
-        // Cek pemblokiran
-        if (isset($siswa['is_blocked']) && $siswa['is_blocked'] == 1) {
+        $siswaModel = new SiswaModel();
+        $siswa      = $siswaModel->select('id_siswa, nis, nama_siswa, kelas_id, is_blocked')->find($decoded->id_siswa);
+
+        if (!$siswa) {
+            return Services::response()
+                ->setJSON(['status' => 401, 'message' => 'Sesi tidak valid.'])
+                ->setStatusCode(401);
+        }
+
+        if ($siswa['is_blocked'] == 1) {
             return Services::response()
                 ->setJSON(['status' => 403, 'message' => 'Akun Anda diblokir karena terindikasi pelanggaran.'])
                 ->setStatusCode(403);
         }
 
-        // INJEKSI DATA: Menyimpan data siswa ke dalam Request agar dapat dipakai di semua Controller API
-        // Ini menghilangkan kebutuhan fungsi getSiswaAuth() di tiap Controller.
         $request->siswaAuth = $siswa;
     }
 
-    public function after(RequestInterface $request, ResponseInterface $response, $arguments = null)
-    {
-        // Tidak ada tindakan setelah request untuk API Auth
-    }
+    /**
+     * @param RequestInterface $request
+     * @param ResponseInterface $response
+     * @param array|null $arguments
+     * @return void
+     */
+    public function after(RequestInterface $request, ResponseInterface $response, $arguments = null) {}
 }

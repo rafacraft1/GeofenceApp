@@ -90,6 +90,7 @@ $routes->group('admin', ['filter' => ['webAuth', 'dynamicAccess'], 'namespace' =
 
 $routes->group('api/v1', ['filter' => 'throttle', 'namespace' => 'App\Controllers\Api'], function ($routes) {
     $routes->post('auth/login', 'AuthApi::login');
+    $routes->post('auth/refresh', 'AuthApi::refresh');
     $routes->get('pengumuman', 'PengumumanApi::index');
     $routes->get('waktu_server', 'WaktuApi::index');
 

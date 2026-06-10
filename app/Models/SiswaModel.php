@@ -4,6 +4,13 @@ namespace App\Models;
 
 use CodeIgniter\Model;
 
+/**
+ * @param array $dataSiswa
+ * @param array $kelasMap
+ * @param bool $isWaliKelas
+ * @param int|null $waliKelasId
+ * @return array
+ */
 class SiswaModel extends Model
 {
     protected $table            = 'siswa';
@@ -90,10 +97,11 @@ class SiswaModel extends Model
 
     public function processBulkImport(array $dataSiswa, array $kelasMap, bool $isWaliKelas, ?int $waliKelasId): array
     {
-        $inserted = 0;
-        $skipped  = 0;
+        $skipped      = 0;
+        $dataToInsert = [];
 
-        $this->db->transStart();
+        $existingSiswa = $this->select('nis')->findAll();
+        $existingNis   = array_column($existingSiswa, 'nis');
 
         foreach ($dataSiswa as $index => $row) {
             if ($index < 3) continue;
@@ -116,26 +124,36 @@ class SiswaModel extends Model
                 continue;
             }
 
-            if ($this->where('nis', $nis)->countAllResults() > 0) {
+            if (in_array($nis, $existingNis)) {
                 $skipped++;
                 continue;
             }
 
-            $this->insert([
-                'nis'          => $nis,
-                'nama_siswa'   => $nama,
-                'kelas_id'     => $kelasIdTarget,
-                'password'     => password_hash($nis, PASSWORD_BCRYPT)
-            ]);
+            $dataToInsert[] = [
+                'nis'        => $nis,
+                'nama_siswa' => $nama,
+                'kelas_id'   => $kelasIdTarget,
+                'password'   => password_hash($nis, PASSWORD_BCRYPT)
+            ];
 
-            $inserted++;
+            $existingNis[] = $nis;
         }
 
-        $this->db->transComplete();
+        if (!empty($dataToInsert)) {
+            $this->db->transStart();
+            $this->insertBatch($dataToInsert);
+            $this->db->transComplete();
+
+            return [
+                'status'   => $this->db->transStatus(),
+                'inserted' => count($dataToInsert),
+                'skipped'  => $skipped
+            ];
+        }
 
         return [
-            'status'   => $this->db->transStatus(),
-            'inserted' => $inserted,
+            'status'   => true,
+            'inserted' => 0,
             'skipped'  => $skipped
         ];
     }

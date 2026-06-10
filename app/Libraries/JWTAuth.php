@@ -11,28 +11,45 @@ class JWTAuth
 
     public function __construct()
     {
-        // ✅ Wajib mengambil secret key dari file .env
         $secretKey = getenv('JWT_SECRET_KEY');
 
         if (empty($secretKey)) {
-            throw new \Exception('Kunci JWT (JWT_SECRET_KEY) belum dikonfigurasi di file .env. Hal ini berbahaya untuk keamanan.');
+            throw new \Exception('Kunci JWT (JWT_SECRET_KEY) belum dikonfigurasi di file .env.');
         }
 
         $this->key = $secretKey;
     }
 
     /**
-     * Membuat Token JWT baru
+     * @param array $data
+     * @return string
      */
-    public function generateToken(array $data): string
+    public function generateAccessToken(array $data): string
+    {
+        return $this->buildToken($data, 900); // 15 Menit
+    }
+
+    /**
+     * @param array $data
+     * @return string
+     */
+    public function generateRefreshToken(array $data): string
+    {
+        return $this->buildToken($data, 604800); // 7 Hari
+    }
+
+    /**
+     * @param array $data
+     * @param int $expiration
+     * @return string
+     */
+    private function buildToken(array $data, int $expiration): string
     {
         $issuedAt = time();
-        $expire   = $issuedAt + 43200; // Token valid selama 12 Jam (mencakup 1 shift sekolah penuh)
-
-        $payload = [
+        $payload  = [
             'iat'  => $issuedAt,
             'iss'  => 'GeofenceApp',
-            'exp'  => $expire,
+            'exp'  => $issuedAt + $expiration,
             'data' => $data
         ];
 
@@ -40,15 +57,15 @@ class JWTAuth
     }
 
     /**
-     * Membaca dan memvalidasi Token JWT
+     * @param string $token
+     * @return object|null
      */
-    public function decodeToken(string $token)
+    public function decodeToken(string $token): ?object
     {
         try {
             $decoded = JWT::decode($token, new Key($this->key, 'HS256'));
             return $decoded->data;
         } catch (\Exception $e) {
-            // Token tidak valid, format salah, atau sudah expired
             return null;
         }
     }

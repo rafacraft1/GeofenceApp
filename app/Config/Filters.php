@@ -15,10 +15,6 @@ use CodeIgniter\Filters\SecureHeaders;
 
 class Filters extends BaseFilters
 {
-    /**
-     * Configures aliases for Filter classes to
-     * make reading things nicer and simpler.
-     */
     public array $aliases = [
         'csrf'          => CSRF::class,
         'toolbar'       => DebugToolbar::class,
@@ -32,52 +28,33 @@ class Filters extends BaseFilters
         'throttle'      => \App\Filters\ThrottleFilter::class,
         'webAuth'       => \App\Filters\WebAuthFilter::class,
         'apiAuth'       => \App\Filters\ApiAuthFilter::class,
-        // Filter baru untuk Database-Driven RBAC
         'dynamicAccess' => \App\Filters\DynamicAccessFilter::class,
     ];
 
-    /**
-     * List of special required filters.
-     */
     public array $required = [
         'before' => [
-            'forcehttps', // Force Global Secure Requests
-            'pagecache',  // Web Page Caching
+            'forcehttps',
+            'pagecache',
         ],
         'after' => [
-            'pagecache',   // Web Page Caching
-            'performance', // Performance Metrics
-            'toolbar',     // Debug Toolbar
+            'pagecache',
+            'performance',
+            'toolbar',
         ],
     ];
 
-    /**
-     * List of filter aliases that are always
-     * applied before and after every request.
-     */
     public array $globals = [
         'before' => [
-            // 'honeypot',
-            // 'csrf',
-            // 'invalidchars',
+            'csrf' => ['except' => ['api/*']],
         ],
         'after' => [
-            // 'honeypot',
-            // 'secureheaders',
+            'secureheaders',
         ],
     ];
 
-    /**
-     * List of filter aliases that works on a
-     * particular HTTP method (GET, POST, etc.).
-     */
     public array $methods = [];
 
-    /**
-     * List of filter aliases that should run on any
-     * before or after URI patterns.
-     */
     public array $filters = [
-        'throttle' => ['before' => ['api/*', 'admin/login']],
+        'throttle' => ['before' => ['api/v1/auth/login', 'admin/login']],
     ];
 }
