@@ -14,22 +14,15 @@ $routes->get('admin/login', 'Web\AuthWeb::index');
 $routes->post('admin/login_action', 'Web\AuthWeb::login');
 $routes->get('admin/logout', 'Web\AuthWeb::logout');
 
-// ========================================================================
-// 1. JALUR PROFILE (Hanya butuh verifikasi Login)
-// ========================================================================
 $routes->group('admin', ['filter' => 'webAuth', 'namespace' => 'App\Controllers\Web'], function ($routes) {
     $routes->get('profile', 'User::profile');
     $routes->post('profile/update', 'User::updateProfile');
 });
 
-// ========================================================================
-// 2. JALUR WEB UTAMA (Dengan Filter Web Auth & Hak Akses Dinamis)
-// ========================================================================
 $routes->group('admin', ['filter' => ['webAuth', 'dynamicAccess'], 'namespace' => 'App\Controllers\Web'], function ($routes) {
 
     $routes->get('dashboard', 'Dashboard::index');
 
-    // ✅ Modul Siswa (Nested Group)
     $routes->group('siswa', function ($routes) {
         $routes->get('/', 'Siswa::index');
         $routes->post('store', 'Siswa::store');
@@ -46,7 +39,6 @@ $routes->group('admin', ['filter' => ['webAuth', 'dynamicAccess'], 'namespace' =
         $routes->get('downloadTemplate', 'Siswa::downloadTemplate');
     });
 
-    // ✅ Modul Absensi (Nested Group)
     $routes->group('absensi', function ($routes) {
         $routes->get('/', 'Absensi::index');
         $routes->post('inputManual', 'Absensi::inputManual');
@@ -96,16 +88,13 @@ $routes->group('admin', ['filter' => ['webAuth', 'dynamicAccess'], 'namespace' =
     $routes->get('mutasi/checkTujuan/(:any)', 'Mutasi::checkTujuan/$1');
 });
 
-// ========================================================================
-// 3. JALUR API ANDROID (V1)
-// ========================================================================
 $routes->group('api/v1', ['filter' => 'throttle', 'namespace' => 'App\Controllers\Api'], function ($routes) {
     $routes->post('auth/login', 'AuthApi::login');
     $routes->get('pengumuman', 'PengumumanApi::index');
     $routes->get('waktu_server', 'WaktuApi::index');
-    $routes->post('tracking/store', 'TrackingApi::storeLocation');
 
     $routes->group('', ['filter' => 'apiAuth'], function ($routes) {
+        $routes->post('tracking/store', 'TrackingApi::storeLocation');
         $routes->post('absen/masuk', 'AbsensiApi::masuk');
         $routes->post('absen/pulang', 'AbsensiApi::pulang');
         $routes->get('absen/riwayat', 'AbsensiApi::riwayat');
@@ -117,9 +106,6 @@ $routes->group('api/v1', ['filter' => 'throttle', 'namespace' => 'App\Controller
     });
 });
 
-// ========================================================================
-// 4. JALUR API TRACKING ON-THE-FLY
-// ========================================================================
 $routes->group('api/tracking', ['namespace' => 'App\Controllers\Api'], function ($routes) {
     $routes->post('trigger/(:num)', 'TrackingApi::triggerTracking/$1');
     $routes->get('poll/(:num)', 'TrackingApi::pollLocation/$1');

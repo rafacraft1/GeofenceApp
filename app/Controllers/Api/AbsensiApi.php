@@ -19,7 +19,7 @@ class AbsensiApi extends ResourceController
     {
         $this->db             = \Config\Database::connect();
         $this->absensiService = new AbsensiService();
-        $this->absensiModel   = new AbsensiModel();
+        $this->absensiModel   = model(AbsensiModel::class);
         helper(['security']);
     }
 
@@ -32,7 +32,6 @@ class AbsensiApi extends ResourceController
 
     private function getJadwalHariIni(string $tanggalSekarang, string $kodeHari): array
     {
-        // ✅ PERBAIKAN: Cache cek hari libur selama 12 jam
         $cacheKeyLibur = 'hari_libur_' . $tanggalSekarang;
         $libur = cache()->remember($cacheKeyLibur, 43200, function () use ($tanggalSekarang) {
             return $this->db->table('hari_libur')->where('tanggal', $tanggalSekarang)->get()->getRowArray();
@@ -42,7 +41,6 @@ class AbsensiApi extends ResourceController
             return ['is_libur' => true, 'keterangan' => $libur['keterangan'], 'jam_masuk' => null, 'jam_pulang' => null];
         }
 
-        // ✅ PERBAIKAN: Cache jadwal harian selama 12 jam
         $cacheKeyJadwal = 'jadwal_hari_' . $kodeHari;
         $jadwal = cache()->remember($cacheKeyJadwal, 43200, function () use ($kodeHari) {
             return $this->db->table('jadwal_absen')->where('kode_hari', $kodeHari)->get()->getRowArray();
@@ -91,12 +89,8 @@ class AbsensiApi extends ResourceController
         $jadwal = $this->getJadwalHariIni($tanggalSekarang, (string)$kodeHari);
         if ($jadwal['is_libur']) return $this->failForbidden('Hari ini libur: ' . $jadwal['keterangan']);
 
-        // CEK DATA HARI INI
         $absenHariIni = $this->absensiModel->where(['siswa_id' => $siswa['id_siswa'], 'tanggal' => $tanggalSekarang])->first();
 
-        // =========================================================
-        // LOGIKA BYPASS DISPENSASI (Update vs Insert)
-        // =========================================================
         $isDispensasi = ($absenHariIni && $absenHariIni['status'] === 'Dispensasi');
 
         if ($absenHariIni && !$isDispensasi) {
@@ -107,7 +101,6 @@ class AbsensiApi extends ResourceController
             return $this->failResourceExists('Anda sudah mengirim bukti tiba di lokasi kegiatan hari ini.');
         }
 
-        // --- ATURAN BATAS WAKTU (Hanya Berlaku jika BUKAN Dispensasi) ---
         $waktuMasuk = Time::parse($tanggalSekarang . ' ' . $jadwal['jam_masuk'], 'Asia/Jakarta');
         $waktuPulang = Time::parse($tanggalSekarang . ' ' . $jadwal['jam_pulang'], 'Asia/Jakarta');
 
@@ -123,7 +116,6 @@ class AbsensiApi extends ResourceController
                 return $this->failForbidden('Batas waktu presensi masuk hari ini telah habis.');
             }
         }
-        // --------------------------------------
 
         $lat       = (float) $this->request->getPost('latitude');
         $lon       = (float) $this->request->getPost('longitude');
@@ -133,7 +125,6 @@ class AbsensiApi extends ResourceController
         $keterangan = $isDispensasi ? 'Hadir di Lokasi Kegiatan' : 'Tepat Waktu';
         $menitTelat = 0;
 
-        // VALIDASI GEOFENCING (Dilewati jika Dispensasi)
         if (!$isDispensasi) {
             $validasi = $this->absensiService->validasiGeofencing($lat, $lon, $isFakeGps);
             if ($validasi['status'] === 'Error') return $this->failServerError($validasi['message']);
@@ -157,16 +148,13 @@ class AbsensiApi extends ResourceController
 
         if (!$fileName) return $this->failValidationErrors('Gagal mengunggah file foto atau format tidak valid.');
 
-        // PENGAMANAN REAL-TIME HISTORICAL SNAPSHOT
-        // Tarik data kelas_id terbaru dari DB untuk menghindari caching JWT
         $realtimeSiswa = $this->db->table('siswa')->select('kelas_id')->where('id_siswa', $siswa['id_siswa'])->get()->getRowArray();
         $snapshotKelasId = $realtimeSiswa['kelas_id'] ?? null;
 
         try {
             if ($isDispensasi) {
-                // UPDATE RECORD DISPENSASI (INJEKSI SNAPSHOT)
                 $this->absensiModel->update($absenHariIni['id_absensi'], [
-                    'kelas_id'    => $snapshotKelasId, // <--- REKAM SNAPSHOT MUTASI
+                    'kelas_id'    => $snapshotKelasId,
                     'jam_masuk'   => $sekarang->toTimeString(),
                     'foto_masuk'  => $fileName,
                     'lat_masuk'   => $lat,
@@ -182,10 +170,9 @@ class AbsensiApi extends ResourceController
                     'detail'  => $keterangan
                 ]);
             } else {
-                // INSERT NORMAL (INJEKSI SNAPSHOT)
                 $this->absensiModel->insert([
                     'siswa_id'    => $siswa['id_siswa'],
-                    'kelas_id'    => $snapshotKelasId, // <--- REKAM SNAPSHOT MUTASI
+                    'kelas_id'    => $snapshotKelasId,
                     'tanggal'     => $tanggalSekarang,
                     'jam_masuk'   => $sekarang->toTimeString(),
                     'status'      => $status,
