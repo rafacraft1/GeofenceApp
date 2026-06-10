@@ -170,8 +170,8 @@ class Tracking extends BaseController
 
         $result = send_fcm_notification(
             (string) $siswa['fcm_token'],
-            "PING_LOCATION",
-            "Admin meminta pembaruan lokasi radar.",
+            "Pengingat Absensi",
+            "Jangan Lupa Absen Masuk/Pulang Hari ini",
             ['action' => 'fetch_location']
         );
 
