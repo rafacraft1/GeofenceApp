@@ -21,10 +21,8 @@ class Laporan extends BaseController
 
     private function getRekapData(string $bulanMulai, string $bulanSelesai, string $tahun, string $kelasId): array
     {
-        // ✅ OPTIMASI DATABASE: Konversi bulan & tahun menjadi rentang tanggal absolut
-        // Ini memastikan MySQL tetap menggunakan Index pada kolom `tanggal` (Sangat Cepat!)
         $startDate = date('Y-m-d', strtotime("$tahun-$bulanMulai-01"));
-        $endDate   = date('Y-m-t', strtotime("$tahun-$bulanSelesai-01")); // 't' otomatis mengambil tanggal terakhir di bulan tersebut
+        $endDate   = date('Y-m-t', strtotime("$tahun-$bulanSelesai-01"));
 
         $this->absensiModel->select('absensi.siswa_id, absensi.kelas_id, absensi.status, COUNT(absensi.id_absensi) as total, siswa.nis, siswa.nama_siswa, kelas.nama_kelas')
             ->join('siswa', 'siswa.id_siswa = absensi.siswa_id')
@@ -38,7 +36,6 @@ class Laporan extends BaseController
 
         $dataAbsen = $this->absensiModel->groupBy('absensi.siswa_id, absensi.kelas_id, absensi.status')->findAll();
 
-        // 2. Mapping Data (O(1) Lookups)
         $rekapMap = [];
 
         foreach ($dataAbsen as $row) {
@@ -61,7 +58,6 @@ class Laporan extends BaseController
             $rekapMap[$key][$row['status']] = (int) $row['total'];
         }
 
-        // 3. Kalkulasi Persentase Akhir
         $hasilAkhir = [];
         foreach ($rekapMap as $data) {
             $hadir      = $data['Hadir'];
@@ -81,7 +77,6 @@ class Laporan extends BaseController
             $hasilAkhir[] = $data;
         }
 
-        // 4. Sortir secara alfabetis berdasarkan nama kelas lalu nama siswa
         usort($hasilAkhir, function ($a, $b) {
             if ($a['nama_kelas'] === $b['nama_kelas']) {
                 return $a['nama_siswa'] <=> $b['nama_siswa'];
@@ -105,7 +100,6 @@ class Laporan extends BaseController
 
         $rekapData = $this->getRekapData($bulanMulai, $bulanSelesai, $tahun, (string)$kelasId);
 
-        // ✅ OPTIMASI MEMORI: Gunakan Cache untuk dropdown pilihan kelas
         $listKelas = cache()->remember('dropdown_kelas_laporan_' . ($isWaliKelas ? $kelasSession : 'all'), 43200, function () use ($isWaliKelas, $kelasSession) {
             return $isWaliKelas
                 ? $this->kelasModel->where('id_kelas', $kelasSession)->findAll()
@@ -127,7 +121,6 @@ class Laporan extends BaseController
 
     public function export()
     {
-        // ✅ PROTEKSI SERVER: Tingkatkan limit RAM dan matikan timeout untuk proses ekspor data besar
         ini_set('memory_limit', '512M');
         set_time_limit(0);
 

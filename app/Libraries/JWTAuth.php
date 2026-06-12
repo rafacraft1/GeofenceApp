@@ -26,7 +26,7 @@ class JWTAuth
      */
     public function generateAccessToken(array $data): string
     {
-        return $this->buildToken($data, 900); // 15 Menit
+        return $this->buildToken($data, 900);
     }
 
     /**
@@ -35,7 +35,7 @@ class JWTAuth
      */
     public function generateRefreshToken(array $data): string
     {
-        return $this->buildToken($data, 604800); // 7 Hari
+        return $this->buildToken($data, 604800);
     }
 
     /**

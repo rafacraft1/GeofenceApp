@@ -14,19 +14,18 @@ class InitDataSeeder extends Seeder
         $this->db->table('menus')->truncate();
         $this->db->table('roles')->truncate();
         $this->db->table('users')->truncate();
+        $this->db->table('zona_jadwal')->truncate();
+        $this->db->table('zona_absensi')->truncate();
         $this->db->table('pengaturan')->truncate();
         $this->db->table('kelas')->truncate();
         $this->db->table('jadwal_absen')->truncate();
         $this->db->table('hari_libur')->truncate();
 
-        // 2. Data Master Role (Menyisipkan default warna badge menggunakan class text Tailwind CSS)
         $this->db->table('roles')->insertBatch([
             ['id_role' => 1, 'nama_role' => 'Admin', 'warna_badge' => 'indigo', 'created_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s')],
             ['id_role' => 2, 'nama_role' => 'Guru',  'warna_badge' => 'emerald', 'created_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s')]
         ]);
 
-        // 3. Data Users 
-        // Menggunakan Konstanta Default Password (Meskipun di seeder, kita siapkan struktur rapi)
         $passwordDefault = password_hash('123456', PASSWORD_BCRYPT);
         $this->db->table('users')->insertBatch([
             [
@@ -71,66 +70,85 @@ class InitDataSeeder extends Seeder
             ]
         ]);
 
-        // 4. Data Kelas beserta Relasi Wali Kelas
-        $this->db->table('kelas')->insertBatch([
-            ['id_kelas' => 1, 'nama_kelas' => '10-A', 'wali_kelas_id' => 2, 'created_at' => date('Y-m-d H:i:s')],
-            ['id_kelas' => 2, 'nama_kelas' => '10-B', 'wali_kelas_id' => 3, 'created_at' => date('Y-m-d H:i:s')],
-            ['id_kelas' => 3, 'nama_kelas' => '11-A', 'wali_kelas_id' => null, 'created_at' => date('Y-m-d H:i:s')],
+        // 1. BUAT ZONA SEKOLAH PUSAT
+        $this->db->table('zona_absensi')->insert([
+            'id_zona'          => 1,
+            'nama_zona'        => 'Sekolah Pusat (Default)',
+            'latitude'         => -6.20000000,
+            'longitude'        => 106.81666600,
+            'radius'           => 50,
+            'is_default'       => 1,
+            'created_at'       => date('Y-m-d H:i:s'),
+            'updated_at'       => date('Y-m-d H:i:s'),
         ]);
 
-        // 5. Data Pengaturan Sekolah Default (Menyisipkan nama_aplikasi dan nama_sekolah)
-        $this->db->table('pengaturan')->insert([
-            'id_pengaturan'     => 1,
-            'nama_aplikasi'     => 'GeofenceApp', // Nama default aplikasi web
-            'nama_sekolah'      => 'SMKN 1 TGB',  // Nama default identitas institusi
-            'latitude_sekolah'  => '-6.200000',
-            'longitude_sekolah' => '106.816666',
-            'radius_meter'      => 50,
-            'updated_at'        => date('Y-m-d H:i:s')
-        ]);
-
-        // 6. Data Jadwal Absen Default
-        $jadwal = [];
-        $hari = [1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat'];
+        // 2. BUAT JADWAL 7 HARI KHUSUS UNTUK ZONA SEKOLAH PUSAT (Jumat pulang cepat)
+        $jadwalDefaultZona = [];
+        $hari = [1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat', 6 => 'Sabtu', 7 => 'Minggu'];
         foreach ($hari as $kode => $nama) {
-            $jadwal[] = [
-                'kode_hari'  => $kode,
-                'nama_hari'  => $nama,
-                'jam_masuk'  => '07:00:00',
-                'jam_pulang' => '15:00:00',
-                'is_libur'   => 0
+            $jadwalDefaultZona[] = [
+                'zona_id'          => 1,
+                'kode_hari'        => $kode,
+                'nama_hari'        => $nama,
+                'waktu_buka_absen' => '05:00:00',
+                'jam_masuk'        => '06:30:00',
+                'jam_pulang'       => ($kode == 5) ? '11:30:00' : '15:00:00',
+                'is_libur'         => ($kode >= 6) ? 1 : 0
             ];
         }
-        $jadwal[] = ['kode_hari' => 6, 'nama_hari' => 'Sabtu', 'jam_masuk' => null, 'jam_pulang' => null, 'is_libur' => 1];
-        $jadwal[] = ['kode_hari' => 7, 'nama_hari' => 'Minggu', 'jam_masuk' => null, 'jam_pulang' => null, 'is_libur' => 1];
+        $this->db->table('zona_jadwal')->insertBatch($jadwalDefaultZona);
 
-        $this->db->table('jadwal_absen')->insertBatch($jadwal);
-
-        // 7. TABEL MENUS
-        $this->db->table('menus')->insertBatch([
-            ['id_menu' => 1,  'nama_menu' => 'Dashboard',        'url' => 'admin/dashboard',  'icon' => 'fas fa-home', 'urutan' => 1, 'is_active' => 1],
-            ['id_menu' => 2,  'nama_menu' => 'Data Siswa',       'url' => 'admin/siswa',      'icon' => 'fas fa-users', 'urutan' => 2, 'is_active' => 1],
-            ['id_menu' => 3,  'nama_menu' => 'Absensi Harian',   'url' => 'admin/absensi',    'icon' => 'fas fa-clipboard-check', 'urutan' => 3, 'is_active' => 1],
-            ['id_menu' => 4,  'nama_menu' => 'Izin & Sakit',     'url' => 'admin/izin',       'icon' => 'fas fa-envelope-open-text', 'urutan' => 4, 'is_active' => 1],
-            ['id_menu' => 5,  'nama_menu' => 'Live Radar',       'url' => 'admin/tracking',   'icon' => 'fas fa-map-marked-alt', 'urutan' => 5, 'is_active' => 1],
-            ['id_menu' => 6,  'nama_menu' => 'Log Fraud',        'url' => 'admin/log-fraud',  'icon' => 'fas fa-shield-alt', 'urutan' => 6, 'is_active' => 1],
-            ['id_menu' => 7,  'nama_menu' => 'Laporan Rekap',    'url' => 'admin/laporan',    'icon' => 'fas fa-file-excel', 'urutan' => 7, 'is_active' => 1],
-            ['id_menu' => 8,  'nama_menu' => 'Data User/Guru',   'url' => 'admin/user',       'icon' => 'fas fa-user-tie', 'urutan' => 8, 'is_active' => 1],
-            ['id_menu' => 9,  'nama_menu' => 'Data Kelas',       'url' => 'admin/kelas',      'icon' => 'fas fa-chalkboard', 'urutan' => 9, 'is_active' => 1],
-            ['id_menu' => 10, 'nama_menu' => 'Pengumuman',       'url' => 'admin/pengumuman', 'icon' => 'fas fa-bullhorn', 'urutan' => 10, 'is_active' => 1],
-            ['id_menu' => 11, 'nama_menu' => 'Hari Libur',       'url' => 'admin/libur',      'icon' => 'fas fa-calendar-times', 'urutan' => 11, 'is_active' => 1],
-            ['id_menu' => 12, 'nama_menu' => 'Jadwal Harian',    'url' => 'admin/jadwal',     'icon' => 'fas fa-clock', 'urutan' => 12, 'is_active' => 1],
-            ['id_menu' => 13, 'nama_menu' => 'Pengaturan',       'url' => 'admin/pengaturan', 'icon' => 'fas fa-cogs', 'urutan' => 13, 'is_active' => 1],
-            ['id_menu' => 14, 'nama_menu' => 'Mutasi Kelas',     'url' => 'admin/mutasi',     'icon' => 'fas fa-exchange-alt', 'urutan' => 14, 'is_active' => 1],
+        $this->db->table('kelas')->insertBatch([
+            ['id_kelas' => 1, 'nama_kelas' => '10-A', 'wali_kelas_id' => 2, 'zona_id' => null, 'created_at' => date('Y-m-d H:i:s')],
+            ['id_kelas' => 2, 'nama_kelas' => '10-B', 'wali_kelas_id' => 3, 'zona_id' => null, 'created_at' => date('Y-m-d H:i:s')],
+            ['id_kelas' => 3, 'nama_kelas' => '11-A', 'wali_kelas_id' => null, 'zona_id' => null, 'created_at' => date('Y-m-d H:i:s')],
         ]);
 
-        // 8. Pemetaan Role ke Menu (Role_Menus)
+        $this->db->table('pengaturan')->insert([
+            'id_pengaturan' => 1,
+            'nama_aplikasi' => 'GeofenceApp',
+            'nama_sekolah'  => 'SMKN 1 TGB',
+            'updated_at'    => date('Y-m-d H:i:s')
+        ]);
+
+        // JADWAL GLOBAL (Hanya status libur akhir pekan)
+        $jadwalGlobal = [];
+        foreach ($hari as $kode => $nama) {
+            $jadwalGlobal[] = [
+                'kode_hari'  => $kode,
+                'nama_hari'  => $nama,
+                'is_libur'   => ($kode >= 6) ? 1 : 0
+            ];
+        }
+        $this->db->table('jadwal_absen')->insertBatch($jadwalGlobal);
+
+        // PENATAAN URUTAN MENU BERDASARKAN PRIORITAS DEPENDENSI DATA
+        $this->db->table('menus')->insertBatch([
+            ['id_menu' => 1,  'nama_menu' => 'Dashboard',         'url' => 'admin/dashboard',  'icon' => 'fas fa-home',               'urutan' => 1,  'is_active' => 1],
+            ['id_menu' => 2,  'nama_menu' => 'Live Radar',        'url' => 'admin/tracking',   'icon' => 'fas fa-map-marked-alt',     'urutan' => 2,  'is_active' => 1],
+            ['id_menu' => 3,  'nama_menu' => 'Absensi Harian',    'url' => 'admin/absensi',    'icon' => 'fas fa-clipboard-check',    'urutan' => 3,  'is_active' => 1],
+            ['id_menu' => 4,  'nama_menu' => 'Izin & Dispensasi', 'url' => 'admin/izin',       'icon' => 'fas fa-envelope-open-text', 'urutan' => 4,  'is_active' => 1],
+            ['id_menu' => 5,  'nama_menu' => 'Log Keamanan',      'url' => 'admin/log-fraud',  'icon' => 'fas fa-shield-alt',         'urutan' => 5,  'is_active' => 1],
+            ['id_menu' => 6,  'nama_menu' => 'Data Guru',         'url' => 'admin/user',       'icon' => 'fas fa-user-tie',           'urutan' => 6,  'is_active' => 1],
+            ['id_menu' => 7,  'nama_menu' => 'Data Kelas',        'url' => 'admin/kelas',      'icon' => 'fas fa-chalkboard',         'urutan' => 7,  'is_active' => 1],
+            ['id_menu' => 8,  'nama_menu' => 'Data Siswa',        'url' => 'admin/siswa',      'icon' => 'fas fa-users',              'urutan' => 8,  'is_active' => 1],
+            ['id_menu' => 9,  'nama_menu' => 'Mutasi Kelas',      'url' => 'admin/mutasi',     'icon' => 'fas fa-exchange-alt',       'urutan' => 9,  'is_active' => 1],
+            ['id_menu' => 10, 'nama_menu' => 'Zona Absensi',      'url' => 'admin/zona',       'icon' => 'fas fa-map-marker-alt',     'urutan' => 10, 'is_active' => 1],
+            ['id_menu' => 11, 'nama_menu' => 'Jadwal Harian',     'url' => 'admin/jadwal',     'icon' => 'fas fa-clock',              'urutan' => 11, 'is_active' => 1],
+            ['id_menu' => 12, 'nama_menu' => 'Hari Libur',        'url' => 'admin/libur',      'icon' => 'fas fa-calendar-times',     'urutan' => 12, 'is_active' => 1],
+            ['id_menu' => 13, 'nama_menu' => 'Pengumuman',        'url' => 'admin/pengumuman', 'icon' => 'fas fa-bullhorn',           'urutan' => 13, 'is_active' => 1],
+            ['id_menu' => 14, 'nama_menu' => 'Laporan Rekap',     'url' => 'admin/laporan',    'icon' => 'fas fa-file-excel',         'urutan' => 14, 'is_active' => 1],
+            ['id_menu' => 15, 'nama_menu' => 'Pengaturan Sistem', 'url' => 'admin/pengaturan', 'icon' => 'fas fa-cogs',               'urutan' => 15, 'is_active' => 1],
+        ]);
+
         $roleMenus = [];
-        for ($i = 1; $i <= 14; $i++) {
+        for ($i = 1; $i <= 15; $i++) {
             $roleMenus[] = ['id_role' => 1, 'id_menu' => $i];
         }
-        for ($i = 1; $i <= 7; $i++) {
-            $roleMenus[] = ['id_role' => 2, 'id_menu' => $i];
+
+        $aksesGuru = [1, 2, 3, 4, 5, 8, 13, 14];
+        foreach ($aksesGuru as $menuId) {
+            $roleMenus[] = ['id_role' => 2, 'id_menu' => $menuId];
         }
 
         $this->db->table('role_menus')->insertBatch($roleMenus);

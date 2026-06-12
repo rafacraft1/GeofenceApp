@@ -49,7 +49,7 @@
         <p class="text-[10px] font-bold text-amber-500 uppercase tracking-widest">Absen (Alpa)</p>
         <p class="text-2xl font-black text-gray-800"><?= (int) $alpa_hari_ini ?></p>
     </div>
-    <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm border-l-4 border-l-red-500">
+    <div class="bg-white p-5 rounded-xl border-y border-r border-gray-100 shadow-sm border-l-4 border-l-red-500">
         <p class="text-[10px] font-bold text-red-500 uppercase tracking-widest">Anomali Geofence</p>
         <p class="text-2xl font-black text-gray-800"><?= (int) $fraud_hari_ini ?></p>
     </div>
@@ -75,7 +75,7 @@
     </div>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-16">
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 h-fit">
         <h3 class="text-xs font-bold text-gray-700 mb-6 uppercase tracking-wider">
             <?= $is_wali_kelas ? 'Performa Kelas Anda' : 'Performa Kelas Terbaik' ?>
@@ -147,13 +147,25 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", function() {
-        const map = window.L.map('mapFraud').setView([-6.20000000, 106.81666600], 13);
-        window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        const mapData = {
+            labels: <?= $chart_labels ?>,
+            hadir: <?= $chart_hadir ?>,
+            terlambat: <?= $chart_terlambat ?>,
+            alpa: <?= $chart_alpa ?>,
+            distribution: <?= $chart_distribution ?>,
+            manipulasi: <?= json_encode($list_manipulasi) ?>
+        };
 
-        const listManipulasi = <?= json_encode($list_manipulasi) ?>;
+        const map = window.L.map('mapFraud').setView([-6.20000000, 106.81666600], 13);
+
+        window.L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+            maxZoom: 20,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+        }).addTo(map);
+
         const markers = [];
 
-        listManipulasi.forEach(m => {
+        mapData.manipulasi.forEach(m => {
             if (m.lat_masuk && m.long_masuk) {
                 const isFake = m.is_fake_gps == 1;
                 const markerColor = isFake ? '#EF4444' : '#F59E0B';
@@ -166,7 +178,6 @@
                     fillOpacity: 0.9
                 }).addTo(map);
 
-                // Proteksi XSS pada Popup Marker
                 const mapSiswa = m.nama_siswa ? m.nama_siswa.replace(/</g, "&lt;").replace(/>/g, "&gt;") : '';
                 const mapKelas = m.kelas ? m.kelas.replace(/</g, "&lt;").replace(/>/g, "&gt;") : '';
 
@@ -192,22 +203,22 @@
         new window.Chart(document.getElementById('attendanceChart'), {
             type: 'bar',
             data: {
-                labels: <?= $chart_labels ?>,
+                labels: mapData.labels,
                 datasets: [{
                         label: 'Hadir',
-                        data: <?= $chart_hadir ?>,
+                        data: mapData.hadir,
                         backgroundColor: '#10B981',
                         borderRadius: 5
                     },
                     {
                         label: 'Terlambat',
-                        data: <?= $chart_terlambat ?>,
+                        data: mapData.terlambat,
                         backgroundColor: '#FBBF24',
                         borderRadius: 5
                     },
                     {
                         label: 'Alpa',
-                        data: <?= $chart_alpa ?>,
+                        data: mapData.alpa,
                         backgroundColor: '#EF4444',
                         borderRadius: 5
                     }
@@ -232,7 +243,7 @@
             data: {
                 labels: ['Hadir', 'Dispensasi', 'Terlambat', 'Sakit', 'Izin', 'Alpa'],
                 datasets: [{
-                    data: <?= $chart_distribution ?>,
+                    data: mapData.distribution,
                     backgroundColor: ['#10B981', '#14B8A6', '#FBBF24', '#60A5FA', '#818CF8', '#EF4444'],
                     borderWidth: 0,
                     cutout: '75%'

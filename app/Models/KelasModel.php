@@ -12,7 +12,6 @@ class KelasModel extends Model
     protected $returnType       = 'array';
     protected $protectFields    = true;
 
-    // Perubahan pada allowedFields
     protected $allowedFields    = ['nama_kelas', 'wali_kelas_id'];
     protected $useTimestamps    = true;
 

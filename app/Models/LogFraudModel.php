@@ -13,7 +13,6 @@ class LogFraudModel extends Model
     protected $protectFields    = true;
     protected $allowedFields    = ['siswa_id', 'tipe_fraud', 'lat_fraud', 'long_fraud', 'user_agent'];
 
-    // Tabel log_fraud di migrasi hanya memiliki created_at
     protected $useTimestamps    = true;
     protected $createdField     = 'created_at';
     protected $updatedField     = '';

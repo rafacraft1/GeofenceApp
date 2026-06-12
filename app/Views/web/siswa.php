@@ -23,7 +23,6 @@ $buildSortLink = function ($column) use ($search_aktif, $kelas_aktif, $sort_col,
     return $url;
 };
 
-// Heroicons: chevron-up-down, chevron-up, chevron-down
 $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
     if ($sort_col !== $column) {
         return '<svg class="w-3.5 h-3.5 text-gray-300 opacity-50 ml-1" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" /></svg>';
@@ -51,6 +50,20 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
         -ms-overflow-style: none;
         scrollbar-width: none;
     }
+
+    @keyframes indeterminate {
+        0% {
+            transform: translateX(-100%);
+        }
+
+        100% {
+            transform: translateX(200%);
+        }
+    }
+
+    .animate-indeterminate {
+        animation: indeterminate 1.5s infinite linear;
+    }
 </style>
 
 <div class="mb-6 flex flex-col md:flex-row justify-between md:items-center gap-4">
@@ -68,7 +81,7 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
                     <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
                 </svg>
             </div>
-            <input type="text" name="search" value="<?= esc((string)($search_aktif ?? '')) ?>" placeholder="Cari NIS / Nama Siswa..." class="w-full border-gray-200 rounded-xl py-2.5 pl-10 pr-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+            <input type="text" name="search" value="<?= esc((string)($search_aktif ?? '')) ?>" placeholder="Cari NIS / Nama Siswa..." class="w-full border border-gray-200 rounded-xl py-2.5 pl-10 pr-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all">
         </div>
         <?php if (!empty($kelas_aktif)): ?>
             <input type="hidden" name="kelas" value="<?= esc((string)$kelas_aktif) ?>">
@@ -98,23 +111,36 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
     <div class="mb-4 border-b border-gray-100 pb-3">
         <h4 class="text-md font-bold text-gray-800">Tambah Siswa Baru</h4>
     </div>
-    <form action="<?= base_url('admin/siswa/store') ?>" method="POST" enctype="multipart/form-data" id="formSiswa" class="grid grid-cols-1 md:grid-cols-4 gap-5 items-end">
+    <form action="<?= base_url('admin/siswa/store') ?>" method="POST" enctype="multipart/form-data" id="formSiswa" class="grid grid-cols-1 md:grid-cols-4 gap-5 items-start">
         <?= csrf_field() ?>
-        <div><label class="block text-xs font-bold text-gray-600 uppercase mb-2">NIS</label><input type="text" name="nis" required class="w-full border-gray-200 rounded-xl p-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="Contoh: 2026001"></div>
-        <div><label class="block text-xs font-bold text-gray-600 uppercase mb-2">Nama Lengkap</label><input type="text" name="nama_siswa" required class="w-full border-gray-200 rounded-xl p-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="Nama siswa"></div>
+        <div>
+            <label class="block text-xs font-bold text-gray-600 uppercase mb-2">NIS</label>
+            <input type="text" name="nis" required class="w-full border border-gray-200 rounded-xl p-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="Contoh: 2026001">
+        </div>
+        <div>
+            <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Nama Lengkap</label>
+            <input type="text" name="nama_siswa" required class="w-full border border-gray-200 rounded-xl p-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="Nama siswa">
+        </div>
         <div>
             <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Pilih Kelas</label>
             <?php if ($is_wali_kelas): ?>
-                <input type="text" value="<?= esc((string) session()->get('nama_kelas')) ?>" class="w-full border-gray-200 rounded-xl p-3 text-sm bg-gray-100 text-gray-500 cursor-not-allowed outline-none" readonly>
+                <input type="text" value="<?= esc((string) session()->get('nama_kelas')) ?>" class="w-full border border-gray-200 rounded-xl p-3 text-sm bg-gray-100 text-gray-500 cursor-not-allowed outline-none" readonly>
                 <input type="hidden" name="kelas_id" value="<?= esc((string) session()->get('kelas_id')) ?>">
             <?php else: ?>
-                <select name="kelas_id" required class="w-full border-gray-200 rounded-xl p-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer">
+                <select name="kelas_id" required class="w-full border border-gray-200 rounded-xl p-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer">
                     <option value="" disabled selected>-- Pilih Kelas --</option>
-                    <?php if (!empty($list_kelas)) : ?><?php foreach ($list_kelas as $k): ?><option value="<?= (string) $k['id_kelas'] ?>"><?= esc((string) $k['nama_kelas']) ?></option><?php endforeach; ?><?php endif; ?>
+                    <?php if (!empty($list_kelas)) : ?>
+                        <?php foreach ($list_kelas as $k): ?>
+                            <option value="<?= (string) $k['id_kelas'] ?>"><?= esc((string) $k['nama_kelas']) ?></option>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </select>
             <?php endif; ?>
         </div>
-        <div><label class="block text-xs font-bold text-gray-600 uppercase mb-2">Foto (Opsional)</label><input type="file" name="foto" accept="image/*" class="w-full border-gray-200 rounded-xl p-2 bg-gray-50 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all"></div>
+        <div>
+            <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Foto (Opsional)</label>
+            <input type="file" name="foto" accept="image/*" class="w-full border border-gray-200 rounded-xl p-2 bg-gray-50 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+        </div>
         <div class="md:col-span-4 flex justify-end gap-3 pt-2">
             <button type="button" onclick="toggleFormTambah()" class="text-sm font-semibold text-gray-500 px-4 py-2 hover:bg-gray-100 rounded-xl transition-colors">Batal</button>
             <button type="submit" class="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold shadow-md hover:bg-blue-700 btn-submit transition-all">Simpan Data</button>
@@ -122,12 +148,15 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
     </form>
 </div>
 
-<div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-24">
     <div class="overflow-x-auto">
-        <table class="w-full text-left" id="siswa-table">
+        <table class="w-full text-left whitespace-nowrap" id="siswa-table">
             <thead>
-                <tr class="bg-gray-50/50 text-gray-400 text-[11px] font-bold uppercase tracking-wider border-y border-gray-100">
-                    <th class="px-6 py-4">
+                <tr class="bg-gray-50/50 text-gray-400 text-[11px] font-bold uppercase tracking-wider border-t border-b border-gray-100">
+                    <th class="px-4 py-4 w-12 text-center">
+                        <input type="checkbox" id="chk-all" onchange="toggleAllSiswa(this)" class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
+                    </th>
+                    <th class="px-4 py-4">
                         <div class="flex items-center gap-3">
                             <a href="<?= $buildSortLink('nama_siswa') ?>" class="flex items-center group cursor-pointer transition-colors hover:text-blue-600" title="Urutkan berdasarkan Nama">
                                 Siswa <?= $getSortIcon('nama_siswa') ?>
@@ -157,7 +186,10 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
                 <?php if (!empty($siswa)) : ?>
                     <?php foreach ($siswa as $s): ?>
                         <tr class="hover:bg-gray-50/50 transition-colors group">
-                            <td class="px-6 py-4">
+                            <td class="px-4 py-4 text-center">
+                                <input type="checkbox" value="<?= esc((string) $s['id_siswa']) ?>" onchange="toggleSiswa(this)" class="chk-siswa w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
+                            </td>
+                            <td class="px-4 py-4">
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs shadow-inner overflow-hidden border border-gray-200 shrink-0">
                                         <?php if (!empty($s['foto_profil'])): ?>
@@ -168,7 +200,12 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
                                     </div>
                                     <div>
                                         <div class="text-sm font-bold text-gray-800"><?= esc((string) $s['nama_siswa']) ?></div>
-                                        <div class="text-[11px] text-gray-500 font-medium bg-gray-100 px-2 py-0.5 rounded inline-block mt-1"><?= esc((string) $s['nis']) ?> • <?= esc((string) ($s['nama_kelas'] ?? 'Belum ada kelas')) ?></div>
+                                        <div class="text-[11px] text-gray-500 font-medium mt-1">
+                                            <span class="bg-gray-100 px-2 py-0.5 rounded inline-block"><?= esc((string) $s['nis']) ?> • <?= esc((string) ($s['nama_kelas'] ?? 'Belum ada kelas')) ?></span>
+                                            <?php if (!empty($s['nama_zona'])): ?>
+                                                <span class="bg-amber-50 text-amber-600 border border-amber-100 px-2 py-0.5 rounded inline-block ml-1">📍 <?= esc((string) $s['nama_zona']) ?></span>
+                                            <?php endif; ?>
+                                        </div>
                                     </div>
                                 </div>
                             </td>
@@ -198,48 +235,11 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
                                         </svg>
                                     </a>
 
-                                    <a href="<?= base_url('admin/tracking/siswa/' . (string) $s['id_siswa']) ?>" class="p-2 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 rounded-lg transition-colors" title="Live Tracking">
-                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z" />
-                                        </svg>
-                                    </a>
-
                                     <button onclick='openEditModal(<?= htmlspecialchars(json_encode($s), ENT_QUOTES, "UTF-8") ?>)' class="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 rounded-lg transition-colors" title="Edit Data">
                                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 111.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
                                         </svg>
                                     </button>
-
-                                    <?php if (!empty($s['device_id'])): ?>
-                                        <form action="<?= base_url('admin/siswa/resetDevice/' . (string) $s['id_siswa']) ?>" method="POST" class="inline">
-                                            <?= csrf_field() ?>
-                                            <button type="button" class="btn-confirm p-2 text-amber-600 bg-amber-50 hover:bg-amber-100 border border-amber-100 rounded-lg transition-colors" data-text="Akses HP akan direset. Yakin?" data-btn="Ya, Reset HP" title="Reset Device">
-                                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-                                                </svg>
-                                            </button>
-                                        </form>
-                                    <?php endif; ?>
-
-                                    <?php if (!empty($s['is_blocked'])): ?>
-                                        <form action="<?= base_url('admin/siswa/unblock/' . (string) $s['id_siswa']) ?>" method="POST" class="inline">
-                                            <?= csrf_field() ?>
-                                            <button type="button" class="btn-confirm p-2 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 rounded-lg transition-colors" data-text="Buka kembali akses login dan absensi untuk siswa ini?" data-btn="Ya, Buka Akses" title="Buka Akses (Unblock)">
-                                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                                                </svg>
-                                            </button>
-                                        </form>
-                                    <?php else: ?>
-                                        <form action="<?= base_url('admin/siswa/block/' . (string) $s['id_siswa']) ?>" method="POST" class="inline">
-                                            <?= csrf_field() ?>
-                                            <button type="button" class="btn-confirm p-2 text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 rounded-lg transition-colors" data-text="Kunci akses login dan absensi siswa ini? Siswa tidak akan bisa membuka aplikasi." data-btn="Ya, Kunci Akses" title="Kunci Akses (Blokir)">
-                                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                                                </svg>
-                                            </button>
-                                        </form>
-                                    <?php endif; ?>
 
                                     <form action="<?= base_url('admin/siswa/delete/' . (string) $s['id_siswa']) ?>" method="POST" class="inline">
                                         <?= csrf_field() ?>
@@ -255,7 +255,7 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
                     <?php endforeach; ?>
                 <?php else: ?>
                     <tr>
-                        <td colspan="4" class="py-10 text-center text-gray-400 italic">Data siswa tidak ditemukan.</td>
+                        <td colspan="5" class="py-10 text-center text-gray-400 italic">Data siswa tidak ditemukan.</td>
                     </tr>
                 <?php endif; ?>
             </tbody>
@@ -280,6 +280,25 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
     </div>
 </div>
 
+<div id="bulk-action-bar" class="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] z-50 flex items-center gap-4 transition-all duration-300 translate-y-24 opacity-0 pointer-events-none">
+    <div class="flex items-center gap-2">
+        <span class="flex items-center justify-center w-6 h-6 bg-blue-500 rounded-full text-xs font-bold" id="bulk-count">0</span>
+        <span class="text-sm font-semibold whitespace-nowrap">Terpilih</span>
+    </div>
+    <div class="w-px h-5 bg-slate-700"></div>
+    <button onclick="clearSelection()" class="text-xs font-medium text-slate-400 hover:text-white transition-colors">Batal</button>
+    <button onclick="submitBulkDelete()" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-xl text-sm font-bold shadow-lg shadow-red-500/30 transition-all flex items-center gap-2 whitespace-nowrap">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+        </svg> Hapus
+    </button>
+</div>
+
+<form id="form-bulk-delete" action="<?= base_url('admin/siswa/deleteBulk') ?>" method="POST" class="hidden">
+    <?= csrf_field() ?>
+    <div id="hidden-ids-container"></div>
+</form>
+
 <div id="modal-edit" class="fixed inset-0 z-[60] hidden items-center justify-center p-4">
     <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="closeEditModal()"></div>
     <div class="bg-white rounded-3xl shadow-2xl z-10 w-full max-w-lg p-8 relative">
@@ -293,21 +312,43 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
         </div>
         <form id="form-edit-action" method="POST" enctype="multipart/form-data" class="space-y-5">
             <?= csrf_field() ?>
-            <div><label class="block text-xs font-bold text-gray-600 uppercase mb-2">NIS</label><input type="text" id="edit-nis" name="nis" required class="w-full border-gray-200 rounded-xl p-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all"></div>
-            <div><label class="block text-xs font-bold text-gray-600 uppercase mb-2">Nama Lengkap</label><input type="text" id="edit-nama" name="nama_siswa" required class="w-full border-gray-200 rounded-xl p-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all"></div>
+            <div>
+                <label class="block text-xs font-bold text-gray-600 uppercase mb-2">NIS</label>
+                <input type="text" id="edit-nis" name="nis" required class="w-full border border-gray-200 rounded-xl p-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                <p id="edit-pwd-hint" class="text-[10px] text-amber-500 mt-1.5 ml-1 font-bold hidden">
+                    <svg class="w-3 h-3 inline-block mr-0.5 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    NIS berubah! Password siswa otomatis direset ke NIS baru.
+                </p>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Nama Lengkap</label>
+                <input type="text" id="edit-nama" name="nama_siswa" required class="w-full border border-gray-200 rounded-xl p-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+            </div>
             <div>
                 <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Kelas</label>
                 <?php if ($is_wali_kelas): ?>
-                    <input type="text" value="<?= esc((string) session()->get('nama_kelas')) ?>" class="w-full border-gray-200 rounded-xl p-3 text-sm bg-gray-100 text-gray-500 cursor-not-allowed outline-none" readonly>
+                    <input type="text" value="<?= esc((string) session()->get('nama_kelas')) ?>" class="w-full border border-gray-200 rounded-xl p-3 text-sm bg-gray-100 text-gray-500 cursor-not-allowed outline-none" readonly>
                     <input type="hidden" id="edit-kelas" name="kelas_id" value="<?= esc((string) session()->get('kelas_id')) ?>">
                 <?php else: ?>
-                    <select id="edit-kelas" name="kelas_id" required class="w-full border-gray-200 rounded-xl p-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer">
-                        <?php if (!empty($list_kelas)) : ?><?php foreach ($list_kelas as $k): ?><option value="<?= (string) $k['id_kelas'] ?>"><?= esc((string) $k['nama_kelas']) ?></option><?php endforeach; ?><?php endif; ?>
+                    <select id="edit-kelas" name="kelas_id" required class="w-full border border-gray-200 rounded-xl p-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer">
+                        <?php if (!empty($list_kelas)) : ?>
+                            <?php foreach ($list_kelas as $k): ?>
+                                <option value="<?= (string) $k['id_kelas'] ?>"><?= esc((string) $k['nama_kelas']) ?></option>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
                     </select>
                 <?php endif; ?>
             </div>
-            <div><label class="block text-xs font-bold text-gray-600 uppercase mb-2">Ganti Foto (Kosongkan jika tidak mengubah)</label><input type="file" name="foto" accept="image/*" class="w-full border-gray-200 rounded-xl p-2 bg-gray-50 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all"></div>
-            <div class="flex justify-end gap-3 pt-4"><button type="button" onclick="closeEditModal()" class="px-5 py-2.5 text-sm font-semibold text-gray-400 hover:bg-gray-100 rounded-xl transition-colors">Batal</button><button type="submit" class="bg-blue-600 text-white px-8 py-2.5 rounded-xl text-sm font-semibold shadow-lg hover:bg-blue-700 btn-submit transition-all">Simpan Perubahan</button></div>
+            <div>
+                <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Ganti Foto (Kosongkan jika tidak mengubah)</label>
+                <input type="file" id="edit-foto" name="foto" accept="image/*" class="w-full border border-gray-200 rounded-xl p-2 bg-gray-50 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+            </div>
+            <div class="flex justify-end gap-3 pt-4">
+                <button type="button" onclick="closeEditModal()" class="px-5 py-2.5 text-sm font-semibold text-gray-400 hover:bg-gray-100 rounded-xl transition-colors">Batal</button>
+                <button type="submit" id="btn-submit-edit" class="bg-blue-600 text-white px-8 py-2.5 rounded-xl text-sm font-semibold shadow-lg hover:bg-blue-700 btn-submit transition-all disabled:opacity-50 disabled:cursor-not-allowed" disabled>Simpan Perubahan</button>
+            </div>
         </form>
     </div>
 </div>
@@ -325,7 +366,7 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
         </div>
         <form action="<?= base_url('admin/siswa/import') ?>" method="POST" enctype="multipart/form-data" id="formImport" class="space-y-6">
             <?= csrf_field() ?>
-            <div class="p-6 border-2 border-dashed border-slate-300 rounded-2xl text-center bg-slate-50 hover:bg-slate-100 cursor-pointer">
+            <div class="p-6 border-2 border-dashed border-slate-300 rounded-2xl text-center bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors">
                 <input type="file" name="file_excel" id="file_excel" class="hidden" required accept=".xlsx">
                 <label for="file_excel" class="cursor-pointer block w-full h-full">
                     <svg class="w-12 h-12 text-slate-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -342,8 +383,32 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
                 <?php endif; ?>
                 <a href="<?= base_url('admin/siswa/downloadTemplate') ?>" class="block text-center text-amber-900 font-bold text-xs mt-2 underline">Unduh Template</a>
             </div>
-            <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 btn-submit">Mulai Import</button>
+            <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 btn-submit transition-all">Mulai Import</button>
         </form>
+    </div>
+</div>
+
+<div id="loading-overlay" class="fixed inset-0 z-[100] hidden items-center justify-center transition-opacity duration-300 opacity-0">
+    <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm"></div>
+    <div class="bg-white p-8 rounded-[2rem] shadow-2xl z-10 flex flex-col items-center max-w-sm w-full mx-4 text-center transform scale-100">
+        <div class="relative w-20 h-20 mb-6">
+            <svg class="animate-spin absolute inset-0 w-full h-full text-blue-100" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="8"></circle>
+            </svg>
+            <svg class="animate-spin absolute inset-0 w-full h-full text-blue-600" viewBox="0 0 100 100" style="animation-direction: reverse; animation-duration: 1.5s;">
+                <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="8" stroke-dasharray="80 200" stroke-linecap="round"></circle>
+            </svg>
+            <div class="absolute inset-0 flex items-center justify-center text-blue-600">
+                <svg class="w-8 h-8 animate-pulse" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                </svg>
+            </div>
+        </div>
+        <h4 class="text-lg font-black text-gray-800 mb-2">Memproses Import...</h4>
+        <p class="text-xs text-gray-500 font-medium leading-relaxed mb-5">Sistem sedang membaca dan memvalidasi file Excel Anda. Mohon jangan tutup atau refresh halaman ini.</p>
+        <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden relative">
+            <div class="bg-blue-600 h-full rounded-full absolute left-0 top-0 w-1/2 animate-indeterminate"></div>
+        </div>
     </div>
 </div>
 
@@ -359,15 +424,64 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
         document.getElementById('form-tambah').classList.toggle('hidden');
     }
 
+    let initialEditState = {};
+
     function openEditModal(data) {
         document.getElementById('edit-nis').value = data.nis;
         document.getElementById('edit-nama').value = data.nama_siswa;
-        document.getElementById('edit-kelas').value = data.kelas_id;
-        document.querySelector('input[name="foto"]').value = "";
+
+        const editKelas = document.getElementById('edit-kelas');
+        if (editKelas) editKelas.value = data.kelas_id;
+
+        document.getElementById('edit-foto').value = "";
         document.getElementById('form-edit-action').action = '<?= base_url("admin/siswa/update/") ?>' + data.id_siswa;
+
+        initialEditState = {
+            nis: data.nis,
+            nama: data.nama_siswa,
+            kelas: editKelas ? data.kelas_id : '',
+            foto: ""
+        };
+
+        document.getElementById('edit-pwd-hint').classList.add('hidden');
+        document.getElementById('btn-submit-edit').disabled = true;
+
         document.getElementById('modal-edit').classList.replace('hidden', 'flex');
         document.body.classList.add('modal-active');
     }
+
+    function checkEditChanges() {
+        const currentNis = document.getElementById('edit-nis').value;
+        const currentNama = document.getElementById('edit-nama').value;
+        const editKelas = document.getElementById('edit-kelas');
+        const currentKelas = editKelas ? editKelas.value : '';
+        const currentFoto = document.getElementById('edit-foto').value;
+
+        if (currentNis !== initialEditState.nis && currentNis !== '') {
+            document.getElementById('edit-pwd-hint').classList.remove('hidden');
+        } else {
+            document.getElementById('edit-pwd-hint').classList.add('hidden');
+        }
+
+        const isChanged = (
+            currentNis !== initialEditState.nis ||
+            currentNama !== initialEditState.nama ||
+            (editKelas && currentKelas != initialEditState.kelas) ||
+            currentFoto !== initialEditState.foto
+        );
+
+        document.getElementById('btn-submit-edit').disabled = !isChanged;
+    }
+
+    document.getElementById('edit-nis').addEventListener('input', checkEditChanges);
+    document.getElementById('edit-nama').addEventListener('input', checkEditChanges);
+
+    const editKelasInput = document.getElementById('edit-kelas');
+    if (editKelasInput && editKelasInput.tagName === 'SELECT') {
+        editKelasInput.addEventListener('change', checkEditChanges);
+    }
+
+    document.getElementById('edit-foto').addEventListener('change', checkEditChanges);
 
     function closeEditModal() {
         document.getElementById('modal-edit').classList.replace('flex', 'hidden');
@@ -375,6 +489,10 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
     }
 
     function openImportModal() {
+        document.getElementById('formImport').reset();
+        document.getElementById('file_excel').value = '';
+        document.getElementById('file-name-preview').textContent = "Klik pilih file Excel (.xlsx)";
+
         document.getElementById('modal-import').classList.replace('hidden', 'flex');
         document.body.classList.add('modal-active');
     }
@@ -382,16 +500,121 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
     function closeImportModal() {
         document.getElementById('modal-import').classList.replace('flex', 'hidden');
         document.body.classList.remove('modal-active');
-        document.getElementById('file_excel').value = '';
-        document.getElementById('file-name-preview').textContent = "Klik pilih file Excel (.xlsx)";
     }
+
+    let selectedSiswa = JSON.parse(sessionStorage.getItem('selectedSiswa')) || [];
+
+    function updateCheckboxesState() {
+        let allChecked = true;
+        let hasSiswaOnPage = false;
+
+        document.querySelectorAll('.chk-siswa').forEach(chk => {
+            hasSiswaOnPage = true;
+            if (selectedSiswa.includes(chk.value)) {
+                chk.checked = true;
+            } else {
+                chk.checked = false;
+                allChecked = false;
+            }
+        });
+
+        const chkAll = document.getElementById('chk-all');
+        if (chkAll) {
+            chkAll.checked = hasSiswaOnPage && allChecked;
+        }
+
+        updateBulkActionBar();
+    }
+
+    function toggleSiswa(cb) {
+        if (cb.checked) {
+            if (!selectedSiswa.includes(cb.value)) {
+                selectedSiswa.push(cb.value);
+            }
+        } else {
+            selectedSiswa = selectedSiswa.filter(id => id !== cb.value);
+        }
+        saveSelection();
+    }
+
+    function toggleAllSiswa(cb) {
+        document.querySelectorAll('.chk-siswa').forEach(chk => {
+            chk.checked = cb.checked;
+            if (cb.checked) {
+                if (!selectedSiswa.includes(chk.value)) {
+                    selectedSiswa.push(chk.value);
+                }
+            } else {
+                selectedSiswa = selectedSiswa.filter(id => id !== chk.value);
+            }
+        });
+        saveSelection();
+    }
+
+    function saveSelection() {
+        sessionStorage.setItem('selectedSiswa', JSON.stringify(selectedSiswa));
+        updateCheckboxesState();
+    }
+
+    function clearSelection() {
+        selectedSiswa = [];
+        saveSelection();
+    }
+
+    function updateBulkActionBar() {
+        const bar = document.getElementById('bulk-action-bar');
+        const count = document.getElementById('bulk-count');
+
+        if (selectedSiswa.length > 0) {
+            count.innerText = selectedSiswa.length;
+            bar.classList.remove('translate-y-24', 'opacity-0', 'pointer-events-none');
+            bar.classList.add('translate-y-0', 'opacity-100');
+        } else {
+            bar.classList.remove('translate-y-0', 'opacity-100');
+            bar.classList.add('translate-y-24', 'opacity-0', 'pointer-events-none');
+        }
+    }
+
+    function submitBulkDelete() {
+        if (selectedSiswa.length === 0) return;
+
+        if (confirm(`Peringatan! Anda akan menghapus secara permanen ${selectedSiswa.length} data siswa terpilih. Lanjutkan?`)) {
+            const container = document.getElementById('hidden-ids-container');
+            container.innerHTML = '';
+
+            selectedSiswa.forEach(id => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'ids[]';
+                input.value = id;
+                container.appendChild(input);
+            });
+
+            sessionStorage.removeItem('selectedSiswa');
+            document.getElementById('form-bulk-delete').submit();
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        updateCheckboxesState();
+    });
 
     document.querySelectorAll('#formSiswa, #form-edit-action, #formImport').forEach(function(form) {
         form.addEventListener('submit', function() {
-            const btn = this.querySelector('.btn-submit');
-            if (btn) {
-                btn.classList.add('btn-loading');
-                btn.setAttribute('disabled', 'true');
+            if (this.id === 'formImport') {
+                closeImportModal();
+                const loadingOverlay = document.getElementById('loading-overlay');
+                loadingOverlay.classList.remove('hidden');
+                loadingOverlay.classList.add('flex');
+                setTimeout(() => {
+                    loadingOverlay.classList.remove('opacity-0');
+                }, 20);
+            } else {
+                const btn = this.querySelector('.btn-submit');
+                if (btn) {
+                    btn.classList.add('btn-loading');
+                    btn.setAttribute('disabled', 'true');
+                }
             }
         });
     });

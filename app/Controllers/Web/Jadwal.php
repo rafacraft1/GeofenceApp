@@ -3,22 +3,15 @@
 namespace App\Controllers\Web;
 
 use App\Controllers\BaseController;
-use App\Models\JadwalAbsenModel;
 
 class Jadwal extends BaseController
 {
-    protected JadwalAbsenModel $jadwalModel;
-
-    public function __construct()
-    {
-        $this->jadwalModel = new JadwalAbsenModel();
-    }
-
     public function index()
     {
+        $db = \Config\Database::connect();
         $data = [
-            'title'         => 'Manajemen Jadwal Harian',
-            'daftar_jadwal' => $this->jadwalModel->orderBy('kode_hari', 'ASC')->findAll()
+            'title'  => 'Pengaturan Hari Aktif Global',
+            'jadwal' => $db->table('jadwal_absen')->orderBy('kode_hari', 'ASC')->get()->getResultArray()
         ];
 
         return view('web/jadwal', $data);
@@ -26,37 +19,20 @@ class Jadwal extends BaseController
 
     public function update()
     {
-        $dataJadwal = $this->request->getPost('jadwal');
+        $db = \Config\Database::connect();
+        $liburKode = $this->request->getPost('is_libur') ?? [];
 
-        if ($dataJadwal && is_array($dataJadwal)) {
-            $this->jadwalModel->db->transStart();
+        $db->transStart();
+        $db->table('jadwal_absen')->update(['is_libur' => 0]);
+        if (!empty($liburKode)) {
+            $db->table('jadwal_absen')->whereIn('kode_hari', $liburKode)->update(['is_libur' => 1]);
+        }
+        $db->transComplete();
 
-            foreach ($dataJadwal as $id => $data) {
-                $isLibur   = isset($data['is_libur']) ? 1 : 0;
-                $jamMasuk  = empty($data['jam_masuk']) ? null : (string) $data['jam_masuk'];
-                $jamPulang = empty($data['jam_pulang']) ? null : (string) $data['jam_pulang'];
-
-                $this->jadwalModel->update((int) $id, [
-                    'jam_masuk'  => $jamMasuk,
-                    'jam_pulang' => $jamPulang,
-                    'is_libur'   => $isLibur
-                ]);
-            }
-
-            $this->jadwalModel->db->transComplete();
-
-            if ($this->jadwalModel->db->transStatus() === false) {
-                return redirect()->back()->with('error', 'Gagal memperbarui jadwal ke database.');
-            }
-
-            // ✅ PERBAIKAN: Hapus seluruh cache jadwal harian di API (Kode Hari 1-7)
-            for ($i = 1; $i <= 7; $i++) {
-                cache()->delete('jadwal_hari_' . $i);
-            }
-
-            return redirect()->back()->with('success', 'Konfigurasi jadwal mingguan berhasil disimpan.');
+        if ($db->transStatus() === false) {
+            return redirect()->to('/admin/jadwal')->with('error', 'Terjadi kesalahan saat menyimpan jadwal.');
         }
 
-        return redirect()->back()->with('error', 'Payload jadwal tidak valid.');
+        return redirect()->to('/admin/jadwal')->with('success', 'Status hari aktif & akhir pekan berhasil diperbarui.');
     }
 }

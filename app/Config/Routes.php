@@ -20,13 +20,13 @@ $routes->group('admin', ['filter' => 'webAuth', 'namespace' => 'App\Controllers\
 });
 
 $routes->group('admin', ['filter' => ['webAuth', 'dynamicAccess'], 'namespace' => 'App\Controllers\Web'], function ($routes) {
-
     $routes->get('dashboard', 'Dashboard::index');
 
     $routes->group('siswa', function ($routes) {
         $routes->get('/', 'Siswa::index');
         $routes->post('store', 'Siswa::store');
         $routes->post('update/(:num)', 'Siswa::update/$1');
+        $routes->post('deleteBulk', 'Siswa::deleteBulk');
         $routes->post('delete/(:num)', 'Siswa::delete/$1');
         $routes->get('detail/(:num)', 'Siswa::detail/$1');
 
@@ -42,6 +42,16 @@ $routes->group('admin', ['filter' => ['webAuth', 'dynamicAccess'], 'namespace' =
     $routes->group('absensi', function ($routes) {
         $routes->get('/', 'Absensi::index');
         $routes->post('inputManual', 'Absensi::inputManual');
+    });
+
+    $routes->group('zona', function ($routes) {
+        $routes->get('/', 'Zona::index');
+        $routes->post('store', 'Zona::store');
+        $routes->post('update/(:num)', 'Zona::update/$1');
+        $routes->post('delete/(:num)', 'Zona::delete/$1');
+        $routes->post('setDefault/(:num)', 'Zona::setDefault/$1');
+        $routes->post('assignAnggota/(:num)', 'Zona::assignAnggota/$1');
+        $routes->post('updateJadwal/(:num)', 'Zona::updateJadwal/$1');
     });
 
     $routes->get('tracking', 'Tracking::index');

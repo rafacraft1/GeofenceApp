@@ -31,21 +31,18 @@ class GenerateAlpa extends BaseCommand
 
         CLI::write("Memulai proses Generate Alpa untuk tanggal: {$hari_ini}...", 'yellow');
 
-        // 1. Cek Hari Libur Nasional
         $libur = $liburModel->where('tanggal', $hari_ini)->first();
         if ($libur) {
             CLI::write("Hari ini adalah hari libur: {$libur['keterangan']}. Cronjob dibatalkan.", 'green');
             return;
         }
 
-        // 2. Cek Jadwal Masuk
         $jadwal = $jadwalModel->where('kode_hari', $kode_hari)->first();
         if (!$jadwal || $jadwal['is_libur'] == 1) {
             CLI::write("Hari ini disetting libur/akhir pekan pada jadwal. Cronjob dibatalkan.", 'green');
             return;
         }
 
-        // 3. Pengecekan Batas Jam (Mencegah Alpa prematur)
         if ($jam_sekarang < $jadwal['jam_masuk']) {
             CLI::write("Belum melampaui batas jam masuk ({$jadwal['jam_masuk']}). Proses dihentikan.", 'red');
             return;
@@ -53,7 +50,6 @@ class GenerateAlpa extends BaseCommand
 
         $subqueryAbsensi = $absensiModel->builder()->select('siswa_id')->where('tanggal', $hari_ini);
 
-        // PERBAIKAN: Menarik kelas_id untuk disuntikkan ke tabel absensi
         $siswaBelumAbsen = $siswaModel->select('id_siswa, kelas_id')
             ->where('is_blocked', 0)
             ->whereNotIn('id_siswa', $subqueryAbsensi)
@@ -70,7 +66,7 @@ class GenerateAlpa extends BaseCommand
         foreach ($siswaBelumAbsen as $siswa) {
             $insertData[] = [
                 'siswa_id'    => $siswa['id_siswa'],
-                'kelas_id'    => $siswa['kelas_id'], // INJEKSI HISTORICAL SNAPSHOT
+                'kelas_id'    => $siswa['kelas_id'],
                 'tanggal'     => $hari_ini,
                 'status'      => 'Alpa',
                 'keterangan'  => 'Dibuat otomatis oleh Sistem (Cronjob)',

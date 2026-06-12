@@ -25,7 +25,6 @@ class Kelas extends BaseController
 
     public function index()
     {
-        // ✅ OPTIMASI: Gunakan Cache (1 Jam) untuk menghindari join dan load tabel users terus menerus
         $listGuru = cache()->remember('list_dropdown_guru', 3600, function () {
             $roleGuru = $this->roleModel->where('nama_role', 'Guru')->first();
             if ($roleGuru) {
@@ -37,7 +36,6 @@ class Kelas extends BaseController
             return [];
         });
 
-        // PERBAIKAN: Join ke tabel users untuk mengambil nama wali kelas
         $kelas = $this->kelasModel
             ->select('kelas.*, users.nama_lengkap as nama_wali, COUNT(siswa.id_siswa) as jumlah_siswa')
             ->join('users', 'users.id_user = kelas.wali_kelas_id', 'left')
@@ -59,7 +57,6 @@ class Kelas extends BaseController
     {
         $idKelas     = $this->request->getPost('id_kelas');
         $namaKelas   = trim((string) $this->request->getPost('nama_kelas'));
-        // PERBAIKAN: Mengambil ID, bukan Nama
         $waliKelasId = $this->request->getPost('wali_kelas_id');
 
         $aturanValidasi = [
@@ -70,7 +67,6 @@ class Kelas extends BaseController
             return redirect()->back()->with('error', 'Nama kelas wajib diisi.');
         }
 
-        // Tangani null jika dikosongkan ("-- Tanpa Wali Kelas --")
         $waliKelasId = empty($waliKelasId) ? null : (int) $waliKelasId;
 
         if (!empty($idKelas)) {
@@ -83,7 +79,6 @@ class Kelas extends BaseController
                 return redirect()->back()->with('error', 'Gagal update: Nama kelas "' . $namaKelas . '" sudah digunakan.');
             }
 
-            // PERBAIKAN: Field yang disimpan adalah wali_kelas_id
             $this->kelasModel->update($idKelas, [
                 'nama_kelas'    => $namaKelas,
                 'wali_kelas_id' => $waliKelasId
@@ -97,7 +92,6 @@ class Kelas extends BaseController
                 return redirect()->back()->with('error', 'Gagal: Kelas "' . $namaKelas . '" sudah terdaftar.');
             }
 
-            // PERBAIKAN: Field yang disimpan adalah wali_kelas_id
             $this->kelasModel->insert([
                 'nama_kelas'    => $namaKelas,
                 'wali_kelas_id' => $waliKelasId

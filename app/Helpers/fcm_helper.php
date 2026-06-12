@@ -17,7 +17,6 @@ if (!function_exists('send_fcm_notification')) {
         }
 
         try {
-            // 1. Generate OAuth 2.0 Token HANYA SEKALI untuk efisiensi waktu eksekusi
             $client = new \Google\Client();
             $client->setAuthConfig($keyFilePath);
             $client->addScope('https://www.googleapis.com/auth/firebase.messaging');
@@ -35,11 +34,9 @@ if (!function_exists('send_fcm_notification')) {
                 'Content-Type: application/json'
             ];
 
-            // 2. Pastikan format selalu berupa array
             $tokenList = is_array($tokens) ? $tokens : [$tokens];
             $responses = [];
 
-            // 3. Gunakan ulang 1 koneksi cURL untuk kecepatan tinggi (Connection Reuse)
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, $url);
             curl_setopt($ch, CURLOPT_POST, true);
@@ -47,7 +44,6 @@ if (!function_exists('send_fcm_notification')) {
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 
-            // 4. Looping untuk menembak token satu per satu sesuai standar HTTP v1
             foreach ($tokenList as $token) {
                 $payload = [
                     'message' => [
@@ -66,7 +62,6 @@ if (!function_exists('send_fcm_notification')) {
 
             curl_close($ch);
 
-            // Mengembalikan respons terakhir (untuk kebutuhan tracking)
             return end($responses);
         } catch (\Exception $e) {
             return json_encode(['error' => ['message' => 'Exception Server: ' . $e->getMessage()]]);

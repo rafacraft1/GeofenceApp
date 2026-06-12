@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @var array<string, mixed> $config
+ * @var array<string, mixed> $zona_default
  * @var array<int, array<string, mixed>> $list_siswa
  * @var string|null $keyword
  * @var string|null $target_id
@@ -110,59 +110,48 @@
     let intervalId = null;
 
     document.addEventListener('DOMContentLoaded', function() {
-        // LAYER GOOGLE MAPS
         const googleStreets = L.tileLayer('https://{s}.google.com/vt?lyrs=m&x={x}&y={y}&z={z}', {
             maxZoom: 21,
-            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-            attribution: '&copy; Google Maps'
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
         });
         const googleHybrid = L.tileLayer('https://{s}.google.com/vt?lyrs=s,h&x={x}&y={y}&z={z}', {
             maxZoom: 21,
-            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-            attribution: '&copy; Google Maps'
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
         });
         const googleSat = L.tileLayer('https://{s}.google.com/vt?lyrs=s&x={x}&y={y}&z={z}', {
             maxZoom: 21,
-            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-            attribution: '&copy; Google Maps'
-        });
-        const googleTerrain = L.tileLayer('https://{s}.google.com/vt?lyrs=p&x={x}&y={y}&z={z}', {
-            maxZoom: 21,
-            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-            attribution: '&copy; Google Maps'
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
         });
 
         map = window.L.map('map', {
-            center: [<?= (string)$config['latitude_sekolah'] ?>, <?= (string)$config['longitude_sekolah'] ?>],
+            center: [<?= (string)$zona_default['latitude'] ?>, <?= (string)$zona_default['longitude'] ?>],
             zoom: 16,
             layers: [googleStreets]
         });
 
         if (window.ResizeObserver) {
-            const resizeObserver = new window.ResizeObserver(() => {
+            new window.ResizeObserver(() => {
                 if (map) map.invalidateSize();
-            });
-            resizeObserver.observe(document.getElementById('map'));
+            }).observe(document.getElementById('map'));
         }
 
         const baseMaps = {
             "Google Maps Biasa": googleStreets,
-            "Google Satellite (Hybrid)": googleHybrid,
-            "Google Satellite (Murni)": googleSat,
-            "Google Terrain": googleTerrain
+            "Google Satellite": googleHybrid,
+            "Google Terrain": googleSat
         };
         L.control.layers(baseMaps, null, {
             position: 'topright'
         }).addTo(map);
 
-        window.L.marker([<?= (string)$config['latitude_sekolah'] ?>, <?= (string)$config['longitude_sekolah'] ?>])
-            .addTo(map).bindPopup("<b>Lokasi Sekolah</b><br>Radius: <?= (string)$config['radius_meter'] ?>m").openPopup();
+        window.L.marker([<?= (string)$zona_default['latitude'] ?>, <?= (string)$zona_default['longitude'] ?>])
+            .addTo(map).bindPopup("<b>Zona Default</b><br>Radius: <?= (string)$zona_default['radius'] ?>m").openPopup();
 
-        window.L.circle([<?= (string)$config['latitude_sekolah'] ?>, <?= (string)$config['longitude_sekolah'] ?>], {
+        window.L.circle([<?= (string)$zona_default['latitude'] ?>, <?= (string)$zona_default['longitude'] ?>], {
             color: '#3b82f6',
             fillColor: '#3b82f6',
             fillOpacity: 0.15,
-            radius: <?= (string)$config['radius_meter'] ?>
+            radius: <?= (string)$zona_default['radius'] ?>
         }).addTo(map);
 
         const searchInput = document.getElementById('searchInput');
@@ -220,14 +209,12 @@
 
     function fetchLocationArray() {
         if (!currentTargetId) return;
-
         fetch(`<?= base_url('admin/tracking/getLocation/') ?>${currentTargetId}`)
-            .then(response => response.json())
+            .then(res => res.json())
             .then(res => {
-                if (res.status === 'success' && res.data && res.data.length > 0) {
-                    drawRoute(res.data);
-                }
-            }).catch(err => console.log('Sinkronisasi lokasi berjalan...'));
+                if (res.status === 'success' && res.data && res.data.length > 0) drawRoute(res.data);
+            })
+            .catch(err => console.log('Sinkronisasi...'));
     }
 
     function drawRoute(locations) {
@@ -254,8 +241,7 @@
 
             let newMarker = window.L.marker(pos, {
                     icon: customIcon
-                })
-                .addTo(map)
+                }).addTo(map)
                 .bindPopup(`
                     <div style="text-align:center;">
                         <b style="color:${markerColor}; font-size:12px; text-transform:uppercase;">TITIK ${loc.tipe}</b><br>
@@ -274,7 +260,6 @@
                 dashArray: '5, 8',
                 lineJoin: 'round'
             }).addTo(map);
-
             map.fitBounds(polylineLayer.getBounds(), {
                 padding: [50, 50],
                 maxZoom: 18
@@ -289,9 +274,7 @@
 
     function pingSiswa() {
         if (!currentTargetId) return;
-
         if (typeof toastr !== 'undefined') toastr.info("Mengirim sinyal pelacakan ke HP...");
-
         fetch(`<?= base_url('admin/tracking/pingSiswa/') ?>${currentTargetId}`, {
                 method: 'POST',
                 headers: {
@@ -306,8 +289,7 @@
                 } else {
                     if (typeof toastr !== 'undefined') toastr.error(data.message);
                 }
-            })
-            .catch(err => {
+            }).catch(err => {
                 if (typeof toastr !== 'undefined') toastr.error("Gangguan jaringan ke server.");
             });
     }

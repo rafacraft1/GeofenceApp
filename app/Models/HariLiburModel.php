@@ -12,6 +12,5 @@ class HariLiburModel extends Model
     protected $protectFields    = true;
     protected $allowedFields    = ['tanggal', 'keterangan'];
 
-    // PERBAIKAN BUG: Matikan auto-timestamps agar CI4 tidak memaksa mencari kolom 'updated_at'
     protected $useTimestamps    = false;
 }

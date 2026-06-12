@@ -28,10 +28,8 @@ class Izin extends BaseController
 
     public function index()
     {
-        // 1. Tangkap Parameter Request
         $searchFilter = $this->request->getGet('search');
 
-        // Logika Sort (Default: Terbaru & Pending di atas)
         $sortParam = $this->request->getGet('sort') ?? 'created_at-desc';
         $sortParts = explode('-', $sortParam);
         $sortCol   = $sortParts[0] ?? 'created_at';
@@ -40,11 +38,9 @@ class Izin extends BaseController
         $page    = (int) ($this->request->getGet('page') ?? 1);
         $perPage = 20;
 
-        // Proteksi Wali Kelas
         $isWaliKelas = session()->get('is_wali_kelas');
         $kelasFilter = $isWaliKelas ? (int) session()->get('kelas_id') : null;
 
-        // 2. Tarik Data dengan Pagination & Sort dari Model
         $daftarIzin = $this->izinModel->getPaginatedIzin($kelasFilter, $searchFilter, $perPage, $sortCol, $sortDir);
         $pager      = $this->izinModel->pager;
 
@@ -54,8 +50,6 @@ class Izin extends BaseController
             'sort_col'     => $sortCol,
             'sort_dir'     => $sortDir,
             'daftarIzin'   => $daftarIzin,
-
-            // Variabel Pagination
             'pager_links'  => $pager->links('default', 'tailwind_pagination'),
             'total_data'   => $pager->getTotal('default'),
             'page'         => $page,
@@ -83,22 +77,18 @@ class Izin extends BaseController
 
         $this->izinModel->db->transStart();
 
-        // 1. Update Status Izin
         $this->izinModel->update($idIzin, ['status' => 'Approved']);
 
-        // ✅ OPTIMASI: Bulk Delete dalam 1x Eksekusi Kueri (Mencegah N+1 Query)
         $this->absensiModel
             ->where('siswa_id', $izin['siswa_id'])
             ->where('tanggal >=', $izin['tanggal_mulai'])
             ->where('tanggal <=', $izin['tanggal_selesai'])
             ->delete();
 
-        // 2. Persiapkan Array untuk Bulk Insert
         $tglMulai   = Time::parse($izin['tanggal_mulai']);
         $tglSelesai = Time::parse($izin['tanggal_selesai']);
         $insertData = [];
 
-        // Looping murni tanpa ada kueri database di dalamnya
         while ($tglMulai->toDateString() <= $tglSelesai->toDateString()) {
             $insertData[] = [
                 'siswa_id'   => $izin['siswa_id'],
@@ -110,7 +100,6 @@ class Izin extends BaseController
             $tglMulai = $tglMulai->addDays(1);
         }
 
-        // 3. Eksekusi Bulk Insert
         if (!empty($insertData)) {
             $this->absensiModel->insertBatch($insertData);
         }

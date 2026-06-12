@@ -21,7 +21,6 @@ class Pengumuman extends BaseController
     {
         $data = [
             'title'       => 'Broadcast Pengumuman',
-            // ✅ PERBAIKAN: Gunakan Pagination batas 20 data per halaman
             'pengumuman'  => $this->pengumumanModel->orderBy('created_at', 'DESC')->paginate(20, 'default'),
             'pager_links' => $this->pengumumanModel->pager->links('default', 'tailwind_pagination')
         ];
@@ -35,7 +34,6 @@ class Pengumuman extends BaseController
             'judul'  => 'required|min_length[5]|max_length[150]',
             'isi'    => 'required',
             'tipe'   => 'required|in_list[Info,Penting,Libur]',
-            // Validasi format dilonggarkan untuk PDF, batas global 2MB (namun PDF akan dibatasi mutlak 1MB di bawah)
             'gambar' => 'max_size[gambar,2048]|ext_in[gambar,jpg,jpeg,png,pdf]|mime_in[gambar,image/jpg,image/jpeg,image/png,application/pdf]'
         ];
 
@@ -43,48 +41,38 @@ class Pengumuman extends BaseController
             return redirect()->back()->withInput()->with('error', $this->validator->listErrors());
         }
 
-        $judul = (string) $this->request->getPost('judul');
-        $isi   = (string) $this->request->getPost('isi');
-        $tipe  = (string) $this->request->getPost('tipe');
-
-        $fileGambar = $this->request->getFile('gambar');
+        $gambar     = $this->request->getFile('gambar');
         $namaGambar = null;
 
-        if ($fileGambar && $fileGambar->isValid() && !$fileGambar->hasMoved()) {
-
-            // PROTEKSI BACKEND MUTLAK: Jika file adalah PDF, cek ukurannya tidak boleh lebih dari 1 MB (1024 KB)
-            if ($fileGambar->getMimeType() === 'application/pdf') {
-                if ($fileGambar->getSizeByUnit('kb') > 1024) {
-                    return redirect()->back()->withInput()->with('error', 'Gagal Upload: Ukuran file PDF maksimal adalah 1 MB.');
-                }
+        if ($gambar && $gambar->isValid() && !$gambar->hasMoved()) {
+            if ($gambar->getExtension() === 'pdf' && $gambar->getSize() > 1048576) {
+                return redirect()->back()->withInput()->with('error', 'File PDF tidak boleh lebih dari 1MB');
             }
-
-            $namaGambar = $fileGambar->getRandomName();
-            $fileGambar->move(FCPATH . 'uploads/pengumuman', $namaGambar);
+            $namaGambar = $gambar->getRandomName();
+            $gambar->move(FCPATH . 'uploads/pengumuman', $namaGambar);
         }
 
-        // ✅ SINKRONISASI 1: Tangkap ID yang baru saja dimasukkan ke database
+        $judul = (string) $this->request->getPost('judul');
+        $isi   = (string) $this->request->getPost('isi');
+
         $insertedId = $this->pengumumanModel->insert([
             'judul'  => $judul,
             'isi'    => $isi,
-            'tipe'   => $tipe,
+            'tipe'   => (string) $this->request->getPost('tipe'),
             'gambar' => $namaGambar
         ]);
 
-        // TRIGGER PUSH NOTIFICATION (FCM)
         $allTokens = $this->siswaModel->select('fcm_token')->where('fcm_token IS NOT NULL')->findAll();
         $tokenList = array_column($allTokens, 'fcm_token');
 
         if (!empty($tokenList)) {
             helper('fcm');
 
-            // ✅ SINKRONISASI 2: Buat Array Data Payload untuk Flutter
             $dataPayload = [
                 'type'   => 'pengumuman',
-                'id_ref' => (string) $insertedId // HTTP v1 mensyaratkan tipe string
+                'id_ref' => (string) $insertedId
             ];
 
-            // ✅ SINKRONISASI 3: Kirim Array Payload sebagai parameter ke-4
             send_fcm_notification(
                 $tokenList,
                 "📢 " . $judul,
@@ -106,8 +94,9 @@ class Pengumuman extends BaseController
             }
 
             $this->pengumumanModel->delete($id);
+            return redirect()->to(base_url('admin/pengumuman'))->with('success', 'Pengumuman berhasil dihapus!');
         }
 
-        return redirect()->to(base_url('admin/pengumuman'))->with('success', 'Pengumuman berhasil ditarik dan dihapus.');
+        return redirect()->to(base_url('admin/pengumuman'))->with('error', 'Data tidak ditemukan.');
     }
 }

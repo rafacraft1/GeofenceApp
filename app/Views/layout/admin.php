@@ -97,21 +97,14 @@
             <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Menu Utama</p>
 
             <?php
-            $db = \Config\Database::connect();
-            $allowedMenus = $db->table('menus')
-                ->join('role_menus', 'role_menus.id_menu = menus.id_menu')
-                ->where('role_menus.id_role', $roleId)
-                ->where('menus.is_active', 1)
-                ->orderBy('menus.urutan', 'ASC')
-                ->get()
-                ->getResultArray();
+            $currentUri = uri_string();
 
-            foreach ($allowedMenus as $menu):
+            foreach ($allowedMenus ?? [] as $menu):
                 $urlMenu  = (string) $menu['url'];
                 $namaMenu = (string) $menu['nama_menu'];
                 $iconMenu = (string) $menu['icon'];
 
-                $isActive = strpos((string) uri_string(), $urlMenu) !== false;
+                $isActive = ($currentUri === $urlMenu) || (strpos($currentUri, $urlMenu . '/') === 0);
                 $activeClass = $isActive ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800 hover:text-white';
             ?>
                 <a href="<?= base_url($urlMenu) ?>" class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors <?= $activeClass ?>">
@@ -145,19 +138,7 @@
             <?php
             $fotoSession = session()->get('foto');
             $namaLengkap = session()->get('nama_lengkap') ?? 'Admin';
-
-            $namaRole = session()->get('nama_role');
-            if (empty($namaRole)) {
-                if ($roleId === 1) {
-                    $namaRole = 'Admin';
-                } elseif ($roleId === 2) {
-                    $namaRole = 'Guru';
-                } else {
-                    $db = \Config\Database::connect();
-                    $roleRow = $db->table('roles')->where('id_role', $roleId)->get()->getRowArray();
-                    $namaRole = $roleRow['nama_role'] ?? 'User';
-                }
-            }
+            $namaRole    = session()->get('nama_role') ?? 'User';
             ?>
             <div class="relative">
                 <button onclick="toggleProfileDropdown()" class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer group focus:outline-none relative z-10" id="profileDropdownBtn" title="Menu Pengguna">

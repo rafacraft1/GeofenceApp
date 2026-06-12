@@ -19,7 +19,6 @@ class CleanupRadar extends BaseCommand
         $db = \Config\Database::connect();
         $builder = $db->table('riwayat_lokasi');
 
-        // Mencegah Database Table Locking dengan membatasi jumlah hapus per chunk
         $totalDeleted = 0;
         $chunkSize    = 1000;
 
@@ -31,17 +30,15 @@ class CleanupRadar extends BaseCommand
             $affected = $db->affectedRows();
             $totalDeleted += $affected;
 
-            // Jika baris yang terhapus kurang dari limit, berarti data sudah habis
             if ($affected < $chunkSize) {
                 break;
             }
 
-            // Memberikan jeda 0.1 detik agar CPU database tidak bottleneck
             usleep(100000);
         }
 
         if ($totalDeleted > 0) {
-            CLI::write("Pembersihan selesai. Total {$totalDeleted} baris data lama telah dihapus tanpa membebani server.", 'green');
+            CLI::write("Pembersihan selesai. Total {$totalDeleted} baris data lama telah dihapus.", 'green');
         } else {
             CLI::write("Pembersihan selesai. Tidak ada data log yang melebihi batas 30 hari.", 'green');
         }

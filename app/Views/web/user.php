@@ -1,7 +1,6 @@
 <?php
 
 /**
- * Deklarasi variabel untuk memuaskan strict type Intelephense
  * @var array<int, array<string, mixed>> $users
  * @var array<int, array<string, mixed>> $roles
  */
@@ -19,143 +18,129 @@
             <i class="fas fa-user-shield"></i> Hak Akses Role
         </a>
         <button onclick="openModal()" class="flex items-center justify-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95 whitespace-nowrap">
-            <i class="fas fa-plus"></i> Tambah User
+            <i class="fas fa-plus"></i> Tambah User Baru
         </button>
     </div>
 </div>
 
-<div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+<div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
     <div class="overflow-x-auto">
-        <table class="w-full text-left text-sm">
-            <thead class="bg-gray-50 border-b border-gray-100">
-                <tr class="text-gray-500 font-bold uppercase text-[10px] tracking-widest">
-                    <th class="px-6 py-4">Nama Lengkap</th>
-                    <th class="px-6 py-4">Username</th>
-                    <th class="px-6 py-4">Role Akses</th>
-                    <th class="px-6 py-4 text-center">Aksi</th>
+        <table class="w-full text-left">
+            <thead>
+                <tr class="bg-gray-50 border-b border-gray-100 text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                    <th class="px-6 py-5">No</th>
+                    <th class="px-6 py-5">Identitas User</th>
+                    <th class="px-6 py-5">Role Akses</th>
+                    <th class="px-6 py-5 text-right">Tindakan</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
-                <?php if (empty($users)): ?>
-                    <tr>
-                        <td colspan="4" class="px-6 py-8 text-center text-gray-400 text-sm font-medium">
-                            <i class="fas fa-folder-open text-3xl mb-3 block text-gray-300"></i>
-                            Belum ada data user.
-                        </td>
-                    </tr>
-                <?php else: ?>
-                    <?php foreach ($users as $u): ?>
-                        <tr class="hover:bg-gray-50 transition-colors">
+                <?php if (!empty($users)): ?>
+                    <?php $no = 1;
+                    foreach ($users as $user): ?>
+                        <tr class="hover:bg-gray-50/50 transition-colors group">
+                            <td class="px-6 py-4 text-sm text-gray-500 font-medium"><?= $no++ ?></td>
                             <td class="px-6 py-4">
-                                <div class="font-bold text-gray-800 flex items-center gap-2">
-                                    <?= esc((string) $u['nama_lengkap']) ?>
-                                    <?php if ((int)$u['id_user'] === 1): ?>
-                                        <i class="fas fa-check-circle text-blue-500" title="Super Administrator"></i>
-                                    <?php endif; ?>
+                                <div class="flex items-center gap-4">
+                                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 flex items-center justify-center font-black text-lg shadow-inner overflow-hidden border border-blue-200 shrink-0">
+                                        <?php if (!empty($user['foto'])): ?>
+                                            <img src="<?= base_url('uploads/profiles/' . (string) $user['foto']) ?>" alt="Foto" class="w-full h-full object-cover">
+                                        <?php else: ?>
+                                            <?= esc(substr((string) $user['nama_lengkap'], 0, 1)) ?>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div>
+                                        <div class="text-sm font-bold text-gray-800"><?= esc((string) $user['nama_lengkap']) ?></div>
+                                        <div class="text-[11px] font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded mt-1 inline-block">@<?= esc((string) $user['username']) ?></div>
+                                    </div>
                                 </div>
                             </td>
                             <td class="px-6 py-4">
-                                <div class="text-gray-600 font-medium"><?= esc((string) $u['username']) ?></div>
+                                <?php
+                                $badgeTheme = ($user['role_id'] == 1)
+                                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                    : 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                                ?>
+                                <span class="px-3 py-1.5 rounded-lg text-xs font-bold border <?= $badgeTheme ?>">
+                                    <?= esc((string) ($user['nama_role'] ?? 'User')) ?>
+                                </span>
                             </td>
-                            <td class="px-6 py-4">
-                                <?php if ($u['role_id'] == 1): ?>
-                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700">
-                                        <i class="fas fa-crown text-[10px]"></i> <?= esc((string) $u['nama_role']) ?>
-                                    </span>
-                                <?php else: ?>
-                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">
-                                        <i class="fas fa-chalkboard-teacher text-[10px]"></i> <?= esc((string) $u['nama_role']) ?>
-                                    </span>
-                                <?php endif; ?>
-                            </td>
-                            <td class="px-6 py-4">
-                                <div class="flex justify-center gap-2">
-                                    <button onclick="editUser(<?= htmlspecialchars(json_encode($u), ENT_QUOTES, 'UTF-8') ?>)" class="p-2.5 bg-amber-50 text-amber-600 hover:bg-amber-100 hover:text-amber-700 rounded-xl transition-colors shadow-sm" title="Edit Data">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-
-                                    <form action="<?= base_url('admin/user/reset/' . $u['id_user']) ?>" method="POST" class="inline">
+                            <td class="px-6 py-4 text-right">
+                                <div class="flex justify-end gap-2">
+                                    <form action="<?= base_url('admin/user/reset/' . (string) $user['id_user']) ?>" method="POST" class="inline">
                                         <?= csrf_field() ?>
-                                        <button type="submit" class="p-2.5 bg-slate-50 text-slate-600 hover:bg-slate-200 hover:text-slate-800 rounded-xl transition-colors shadow-sm btn-confirm" data-text="Reset password akun ini menjadi default (123456)?" data-btn="Ya, Reset" title="Reset Password">
+                                        <button type="button" class="btn-confirm p-2.5 text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-xl transition-colors border border-amber-100" data-text="Password akan direset menjadi default: 123456" data-btn="Ya, Reset" title="Reset Password">
                                             <i class="fas fa-key"></i>
                                         </button>
                                     </form>
 
-                                    <?php if ((int)$u['id_user'] === 1): ?>
-                                        <button type="button" disabled class="p-2.5 bg-gray-50 text-gray-300 rounded-xl cursor-not-allowed shadow-sm border border-gray-100" title="Administrator Utama (Dilindungi)">
-                                            <i class="fas fa-shield-alt"></i>
-                                        </button>
-                                    <?php else: ?>
-                                        <form action="<?= base_url('admin/user/delete/' . $u['id_user']) ?>" method="POST" class="inline">
+                                    <button onclick='openModal(<?= json_encode($user) ?>)' class="p-2.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors border border-blue-100" title="Edit Data">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+
+                                    <?php if ($user['id_user'] != 1 && $user['id_user'] != session()->get('id_user')): ?>
+                                        <form action="<?= base_url('admin/user/delete/' . (string) $user['id_user']) ?>" method="POST" class="inline">
                                             <?= csrf_field() ?>
-                                            <button type="submit" class="p-2.5 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 rounded-xl transition-colors shadow-sm btn-confirm" data-text="Hapus akun ini secara permanen?" data-btn="Ya, Hapus" title="Hapus Akun">
+                                            <button type="button" class="btn-confirm p-2.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-colors border border-red-100" data-text="Hapus user ini secara permanen?" data-btn="Ya, Hapus" title="Hapus User">
                                                 <i class="fas fa-trash-alt"></i>
                                             </button>
                                         </form>
+                                    <?php else: ?>
+                                        <button disabled class="p-2.5 text-gray-400 bg-gray-50 rounded-xl border border-gray-100 cursor-not-allowed opacity-50" title="Tidak dapat dihapus">
+                                            <i class="fas fa-lock"></i>
+                                        </button>
                                     <?php endif; ?>
                                 </div>
                             </td>
                         </tr>
                     <?php endforeach; ?>
+                <?php else: ?>
+                    <tr>
+                        <td colspan="4" class="py-12 text-center text-gray-400 font-medium">Belum ada data user.</td>
+                    </tr>
                 <?php endif; ?>
             </tbody>
         </table>
     </div>
 </div>
 
-<div id="userModal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-slate-900/40 backdrop-blur-sm transition-opacity opacity-0">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden transform scale-95 transition-transform duration-300" id="modalContent">
-        <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-            <h3 class="font-bold text-gray-800 text-lg flex items-center gap-2" id="modalTitle">
-                <i class="fas fa-user-plus text-blue-600"></i> Tambah User Baru
-            </h3>
-            <button type="button" onclick="closeModal()" class="text-gray-400 hover:text-red-500 transition-colors p-1">
-                <i class="fas fa-times text-xl"></i>
+<div id="modal-user" class="fixed inset-0 z-[60] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+    <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="closeModal()"></div>
+    <div class="bg-white rounded-[2rem] shadow-2xl z-10 w-full max-w-lg p-8 relative transform scale-95 transition-transform duration-300" id="modal-content">
+        <div class="flex justify-between items-center mb-6">
+            <h3 class="text-xl font-black text-gray-800 tracking-tight" id="modal-title">Tambah User Baru</h3>
+            <button onclick="closeModal()" class="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-full transition-colors">
+                <i class="fas fa-times text-lg"></i>
             </button>
         </div>
-
-        <form action="<?= base_url('admin/user/store') ?>" method="POST" class="p-6 space-y-5" id="formUser">
+        <form action="<?= base_url('admin/user/store') ?>" method="POST" id="form-user" class="space-y-5">
             <?= csrf_field() ?>
             <input type="hidden" name="id_user" id="id_user">
 
             <div>
-                <label class="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Nama Lengkap</label>
-                <input type="text" name="nama_lengkap" id="nama_lengkap" required placeholder="Masukkan nama lengkap..." class="w-full border border-gray-200 rounded-xl p-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all font-medium text-gray-800 placeholder-gray-400">
+                <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">Nama Lengkap</label>
+                <input type="text" name="nama_lengkap" id="nama_lengkap" required class="w-full border-2 border-gray-100 rounded-xl p-3.5 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium text-gray-700 bg-gray-50 focus:bg-white" placeholder="Masukkan nama lengkap">
             </div>
 
             <div>
-                <label class="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Username</label>
-                <input type="text" name="username" id="username" required placeholder="Gunakan huruf kecil tanpa spasi..." class="w-full border border-gray-200 rounded-xl p-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all font-medium text-gray-800 placeholder-gray-400">
+                <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">Username</label>
+                <input type="text" name="username" id="username" required class="w-full border-2 border-gray-100 rounded-xl p-3.5 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium text-gray-700 bg-gray-50 focus:bg-white" placeholder="Tanpa spasi, contoh: guru_budi">
             </div>
 
-            <div>
-                <label class="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Role Akses</label>
-                <div class="relative">
-                    <select name="role_id" id="role_id" required class="w-full border border-gray-200 rounded-xl p-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all appearance-none bg-white font-medium text-gray-800">
-                        <option value="">-- Pilih Hak Akses --</option>
-                        <?php foreach ($roles as $r): ?>
-                            <option value="<?= $r['id_role'] ?>"><?= esc((string) $r['nama_role']) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
-                        <i class="fas fa-chevron-down text-xs"></i>
-                    </div>
-                </div>
-                <p id="roleWarning" class="text-[10px] text-red-500 font-bold mt-1.5 hidden ml-1">
-                    <i class="fas fa-lock"></i> Role Administrator Utama tidak dapat diturunkan.
-                </p>
+            <div id="role-container">
+                <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">Role / Hak Akses</label>
+                <select name="role_id" id="role_id" required class="w-full border-2 border-gray-100 rounded-xl p-3.5 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium text-gray-700 bg-gray-50 focus:bg-white cursor-pointer appearance-none">
+                    <option value="" disabled selected>-- Pilih Role --</option>
+                    <?php foreach ($roles as $r): ?>
+                        <option value="<?= esc((string) $r['id_role']) ?>"><?= esc((string) $r['nama_role']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <p id="role-warning" class="text-[10px] text-amber-600 font-bold mt-2 hidden bg-amber-50 p-2 rounded-lg border border-amber-100"><i class="fas fa-info-circle"></i> Role SuperAdmin tidak dapat diubah.</p>
             </div>
 
-            <div class="bg-blue-50 text-blue-800 p-3 rounded-lg text-xs font-medium items-start gap-2 hidden" id="passwordHint">
-                <i class="fas fa-info-circle mt-0.5"></i>
-                <p>Password default untuk akun baru adalah: <b>123456</b></p>
-            </div>
-
-            <div class="pt-2 flex gap-3">
-                <button type="button" onclick="closeModal()" class="flex-1 bg-gray-100 text-gray-600 py-3 rounded-xl font-bold hover:bg-gray-200 transition-colors">Batal</button>
-                <button type="submit" class="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all btn-submit flex items-center justify-center gap-2">
-                    <i class="fas fa-save"></i> Simpan Data
-                </button>
+            <div class="pt-4 border-t border-gray-100 flex justify-end gap-3">
+                <button type="button" onclick="closeModal()" class="px-6 py-3 text-sm font-bold text-gray-500 hover:bg-gray-100 rounded-xl transition-colors">Batal</button>
+                <button type="submit" class="bg-blue-600 text-white px-8 py-3 rounded-xl text-sm font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 btn-submit transition-all active:scale-95">Simpan Data</button>
             </div>
         </form>
     </div>
@@ -164,56 +149,39 @@
 
 <?= $this->section('scripts') ?>
 <script>
-    const modal = document.getElementById('userModal');
-    const modalContent = document.getElementById('modalContent');
-    const form = document.getElementById('formUser');
-    const title = document.getElementById('modalTitle');
-    const pwdHint = document.getElementById('passwordHint');
-
-    // Elemen proteksi UI
+    const modal = document.getElementById('modal-user');
+    const modalContent = document.getElementById('modal-content');
+    const form = document.getElementById('form-user');
     const roleSelect = document.getElementById('role_id');
-    const roleWarning = document.getElementById('roleWarning');
+    const roleWarning = document.getElementById('role-warning');
 
-    function openModal() {
-        form.reset();
-        document.getElementById('id_user').value = '';
-        title.innerHTML = '<i class="fas fa-user-plus text-blue-600"></i> Tambah User Baru';
+    function openModal(data = null) {
+        if (data) {
+            document.getElementById('id_user').value = data.id_user;
+            document.getElementById('nama_lengkap').value = data.nama_lengkap;
+            document.getElementById('username').value = data.username;
+            document.getElementById('username').setAttribute('readonly', 'true');
+            document.getElementById('username').classList.add('bg-gray-100');
+            document.getElementById('modal-title').innerText = 'Edit Data User';
 
-        pwdHint.classList.remove('hidden');
-        pwdHint.classList.add('flex');
+            roleSelect.value = data.role_id;
 
-        // Buka kembali akses dropdown role
-        roleSelect.removeAttribute('disabled');
-        roleSelect.classList.remove('bg-gray-100', 'text-gray-400', 'cursor-not-allowed');
-        roleWarning.classList.add('hidden');
-
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-
-        setTimeout(() => {
-            modal.classList.remove('opacity-0');
-            modalContent.classList.remove('scale-95');
-        }, 20);
-    }
-
-    function editUser(user) {
-        form.reset();
-        document.getElementById('id_user').value = user.id_user;
-        document.getElementById('nama_lengkap').value = user.nama_lengkap;
-        document.getElementById('username').value = user.username;
-        document.getElementById('role_id').value = user.role_id;
-
-        title.innerHTML = '<i class="fas fa-user-edit text-amber-500"></i> Edit Data User';
-
-        pwdHint.classList.add('hidden');
-        pwdHint.classList.remove('flex');
-
-        // PROTEKSI UI: Nonaktifkan form Role jika ID = 1
-        if (parseInt(user.id_user) === 1) {
-            roleSelect.setAttribute('disabled', 'true');
-            roleSelect.classList.add('bg-gray-100', 'text-gray-400', 'cursor-not-allowed');
-            roleWarning.classList.remove('hidden');
+            if (data.id_user == 1) {
+                roleSelect.setAttribute('disabled', 'true');
+                roleSelect.classList.add('bg-gray-100', 'text-gray-400', 'cursor-not-allowed');
+                roleWarning.classList.remove('hidden');
+            } else {
+                roleSelect.removeAttribute('disabled');
+                roleSelect.classList.remove('bg-gray-100', 'text-gray-400', 'cursor-not-allowed');
+                roleWarning.classList.add('hidden');
+            }
         } else {
+            form.reset();
+            document.getElementById('id_user').value = '';
+            document.getElementById('username').removeAttribute('readonly');
+            document.getElementById('username').classList.remove('bg-gray-100');
+            document.getElementById('modal-title').innerText = 'Tambah User Baru';
+
             roleSelect.removeAttribute('disabled');
             roleSelect.classList.remove('bg-gray-100', 'text-gray-400', 'cursor-not-allowed');
             roleWarning.classList.add('hidden');
@@ -235,16 +203,12 @@
         setTimeout(() => {
             modal.classList.add('hidden');
             modal.classList.remove('flex');
-
-            // Hapus atribut disabled dari select agar saat form di-submit tidak terjadi error required
             roleSelect.removeAttribute('disabled');
         }, 300);
     }
 
     form.addEventListener('submit', function() {
-        // Hapus atribut disabled tepat sebelum submit agar valuenya (jika diperlukan) tetap terkirim
         roleSelect.removeAttribute('disabled');
-
         const btn = this.querySelector('.btn-submit');
         if (btn) {
             btn.classList.add('btn-loading');

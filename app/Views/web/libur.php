@@ -21,66 +21,42 @@
                 </svg>
                 Tambah Hari Libur
             </h3>
-            <form action="<?= base_url('admin/libur/store') ?>" method="POST">
+            <form action="<?= base_url('admin/libur/store') ?>" method="POST" id="formLibur">
                 <?= csrf_field() ?>
                 <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Tanggal Libur</label>
-                    <input type="date" name="tanggal" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all">
+                    <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Pilih Tanggal</label>
+                    <input type="date" name="tanggal" required class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-gray-50">
                 </div>
-                <div class="mb-5">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Keterangan / Nama Libur</label>
-                    <textarea name="keterangan" rows="3" required placeholder="Misal: Libur Semester Genap" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none"></textarea>
+                <div class="mb-6">
+                    <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Keterangan Libur</label>
+                    <input type="text" name="keterangan" required placeholder="Contoh: Hari Raya Idul Fitri" class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-gray-50">
                 </div>
-                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-sm transition-colors flex justify-center items-center">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                    </svg>
-                    Simpan Tanggal
-                </button>
+                <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition-colors shadow-md btn-submit">Simpan Hari Libur</button>
             </form>
         </div>
     </div>
 
     <div class="w-full lg:w-2/3">
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                <h3 class="text-lg font-semibold text-gray-800">Daftar Hari Libur</h3>
-                <span class="bg-blue-100 text-blue-700 text-xs font-bold px-3 py-1 rounded-full">Total: <?= count($daftar_libur) ?> Hari</span>
-            </div>
             <div class="overflow-x-auto">
-                <table class="w-full whitespace-nowrap">
+                <table class="w-full text-left">
                     <thead>
-                        <tr class="bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                            <th class="px-6 py-4">No</th>
+                        <tr class="bg-gray-50 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                             <th class="px-6 py-4">Tanggal</th>
                             <th class="px-6 py-4">Keterangan</th>
                             <th class="px-6 py-4 text-center">Aksi</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
-                        <?php if (empty($daftar_libur)) : ?>
-                            <tr>
-                                <td colspan="4" class="px-6 py-10 text-center text-gray-500">Belum ada hari libur yang didaftarkan.</td>
-                            </tr>
-                        <?php else : ?>
-                            <?php $no = 1;
-                            foreach ($daftar_libur as $libur) : ?>
-                                <?php
-                                $date = new DateTime((string) $libur['tanggal']);
-                                $tanggalIndo = $date->format('d-m-Y'); // camelCase
-                                $isPassed = (new DateTime())->setTime(0, 0, 0) > $date; // camelCase
-                                ?>
-                                <tr class="hover:bg-gray-50 transition-colors <?= $isPassed ? 'opacity-60' : '' ?>">
-                                    <td class="px-6 py-4 text-sm text-gray-600 font-medium"><?= $no++ ?></td>
+                        <?php if (!empty($daftar_libur)): ?>
+                            <?php foreach ($daftar_libur as $libur): ?>
+                                <tr class="hover:bg-gray-50 transition-colors">
                                     <td class="px-6 py-4">
-                                        <div class="flex items-center">
-                                            <div class="h-8 w-8 rounded bg-<?= $isPassed ? 'gray' : 'red' ?>-100 flex items-center justify-center text-<?= $isPassed ? 'gray' : 'red' ?>-600 mr-3 font-bold text-xs"><?= $date->format('d') ?></div>
-                                            <span class="text-sm font-medium text-gray-800"><?= $tanggalIndo ?></span>
-                                        </div>
+                                        <span class="font-bold text-gray-800"><?= date('d F Y', strtotime((string) $libur['tanggal'])) ?></span>
                                     </td>
-                                    <td class="px-6 py-4 text-sm text-gray-600">
-                                        <?= esc((string) $libur['keterangan']) ?>
-                                        <?php if ($isPassed): ?><span class="ml-2 text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">Selesai</span><?php endif; ?>
+                                    <td class="px-6 py-4">
+                                        <span class="text-sm text-gray-600"><?= esc((string) $libur['keterangan']) ?></span>
+                                        <?php if ($libur['tanggal'] < date('Y-m-d')): ?><span class="ml-2 text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Selesai</span><?php endif; ?>
                                     </td>
                                     <td class="px-6 py-4 text-center">
                                         <form action="<?= base_url('admin/libur/delete/' . (string) $libur['id_libur']) ?>" method="POST" class="inline">
@@ -94,6 +70,10 @@
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
+                        <?php else: ?>
+                            <tr>
+                                <td colspan="3" class="py-10 text-center text-gray-400 italic">Belum ada data hari libur.</td>
+                            </tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
@@ -101,4 +81,16 @@
         </div>
     </div>
 </div>
+<?= $this->endSection() ?>
+
+<?= $this->section('scripts') ?>
+<script>
+    document.getElementById('formLibur').addEventListener('submit', function() {
+        const btn = this.querySelector('.btn-submit');
+        if (btn) {
+            btn.classList.add('btn-loading');
+            btn.setAttribute('disabled', 'true');
+        }
+    });
+</script>
 <?= $this->endSection() ?>

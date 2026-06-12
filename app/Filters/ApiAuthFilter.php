@@ -11,11 +11,6 @@ use App\Libraries\JWTAuth;
 
 class ApiAuthFilter implements FilterInterface
 {
-    /**
-     * @param RequestInterface $request
-     * @param array|null $arguments
-     * @return mixed
-     */
     public function before(RequestInterface $request, $arguments = null)
     {
         $header = $request->getHeaderLine('Authorization');
@@ -54,11 +49,5 @@ class ApiAuthFilter implements FilterInterface
         $request->siswaAuth = $siswa;
     }
 
-    /**
-     * @param RequestInterface $request
-     * @param ResponseInterface $response
-     * @param array|null $arguments
-     * @return void
-     */
     public function after(RequestInterface $request, ResponseInterface $response, $arguments = null) {}
 }

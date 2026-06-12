@@ -1,93 +1,100 @@
 <?php
 
 /**
- * @var array<int, array<string, mixed>> $daftar_jadwal
+ * @var array<int, array<string, mixed>> $jadwal
  */
 ?>
 <?= $this->extend('layout/admin') ?>
 
 <?= $this->section('content') ?>
 
-<div class="mb-6">
-    <h2 class="text-2xl font-bold text-gray-800">Manajemen Jadwal Harian</h2>
-    <p class="text-sm text-gray-500 mt-1">Atur jam masuk dan jam pulang standar untuk setiap hari dalam seminggu.</p>
-</div>
-
-<form action="<?= base_url('admin/jadwal/update') ?>" method="POST" id="formJadwal">
-    <?= csrf_field() ?>
-
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="bg-gray-50 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                        <th class="px-6 py-4">Hari</th>
-                        <th class="px-6 py-4 text-center">Status Libur</th>
-                        <th class="px-6 py-4">Jam Masuk</th>
-                        <th class="px-6 py-4">Jam Pulang</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100">
-                    <?php foreach ($daftar_jadwal as $hari) : ?>
-                        <?php
-                        $id = (string) $hari['id_jadwal'];
-                        $isLibur = (int) $hari['is_libur'] === 1;
-                        ?>
-                        <tr class="hover:bg-gray-50 transition-colors">
-                            <td class="px-6 py-4">
-                                <span class="font-bold text-gray-800 <?= $isLibur ? 'text-red-500' : '' ?>"><?= esc((string) $hari['nama_hari']) ?></span>
-                            </td>
-                            <td class="px-6 py-4 text-center">
-                                <label class="inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" name="jadwal[<?= $id ?>][is_libur]" value="1" class="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500 toggle-libur" data-target="<?= $id ?>" <?= $isLibur ? 'checked' : '' ?>>
-                                </label>
-                            </td>
-                            <td class="px-6 py-4">
-                                <input type="time" id="masuk_<?= $id ?>" name="jadwal[<?= $id ?>][jam_masuk]" value="<?= esc((string) ($hari['jam_masuk'] ?? '')) ?>" class="px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed" <?= $isLibur ? 'disabled' : 'required' ?>>
-                            </td>
-                            <td class="px-6 py-4">
-                                <input type="time" id="pulang_<?= $id ?>" name="jadwal[<?= $id ?>][jam_pulang]" value="<?= esc((string) ($hari['jam_pulang'] ?? '')) ?>" class="px-3 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed" <?= $isLibur ? 'disabled' : 'required' ?>>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-        <div class="p-5 bg-gray-50 border-t border-gray-100 flex justify-end">
-            <button type="button" class="btn-confirm bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-lg shadow-md transition-all flex items-center" data-text="Pastikan jadwal yang Anda masukkan sudah benar." data-btn="Ya, Simpan Jadwal">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path>
-                </svg>
-                Simpan Jadwal Mingguan
-            </button>
+<div class="max-w-3xl mx-auto">
+    <div class="mb-6 flex flex-col md:flex-row justify-between md:items-center gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-800">Pengaturan Hari Aktif Global</h2>
+            <p class="text-sm text-gray-500 mt-1">Tentukan libur akhir pekan. Jam masuk & pulang diatur pada menu Zona Absensi.</p>
         </div>
     </div>
-</form>
+
+    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8">
+        <form action="<?= base_url('admin/jadwal/update') ?>" method="POST" id="formJadwal">
+            <?= csrf_field() ?>
+
+            <div class="bg-blue-50 text-blue-700 text-xs font-medium p-4 rounded-xl border border-blue-100 mb-6 flex items-start gap-3">
+                <svg class="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                </svg>
+                <p>Jika hari ditandai sebagai <b>"Libur"</b>, sistem akan menolak semua permintaan absensi masuk maupun pulang pada hari tersebut.</p>
+            </div>
+
+            <div class="space-y-3">
+                <?php foreach ($jadwal as $j): ?>
+                    <?php
+                    $cardClass  = $j['is_libur'] ? 'bg-slate-50 border-gray-200 opacity-60' : 'bg-white border-emerald-200 shadow-sm';
+                    $iconClass  = $j['is_libur'] ? 'bg-slate-200 text-slate-500' : 'bg-emerald-100 text-emerald-600';
+                    $textClass  = $j['is_libur'] ? 'text-red-500' : 'text-emerald-500';
+                    $statusText = $j['is_libur'] ? 'Sistem Absensi Terkunci (Akhir Pekan/Libur)' : 'Hari Efektif Aktif';
+                    ?>
+                    <label class="flex items-center justify-between p-4 rounded-2xl border <?= $cardClass ?> cursor-pointer hover:bg-gray-50 transition-all group">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm <?= $iconClass ?>">
+                                <?= substr((string)$j['nama_hari'], 0, 3) ?>
+                            </div>
+                            <div>
+                                <p class="font-bold text-gray-800 text-base"><?= esc((string)$j['nama_hari']) ?></p>
+                                <p class="text-[11px] font-semibold <?= $textClass ?>"><?= $statusText ?></p>
+                            </div>
+                        </div>
+
+                        <div class="relative inline-flex items-center cursor-pointer shrink-0">
+                            <input type="checkbox" name="is_libur[]" value="<?= $j['kode_hari'] ?>" class="sr-only peer" <?= $j['is_libur'] ? 'checked' : '' ?>>
+                            <div class="w-14 h-7 bg-emerald-500 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-slate-300 shadow-inner"></div>
+                        </div>
+                    </label>
+                <?php endforeach; ?>
+            </div>
+
+            <div class="mt-8 flex justify-end">
+                <button type="submit" class="w-full md:w-auto px-8 flex justify-center items-center gap-2 bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 active:scale-95 transition-all btn-submit">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    Simpan Perubahan
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const toggles = document.querySelectorAll('.toggle-libur');
-        toggles.forEach(toggle => {
-            toggle.addEventListener('change', function() {
-                const targetId = this.getAttribute('data-target');
-                const isChecked = this.checked;
-                const inputMasuk = document.getElementById('masuk_' + targetId);
-                const inputPulang = document.getElementById('pulang_' + targetId);
+    document.getElementById('formJadwal').addEventListener('submit', function() {
+        const btn = this.querySelector('.btn-submit');
+        if (btn) {
+            btn.classList.add('btn-loading');
+            btn.setAttribute('disabled', 'true');
+        }
+    });
 
-                if (isChecked) {
-                    inputMasuk.disabled = true;
-                    inputPulang.disabled = true;
-                    inputMasuk.removeAttribute('required');
-                    inputPulang.removeAttribute('required');
-                } else {
-                    inputMasuk.disabled = false;
-                    inputPulang.disabled = false;
-                    inputMasuk.setAttribute('required', 'required');
-                    inputPulang.setAttribute('required', 'required');
-                }
-            });
+    document.querySelectorAll('input[type="checkbox"]').forEach(chk => {
+        chk.addEventListener('change', function() {
+            const card = this.closest('label');
+            const icon = card.querySelector('.w-10');
+            const statusText = card.querySelector('p.text-\\[11px\\]');
+
+            if (this.checked) {
+                card.className = "flex items-center justify-between p-4 rounded-2xl border bg-slate-50 border-gray-200 opacity-60 cursor-pointer hover:bg-gray-50 transition-all group";
+                icon.className = "w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm bg-slate-200 text-slate-500";
+                statusText.className = "text-[11px] font-semibold text-red-500";
+                statusText.innerText = "Sistem Absensi Terkunci (Akhir Pekan/Libur)";
+            } else {
+                card.className = "flex items-center justify-between p-4 rounded-2xl border bg-white border-emerald-200 shadow-sm cursor-pointer hover:bg-gray-50 transition-all group";
+                icon.className = "w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm bg-emerald-100 text-emerald-600";
+                statusText.className = "text-[11px] font-semibold text-emerald-500";
+                statusText.innerText = "Hari Efektif Aktif";
+            }
         });
     });
 </script>

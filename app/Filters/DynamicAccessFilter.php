@@ -10,7 +10,7 @@ class DynamicAccessFilter implements FilterInterface
 {
     public function before(RequestInterface $request, $arguments = null)
     {
-        if (!session()->get('logged_in')) {
+        if (!session()->get('isLoggedIn')) {
             return;
         }
 
@@ -36,12 +36,11 @@ class DynamicAccessFilter implements FilterInterface
             ->countAllResults();
 
         if ($hasAccess === 0) {
-            // FIX INTELEPHENSE: Pengecekan AJAX standar protokol HTTP (Header)
             $isAjax = $request->hasHeader('X-Requested-With') && $request->getHeaderLine('X-Requested-With') === 'XMLHttpRequest';
 
             if ($isAjax) {
                 return \Config\Services::response()->setJSON([
-                    'status' => 403,
+                    'status'  => 403,
                     'message' => 'Akses ditolak. Anda tidak memiliki izin untuk tindakan ini.'
                 ]);
             }

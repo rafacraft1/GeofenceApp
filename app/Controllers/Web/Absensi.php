@@ -31,11 +31,9 @@ class Absensi extends BaseController
 
     public function index()
     {
-        // 1. Tangkap Parameter Request
         $tanggalFilter = $this->request->getGet('tanggal') ?? Time::now('Asia/Jakarta')->toDateString();
         $searchFilter  = $this->request->getGet('search');
 
-        // Logika Sort (Default: Waktu Presensi Terbaru)
         $sortParam = $this->request->getGet('sort') ?? 'jam_masuk-desc';
         $sortParts = explode('-', $sortParam);
         $sortCol   = $sortParts[0] ?? 'jam_masuk';
@@ -47,15 +45,12 @@ class Absensi extends BaseController
         $isWaliKelas    = session()->get('is_wali_kelas');
         $kelasSessionId = session()->get('kelas_id');
 
-        // Jika Wali Kelas, paksa filter kelas dari session
         $kelasFilterRaw = $isWaliKelas ? $kelasSessionId : $this->request->getGet('kelas_id');
         $kelasFilter    = !empty($kelasFilterRaw) ? (int)$kelasFilterRaw : null;
 
-        // 2. Tarik Data dengan Pagination & Sort dari Model
         $absensi = $this->absensiModel->getPaginatedAbsensiHarian($tanggalFilter, $kelasFilter, $searchFilter, $perPage, $sortCol, $sortDir);
         $pager   = $this->absensiModel->pager;
 
-        // 3. Data Siswa untuk dropdown Modal Input Manual
         $siswaQuery = $this->siswaModel
             ->select('siswa.id_siswa, siswa.nis, siswa.nama_siswa, kelas.nama_kelas')
             ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left')
@@ -78,8 +73,6 @@ class Absensi extends BaseController
             'absensi'      => $absensi,
             'siswa'        => $siswaQuery->findAll(),
             'list_kelas'   => $listKelas,
-
-            // Variabel Pagination
             'pager_links'  => $pager->links('default', 'tailwind_pagination'),
             'total_data'   => $pager->getTotal('default'),
             'page'         => $page,

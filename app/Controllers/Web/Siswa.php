@@ -2,23 +2,25 @@
 
 namespace App\Controllers\Web;
 
-use CodeIgniter\Controller;
+use App\Controllers\BaseController;
 use CodeIgniter\HTTP\Files\UploadedFile;
 use App\Models\SiswaModel;
 use App\Models\KelasModel;
 use App\Models\AbsensiModel;
 use App\Models\LogFraudModel;
+use App\Models\ZonaModel;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
 
-class Siswa extends Controller
+class Siswa extends BaseController
 {
     protected SiswaModel $siswaModel;
     protected KelasModel $kelasModel;
     protected AbsensiModel $absensiModel;
     protected LogFraudModel $logFraudModel;
+    protected ZonaModel $zonaModel;
 
     public function __construct()
     {
@@ -26,12 +28,13 @@ class Siswa extends Controller
         $this->kelasModel    = new KelasModel();
         $this->absensiModel  = new AbsensiModel();
         $this->logFraudModel = new LogFraudModel();
+        $this->zonaModel     = new ZonaModel();
     }
 
     private function checkAksesWaliKelas(int $targetKelasId): bool
     {
         if (session()->get('is_wali_kelas')) {
-            return $targetKelasId === session()->get('kelas_id');
+            return $targetKelasId === (int) session()->get('kelas_id');
         }
         return true;
     }
@@ -65,7 +68,7 @@ class Siswa extends Controller
 
     public function index()
     {
-        $isWaliKelas    = session()->get('is_wali_kelas');
+        $isWaliKelas    = (bool) session()->get('is_wali_kelas');
         $kelasSessionId = session()->get('kelas_id');
 
         $kelasFilter  = $isWaliKelas ? $kelasSessionId : $this->request->getGet('kelas');
@@ -82,12 +85,15 @@ class Siswa extends Controller
             ? $this->kelasModel->where('id_kelas', $kelasSessionId)->findAll()
             : $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll();
 
+        $listZona = $this->zonaModel->orderBy('is_default', 'DESC')->orderBy('nama_zona', 'ASC')->findAll();
+
         $siswa = $this->siswaModel->getPaginatedSiswa($kelasFilter, $searchFilter, $perPage, $sortCol, $sortDir);
 
         $data = [
             'title'         => 'Daftar Siswa',
             'siswa'         => $siswa,
             'list_kelas'    => $listKelas,
+            'list_zona'     => $listZona,
             'kelas_aktif'   => $kelasFilter,
             'search_aktif'  => $searchFilter,
             'sort_aktif'    => $sortParam,
@@ -112,10 +118,7 @@ class Siswa extends Controller
         }
 
         $aturanValidasi = [
-            'nis'        => [
-                'rules'  => 'required|is_unique[siswa.nis]',
-                'errors' => ['is_unique' => 'NIS sudah terdaftar. Gunakan NIS lain.']
-            ],
+            'nis'        => ['rules' => 'required|is_unique[siswa.nis]', 'errors' => ['is_unique' => 'NIS sudah terdaftar.']],
             'nama_siswa' => 'required'
         ];
 
@@ -124,9 +127,7 @@ class Siswa extends Controller
         }
 
         $uploadFoto = $this->handleUploadFoto($this->request->getFile('foto'));
-        if (!$uploadFoto['status']) {
-            return redirect()->back()->withInput()->with('error', $uploadFoto['error']);
-        }
+        if (!$uploadFoto['status']) return redirect()->back()->withInput()->with('error', $uploadFoto['error']);
 
         $nis = $this->request->getPost('nis');
 
@@ -134,6 +135,7 @@ class Siswa extends Controller
             'nis'          => $nis,
             'nama_siswa'   => $this->request->getPost('nama_siswa'),
             'kelas_id'     => $kelasIdPost,
+            // zona_id dihilangkan, biarkan bernilai default null di DB
             'password'     => password_hash($nis, PASSWORD_BCRYPT),
             'foto_profil'  => $uploadFoto['data']
         ]);
@@ -145,38 +147,36 @@ class Siswa extends Controller
     {
         $siswaLama = $this->siswaModel->find($id);
 
-        if (!$siswaLama || !$this->checkAksesWaliKelas((int)$siswaLama['kelas_id'])) {
+        if (!$siswaLama || (!$this->checkAksesWaliKelas((int)$siswaLama['kelas_id']))) {
             return redirect()->to('/admin/siswa')->with('error', 'Data siswa tidak ditemukan atau Akses Ditolak.');
         }
 
         $kelasIdPost = (int) $this->request->getPost('kelas_id');
-        if (!$this->checkAksesWaliKelas($kelasIdPost)) {
-            return redirect()->back()->with('error', 'Akses Ditolak: Anda tidak dapat memindahkan siswa ke kelas lain.');
-        }
+        if (!$this->checkAksesWaliKelas($kelasIdPost)) return redirect()->back()->with('error', 'Akses Ditolak.');
 
         $aturanValidasi = [
-            'nis'        => [
-                'rules'  => "required|is_unique[siswa.nis,id_siswa,{$id}]",
-                'errors' => ['is_unique' => 'NIS tersebut sudah dipakai oleh siswa lain.']
-            ],
+            'nis'        => ['rules' => "required|is_unique[siswa.nis,id_siswa,{$id}]", 'errors' => ['is_unique' => 'NIS dipakai siswa lain.']],
             'nama_siswa' => 'required'
         ];
 
-        if (!$this->validate($aturanValidasi)) {
-            return redirect()->back()->withInput()->with('error', $this->validator->getError('nis') ?: 'Cek kembali isian Anda.');
-        }
+        if (!$this->validate($aturanValidasi)) return redirect()->back()->withInput()->with('error', $this->validator->getError('nis') ?: 'Cek kembali isian Anda.');
 
         $uploadFoto = $this->handleUploadFoto($this->request->getFile('foto'), $siswaLama['foto_profil']);
-        if (!$uploadFoto['status']) {
-            return redirect()->back()->withInput()->with('error', $uploadFoto['error']);
-        }
+        if (!$uploadFoto['status']) return redirect()->back()->withInput()->with('error', $uploadFoto['error']);
 
-        $this->siswaModel->update($id, [
+        $updateData = [
             'nis'          => $this->request->getPost('nis'),
             'nama_siswa'   => $this->request->getPost('nama_siswa'),
             'kelas_id'     => $kelasIdPost,
+            // zona_id dihilangkan agar tidak menimpa data pengaturan Zona
             'foto_profil'  => $uploadFoto['data']
-        ]);
+        ];
+
+        if ($updateData['nis'] !== $siswaLama['nis']) {
+            $updateData['password'] = password_hash($updateData['nis'], PASSWORD_BCRYPT);
+        }
+
+        $this->siswaModel->update($id, $updateData);
 
         return redirect()->to('/admin/siswa')->with('success', 'Data siswa berhasil diperbarui.');
     }
@@ -185,7 +185,7 @@ class Siswa extends Controller
     {
         $siswa = $this->siswaModel->find($id);
 
-        if (!$siswa || !$this->checkAksesWaliKelas((int)$siswa['kelas_id'])) {
+        if (!$siswa || (!$this->checkAksesWaliKelas((int)$siswa['kelas_id']))) {
             return redirect()->to('/admin/siswa')->with('error', 'Data siswa tidak ditemukan atau Akses Ditolak.');
         }
 
@@ -204,10 +204,59 @@ class Siswa extends Controller
         return redirect()->to('/admin/siswa')->with('success', 'Data siswa beserta foto berhasil dihapus permanen.');
     }
 
+    public function deleteBulk()
+    {
+        $ids = $this->request->getPost('ids');
+
+        if (empty($ids) || !is_array($ids)) {
+            return redirect()->back()->with('error', 'Tidak ada data siswa yang dipilih untuk dihapus.');
+        }
+
+        $siswaList = $this->siswaModel->whereIn('id_siswa', $ids)->findAll();
+
+        if (empty($siswaList)) {
+            return redirect()->back()->with('error', 'Data siswa tidak ditemukan.');
+        }
+
+        $validIds       = [];
+        $photosToDelete = [];
+
+        foreach ($siswaList as $siswa) {
+            if (!$this->checkAksesWaliKelas((int)$siswa['kelas_id'])) {
+                continue;
+            }
+
+            $validIds[] = $siswa['id_siswa'];
+            if (!empty($siswa['foto_profil'])) {
+                $photosToDelete[] = $siswa['foto_profil'];
+            }
+        }
+
+        if (empty($validIds)) {
+            return redirect()->back()->with('error', 'Akses Ditolak: Anda tidak dapat menghapus data siswa tersebut.');
+        }
+
+        $this->siswaModel->db->transStart();
+        $this->siswaModel->whereIn('id_siswa', $validIds)->delete();
+        $this->siswaModel->db->transComplete();
+
+        if ($this->siswaModel->db->transStatus() === false) {
+            return redirect()->back()->with('error', 'Terjadi kesalahan pada database saat menghapus data massal.');
+        }
+
+        foreach ($photosToDelete as $foto) {
+            if (file_exists(FCPATH . 'uploads/siswa/' . $foto)) {
+                unlink(FCPATH . 'uploads/siswa/' . $foto);
+            }
+        }
+
+        return redirect()->back()->with('success', count($validIds) . ' data siswa berhasil dihapus secara permanen.');
+    }
+
     public function resetDevice(string $id)
     {
         $siswa = $this->siswaModel->find($id);
-        if (!$siswa || !$this->checkAksesWaliKelas((int)$siswa['kelas_id'])) {
+        if (!$siswa || (!$this->checkAksesWaliKelas((int)$siswa['kelas_id']))) {
             return redirect()->to('/admin/siswa')->with('error', 'Akses Ditolak.');
         }
 
@@ -218,7 +267,7 @@ class Siswa extends Controller
     public function unblock(string $id)
     {
         $siswa = $this->siswaModel->find($id);
-        if (!$siswa || !$this->checkAksesWaliKelas((int)$siswa['kelas_id'])) {
+        if (!$siswa || (!$this->checkAksesWaliKelas((int)$siswa['kelas_id']))) {
             return redirect()->to('/admin/siswa')->with('error', 'Akses Ditolak.');
         }
 
@@ -232,12 +281,12 @@ class Siswa extends Controller
     public function block(string $id)
     {
         $siswa = $this->siswaModel->find($id);
-        if (!$siswa || !$this->checkAksesWaliKelas((int)$siswa['kelas_id'])) {
+        if (!$siswa || (!$this->checkAksesWaliKelas((int)$siswa['kelas_id']))) {
             return redirect()->to('/admin/siswa')->with('error', 'Akses Ditolak.');
         }
 
         $this->siswaModel->update($id, [
-            'is_blocked' => 1 // Kunci akses API & Login
+            'is_blocked' => 1
         ]);
         return redirect()->to('/admin/siswa')->with('success', 'Akses absensi dan login siswa berhasil dikunci sementara.');
     }
@@ -320,6 +369,7 @@ class Siswa extends Controller
         $sheet->setCellValue('B1', 'NIS');
         $sheet->setCellValue('C1', 'Nama Lengkap');
         $sheet->setCellValue('D1', 'Kelas');
+        $sheet->setCellValue('E1', 'Zona PKL');
 
         $row = 2;
         foreach ($dataSiswa as $index => $siswa) {
@@ -327,6 +377,7 @@ class Siswa extends Controller
             $sheet->setCellValueExplicit('B' . $row, $siswa['nis'], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
             $sheet->setCellValue('C' . $row, $siswa['nama_siswa']);
             $sheet->setCellValue('D' . $row, $siswa['nama_kelas']);
+            $sheet->setCellValue('E' . $row, $siswa['nama_zona'] ?? 'Mengikuti Kelas/Pusat');
             $row++;
         }
 
@@ -342,29 +393,41 @@ class Siswa extends Controller
     {
         $file = $this->request->getFile('file_excel');
 
-        if (!$file || !$file->isValid() || $file->getExtension() !== 'xlsx') {
-            return redirect()->back()->with('error', 'Format file tidak valid. Gunakan file .xlsx');
+        if (!$file || !$file->isValid()) {
+            $errorMsg = $file ? $file->getErrorString() : 'File tidak terbaca oleh server.';
+            return redirect()->back()->with('error', 'Gagal mengunggah file: ' . $errorMsg);
         }
 
-        $spreadsheet = IOFactory::load($file->getTempName());
-        $dataSiswa   = $spreadsheet->getActiveSheet()->toArray();
-
-        $allKelas = $this->kelasModel->findAll();
-        $kelasMap = [];
-        foreach ($allKelas as $k) {
-            $kelasMap[strtolower(trim((string)$k['nama_kelas']))] = $k['id_kelas'];
+        $extension = strtolower($file->getClientExtension());
+        if ($extension !== 'xlsx') {
+            return redirect()->back()->with('error', 'Format tidak valid. Harus .xlsx, file Anda terdeteksi sebagai .' . $extension);
         }
 
-        $isWaliKelas = session()->get('is_wali_kelas');
-        $waliKelasId = $isWaliKelas ? session()->get('kelas_id') : null;
+        try {
+            $spreadsheet = IOFactory::load($file->getTempName());
+            $dataSiswa   = $spreadsheet->getActiveSheet()->toArray();
 
-        $result = $this->siswaModel->processBulkImport($dataSiswa, $kelasMap, $isWaliKelas, $waliKelasId);
+            $allKelas = $this->kelasModel->findAll();
+            $kelasMap = [];
+            foreach ($allKelas as $k) {
+                $kelasMap[strtolower(trim((string)$k['nama_kelas']))] = $k['id_kelas'];
+            }
 
-        if (!$result['status']) {
-            return redirect()->back()->with('error', 'Terjadi kesalahan sistem saat proses import. Data dibatalkan.');
+            $isWaliKelas = (bool) session()->get('is_wali_kelas');
+            $waliKelasId = $isWaliKelas ? (int) session()->get('kelas_id') : null;
+
+            $result = $this->siswaModel->processBulkImport($dataSiswa, $kelasMap, $isWaliKelas, $waliKelasId);
+
+            if (!$result['status']) {
+                return redirect()->back()->with('error', 'Terjadi kesalahan sistem saat proses import database. Seluruh data dibatalkan secara aman.');
+            }
+
+            return redirect()->to('/admin/siswa')->with('success', "Berhasil import {$result['inserted']} data siswa. {$result['skipped']} baris dilewati (NIS duplikat/salah kelas).");
+        } catch (\PhpOffice\PhpSpreadsheet\Reader\Exception $e) {
+            return redirect()->back()->with('error', 'Struktur file Excel rusak atau tidak dapat dibaca: ' . $e->getMessage());
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Terjadi kesalahan internal: ' . $e->getMessage());
         }
-
-        return redirect()->to('/admin/siswa')->with('success', "Berhasil import {$result['inserted']} data siswa. {$result['skipped']} baris dilewati (NIS duplikat/salah kelas).");
     }
 
     public function detail(string $idSiswa)
@@ -375,19 +438,17 @@ class Siswa extends Controller
             return redirect()->to('/admin/siswa')->with('error', 'Data siswa tidak ditemukan atau Akses Ditolak.');
         }
 
-        // 1. Tangkap parameter filter & halaman
         $startDate   = $this->request->getGet('start_date');
         $endDate     = $this->request->getGet('end_date');
         $pageAbsensi = (int) ($this->request->getGet('page_absensi') ?? 1);
         $perPage     = 10;
 
-        // 2. Ambil data riwayat yang sudah ter-filter dan ter-paginasi
         $absensi = $this->absensiModel->getRiwayatAbsensiSiswa($idSiswa, $startDate, $endDate, $perPage);
         $pager   = $this->absensiModel->pager;
 
         $logFraud = $this->logFraudModel->where('siswa_id', $idSiswa)
             ->orderBy('created_at', 'DESC')
-            ->findAll(10); // Log fraud tetap dibatasi 10 terakhir saja untuk efisiensi
+            ->findAll(10);
 
         $stats = $this->absensiModel->getStatistikSiswa($idSiswa);
 
@@ -397,11 +458,9 @@ class Siswa extends Controller
             'absensi'      => $absensi,
             'logFraud'     => $logFraud,
             'stats'        => $stats,
-
-            // Variabel khusus Pagination & Filter Riwayat
             'start_date'   => $startDate,
             'end_date'     => $endDate,
-            'pager_links'  => $pager->links('absensi', 'tailwind_pagination'), // Gunakan template kita
+            'pager_links'  => $pager->links('absensi', 'tailwind_pagination'),
             'total_data'   => $pager->getTotal('absensi'),
             'page'         => $pageAbsensi,
             'perPage'      => $perPage
