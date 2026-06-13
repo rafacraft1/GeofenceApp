@@ -12,12 +12,10 @@ class HariLiburModel extends Model
     protected $protectFields    = true;
     protected $allowedFields    = ['tanggal', 'keterangan'];
 
-    // ✅ Perbaikan Timestamps: Sinkronisasi dengan Database Migration
     protected $useTimestamps    = true;
     protected $createdField     = 'created_at';
-    protected $updatedField     = ''; // Kosongkan karena tidak ada updated_at di tabel
+    protected $updatedField     = '';
 
-    // ✅ Perbaikan Keamanan: Injeksi Audit Trail
     protected array $tempOldData = [];
     protected $afterInsert       = ['auditInsert'];
     protected $beforeDelete      = ['auditBeforeDelete'];

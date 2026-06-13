@@ -23,7 +23,6 @@ class WebAuthFilter implements FilterInterface
 
         $lastActivity = $session->get('last_activity');
 
-        // Timeout diatur menjadi 60 Menit (3600 detik) untuk kenyamanan Admin
         $timeout      = 3600;
 
         if ($lastActivity && (time() - $lastActivity > $timeout)) {
