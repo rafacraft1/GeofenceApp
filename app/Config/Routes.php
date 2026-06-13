@@ -20,6 +20,11 @@ $routes->group('admin', ['filter' => 'webAuth', 'namespace' => 'App\Controllers\
 });
 
 $routes->group('admin', ['filter' => ['webAuth', 'dynamicAccess'], 'namespace' => 'App\Controllers\Web'], function ($routes) {
+    // Elegant Redirect untuk root /admin/ agar tidak 404 dan menghindari duplikasi konten
+    $routes->get('/', function () {
+        return redirect()->to('/admin/dashboard');
+    });
+
     $routes->get('dashboard', 'Dashboard::index');
 
     $routes->group('siswa', function ($routes) {
@@ -114,10 +119,32 @@ $routes->group('api/v1', ['filter' => 'throttle', 'namespace' => 'App\Controller
         $routes->post('izin/ajukan', 'IzinApi::ajukan');
         $routes->get('izin/riwayat', 'IzinApi::riwayat');
         $routes->post('fcm/updateToken', 'FcmApi::updateToken');
+        $routes->post('auth/logout', 'AuthApi::logout');
     });
 });
 
 $routes->group('api/tracking', ['namespace' => 'App\Controllers\Api'], function ($routes) {
     $routes->post('trigger/(:num)', 'TrackingApi::triggerTracking/$1');
     $routes->get('poll/(:num)', 'TrackingApi::pollLocation/$1');
+});
+
+$routes->set404Override(function () {
+    $request = \Config\Services::request();
+    $uri     = (string) $request->getUri()->getPath();
+
+    if (strpos($uri, 'api/') === 0) {
+        return \Config\Services::response()
+            ->setStatusCode(404)
+            ->setJSON([
+                'status'     => 404,
+                'error_code' => 'ENDPOINT_NOT_FOUND',
+                'message'    => 'Endpoint API tidak ditemukan atau method salah.'
+            ]);
+    }
+
+    if (session()->get('isLoggedIn')) {
+        return view('errors/custom_404', ['title' => 'Halaman Tidak Ditemukan']);
+    }
+
+    return redirect()->to('/admin/login');
 });

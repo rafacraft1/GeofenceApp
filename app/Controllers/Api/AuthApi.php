@@ -4,6 +4,7 @@ namespace App\Controllers\Api;
 
 use CodeIgniter\RESTful\ResourceController;
 use App\Services\AuthService;
+use App\Models\SiswaModel;
 
 class AuthApi extends ResourceController
 {
@@ -42,12 +43,12 @@ class AuthApi extends ResourceController
             return $this->failNotFound($result['message']);
         }
 
-        if ($result['status'] === 401) {
-            return $this->failUnauthorized($result['message']);
+        if ($result['status'] === 401 || $result['status'] === 403) {
+            return $this->respond(['status' => $result['status'], 'message' => $result['message']], $result['status']);
         }
 
         if (!empty($fcmToken) && isset($result['data']['id_siswa'])) {
-            $siswaModel = new \App\Models\SiswaModel();
+            $siswaModel = new SiswaModel();
             $siswaModel->update($result['data']['id_siswa'], ['fcm_token' => $fcmToken]);
         }
 
@@ -78,9 +79,29 @@ class AuthApi extends ResourceController
         }
 
         return $this->respond([
-            'status'       => 200,
-            'message'      => 'Token berhasil diperbarui.',
-            'access_token' => $result['access_token']
+            'status'        => 200,
+            'message'       => 'Token berhasil diperbarui.',
+            'access_token'  => $result['access_token'],
+            'refresh_token' => $result['refresh_token']
+        ]);
+    }
+
+    /**
+     * @return mixed
+     */
+    public function logout()
+    {
+        $siswa = $this->request->siswaAuth ?? null;
+
+        if (!$siswa) {
+            return $this->failUnauthorized('Akses ditolak.');
+        }
+
+        $result = $this->authService->logoutSiswa((int) $siswa['id_siswa']);
+
+        return $this->respond([
+            'status'  => 200,
+            'message' => $result['message']
         ]);
     }
 }

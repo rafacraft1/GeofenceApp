@@ -3,16 +3,42 @@
 namespace App\Controllers\Api;
 
 use CodeIgniter\RESTful\ResourceController;
+use CodeIgniter\I18n\Time;
 use App\Models\SiswaModel;
 
 class TrackingApi extends ResourceController
 {
     protected SiswaModel $siswaModel;
+    protected \CodeIgniter\Database\BaseConnection $db;
 
     public function __construct()
     {
         $this->siswaModel = new SiswaModel();
+        $this->db         = \Config\Database::connect();
         helper(['fcm', 'date']);
+    }
+
+    /**
+     * @param int $idSiswa
+     * @param string $jenisPelanggaran
+     * @return void
+     */
+    private function catatFraud(int $idSiswa, string $jenisPelanggaran): void
+    {
+        $siswa = $this->siswaModel->find($idSiswa);
+        $newFraudCount = (int) ($siswa['fraud_count'] ?? 0) + 1;
+        $isBlocked = ($newFraudCount >= 3) ? 1 : 0;
+
+        $this->siswaModel->update($idSiswa, [
+            'fraud_count' => $newFraudCount,
+            'is_blocked'  => $isBlocked
+        ]);
+
+        $this->db->table('log_fraud')->insert([
+            'siswa_id'          => $idSiswa,
+            'jenis_pelanggaran' => $jenisPelanggaran,
+            'waktu_kejadian'    => Time::now('Asia/Jakarta')->toDateTimeString()
+        ]);
     }
 
     /**
@@ -32,7 +58,7 @@ class TrackingApi extends ResourceController
             'action'    => 'force_location_capture'
         ];
 
-        $fcmResult = send_fcm_notification($siswa['fcm_token'], '', '', $dataPayload);
+        $fcmResult = send_fcm_notification((string)$siswa['fcm_token'], '', '', $dataPayload);
 
         return $this->respond([
             'status'  => 'success',
@@ -60,12 +86,37 @@ class TrackingApi extends ResourceController
             return $this->failValidationErrors(['error' => 'Array locations wajib dikirim.']);
         }
 
-        $cacheKey = 'tracking_siswa_' . $siswaId;
-        cache()->save($cacheKey, $locations, 60);
+        $validLocations = [];
+        $hasMock        = false;
+
+        foreach ($locations as $loc) {
+            $isMock   = (int) ($loc['is_mock'] ?? 0);
+            $accuracy = (float) ($loc['accuracy'] ?? 999);
+
+            if ($isMock === 1) {
+                $hasMock = true;
+                continue;
+            }
+
+            if ($accuracy > 100) {
+                continue;
+            }
+
+            $validLocations[] = $loc;
+        }
+
+        if ($hasMock) {
+            $this->catatFraud((int) $siswaId, 'Mock Location (Fake GPS) terdeteksi saat Pelacakan Real-time (Background)');
+        }
+
+        if (!empty($validLocations)) {
+            $cacheKey = 'tracking_siswa_' . $siswaId;
+            cache()->save($cacheKey, $validLocations, 60);
+        }
 
         return $this->respond([
             'status'  => 'success',
-            'message' => 'Data lokasi berhasil diunggah ke memori sementara server.'
+            'message' => 'Data lokasi berhasil disinkronisasi dengan server.'
         ]);
     }
 

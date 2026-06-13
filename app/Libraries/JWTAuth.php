@@ -4,6 +4,8 @@ namespace App\Libraries;
 
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
+use Firebase\JWT\ExpiredException;
+use Firebase\JWT\SignatureInvalidException;
 
 class JWTAuth
 {
@@ -58,15 +60,19 @@ class JWTAuth
 
     /**
      * @param string $token
-     * @return object|null
+     * @return array
      */
-    public function decodeToken(string $token): ?object
+    public function decodeToken(string $token): array
     {
         try {
             $decoded = JWT::decode($token, new Key($this->key, 'HS256'));
-            return $decoded->data;
+            return ['status' => 'valid', 'data' => $decoded->data];
+        } catch (ExpiredException $e) {
+            return ['status' => 'expired', 'message' => 'Token telah kadaluarsa.'];
+        } catch (SignatureInvalidException $e) {
+            return ['status' => 'invalid', 'message' => 'Tanda tangan token tidak valid.'];
         } catch (\Exception $e) {
-            return null;
+            return ['status' => 'error', 'message' => 'Token rusak atau tidak valid.'];
         }
     }
 }

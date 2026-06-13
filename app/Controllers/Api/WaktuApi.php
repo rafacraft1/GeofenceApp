@@ -12,25 +12,20 @@ class WaktuApi extends ResourceController
 
     public function index()
     {
-        // 1. Set Zona Waktu Server
         $timezone = env('app.appTimezone', 'Asia/Jakarta');
         $waktuNow = Time::now($timezone);
         $kodeHari = (int) $waktuNow->format('N');
         $tanggalHariIni = $waktuNow->format('Y-m-d');
 
         $db = \Config\Database::connect();
-
-        // 2. Ambil Identitas Siswa dari Token JWT (Jika dikirim oleh Filter)
         $siswaAuth = $this->request->siswaAuth ?? null;
         $aturanZona = null;
 
         if ($siswaAuth && isset($siswaAuth->id_siswa)) {
             $siswaModel = new SiswaModel();
-            // Ambil Aturan Spesifik: Prioritas Individu -> Kelas -> Zona Default
             $aturanZona = $siswaModel->getAturanZonaSiswa((string)$siswaAuth->id_siswa, $kodeHari);
         }
 
-        // 3. Fallback (Jika belum login atau gagal dapat zona, gunakan Zona Default)
         if (!$aturanZona) {
             $zonaDefault = $db->table('zona_absensi')->where('is_default', 1)->get()->getRowArray();
             $jadwalDefault = $db->table('zona_jadwal')->where(['zona_id' => $zonaDefault['id_zona'] ?? 1, 'kode_hari' => $kodeHari])->get()->getRowArray();

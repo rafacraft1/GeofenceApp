@@ -53,7 +53,7 @@ class ProfileApi extends ResourceController
             $foto->move(FCPATH . 'uploads/siswa', $namaFoto);
 
             if (!empty($siswa['foto_profil'])) {
-                $safeOldFileName = basename($siswa['foto_profil']);
+                $safeOldFileName = basename((string)$siswa['foto_profil']);
                 $oldFilePath     = FCPATH . 'uploads/siswa/' . $safeOldFileName;
 
                 if (file_exists($oldFilePath) && is_file($oldFilePath)) {

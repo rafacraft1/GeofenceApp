@@ -34,15 +34,15 @@ class AuthService
         }
 
         if ($siswa['is_blocked'] == 1) {
-            return ['status' => 401, 'message' => 'Akun Anda telah diblokir. Silakan hubungi Admin.'];
+            return ['status' => 403, 'message' => 'Akun Anda telah diblokir. Silakan hubungi Admin.'];
         }
 
-        if (!password_verify($password, $siswa['password'])) {
+        if (!password_verify($password, (string)$siswa['password'])) {
             return ['status' => 401, 'message' => 'Password yang Anda masukkan salah.'];
         }
 
         if (!empty($siswa['device_id']) && $siswa['device_id'] !== $deviceId) {
-            return ['status' => 401, 'message' => 'Akun ini sudah terikat dengan perangkat HP lain.'];
+            return ['status' => 403, 'message' => 'Akun ini sudah terikat dengan perangkat HP lain.'];
         }
 
         $tokenPayload = [
@@ -55,6 +55,7 @@ class AuthService
 
         $this->siswaModel->update($siswa['id_siswa'], [
             'device_id'  => $deviceId,
+            'api_token'  => hash('sha256', $refreshToken),
             'last_login' => date('Y-m-d H:i:s')
         ]);
 
@@ -82,24 +83,49 @@ class AuthService
     {
         $decoded = $this->jwtAuth->decodeToken($refreshToken);
 
-        if (!$decoded) {
+        if ($decoded['status'] !== 'valid') {
             return ['status' => 401, 'message' => 'Refresh token tidak valid atau telah kedaluwarsa.'];
         }
 
-        $siswa = $this->siswaModel->select('is_blocked')->find($decoded->id_siswa);
+        $idSiswa = $decoded['data']->id_siswa;
+        $nis     = $decoded['data']->nis;
 
-        if (!$siswa || $siswa['is_blocked'] == 1) {
-            return ['status' => 401, 'message' => 'Sesi tidak valid atau akun diblokir.'];
+        $siswa = $this->siswaModel->select('is_blocked, api_token')->find($idSiswa);
+
+        if (!$siswa || $siswa['is_blocked'] == 1 || $siswa['api_token'] !== hash('sha256', $refreshToken)) {
+            return ['status' => 401, 'message' => 'Sesi tidak valid, token telah dicabut, atau akun diblokir.'];
         }
 
         $newPayload = [
-            'id_siswa' => $decoded->id_siswa,
-            'nis'      => $decoded->nis
+            'id_siswa' => $idSiswa,
+            'nis'      => $nis
         ];
 
+        $newAccessToken  = $this->jwtAuth->generateAccessToken($newPayload);
+        $newRefreshToken = $this->jwtAuth->generateRefreshToken($newPayload);
+
+        $this->siswaModel->update($idSiswa, [
+            'api_token' => hash('sha256', $newRefreshToken)
+        ]);
+
         return [
-            'status'       => 200,
-            'access_token' => $this->jwtAuth->generateAccessToken($newPayload)
+            'status'        => 200,
+            'access_token'  => $newAccessToken,
+            'refresh_token' => $newRefreshToken
         ];
+    }
+
+    /**
+     * @param int $idSiswa
+     * @return array
+     */
+    public function logoutSiswa(int $idSiswa): array
+    {
+        $this->siswaModel->update($idSiswa, [
+            'api_token' => null,
+            'fcm_token' => null
+        ]);
+
+        return ['status' => 200, 'message' => 'Logout berhasil. Sesi dan notifikasi telah dinonaktifkan.'];
     }
 }
