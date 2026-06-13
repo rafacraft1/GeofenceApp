@@ -14,11 +14,11 @@ class DynamicAccessFilter implements FilterInterface
             return;
         }
 
-        $roleId = session()->get('role_id');
+        $roleId = (int) session()->get('role_id');
         $uri = $request->getUri();
 
-        $segment1 = $uri->getSegment(1);
-        $segment2 = $uri->getTotalSegments() > 1 ? $uri->getSegment(2) : '';
+        $segment1 = (string) $uri->getSegment(1);
+        $segment2 = $uri->getTotalSegments() > 1 ? (string) $uri->getSegment(2) : '';
         $currentPath = $segment2 ? "$segment1/$segment2" : $segment1;
 
         $whitelist = ['admin/dashboard', 'admin/logout', 'admin/login_action', 'admin/login'];
@@ -28,12 +28,15 @@ class DynamicAccessFilter implements FilterInterface
 
         $db = \Config\Database::connect();
 
-        $hasAccess = $db->table('role_menus')
-            ->join('menus', 'menus.id_menu = role_menus.id_menu')
-            ->where('role_menus.id_role', $roleId)
-            ->where('menus.is_active', 1)
-            ->like('menus.url', $currentPath, 'after')
-            ->countAllResults();
+        $cacheKey  = "access_rbac_{$roleId}_" . md5($currentPath);
+        $hasAccess = cache()->remember($cacheKey, 3600, function () use ($db, $roleId, $currentPath) {
+            return $db->table('role_menus')
+                ->join('menus', 'menus.id_menu = role_menus.id_menu')
+                ->where('role_menus.id_role', $roleId)
+                ->where('menus.is_active', 1)
+                ->like('menus.url', $currentPath, 'after')
+                ->countAllResults();
+        });
 
         if ($hasAccess === 0) {
             $isAjax = $request->hasHeader('X-Requested-With') && $request->getHeaderLine('X-Requested-With') === 'XMLHttpRequest';

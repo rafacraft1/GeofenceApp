@@ -31,6 +31,10 @@ class Siswa extends BaseController
         $this->zonaModel     = new ZonaModel();
     }
 
+    /**
+     * @param int $targetKelasId
+     * @return bool
+     */
     private function checkAksesWaliKelas(int $targetKelasId): bool
     {
         if (session()->get('is_wali_kelas')) {
@@ -39,6 +43,11 @@ class Siswa extends BaseController
         return true;
     }
 
+    /**
+     * @param UploadedFile|null $foto
+     * @param string|null $fotoLama
+     * @return array
+     */
     private function handleUploadFoto(?UploadedFile $foto, ?string $fotoLama = null): array
     {
         if ($foto && $foto->isValid() && !$foto->hasMoved()) {
@@ -66,17 +75,20 @@ class Siswa extends BaseController
         return ['status' => true, 'data' => $fotoLama];
     }
 
+    /**
+     * @return mixed
+     */
     public function index()
     {
         $isWaliKelas    = (bool) session()->get('is_wali_kelas');
         $kelasSessionId = session()->get('kelas_id');
 
         $kelasFilter  = $isWaliKelas ? $kelasSessionId : $this->request->getGet('kelas');
-        $searchFilter = $this->request->getGet('search');
+        $searchFilter = (string) $this->request->getGet('search');
         $page         = (int) ($this->request->getGet('page') ?? 1);
         $perPage      = 10;
 
-        $sortParam = $this->request->getGet('sort') ?? 'nama_siswa-asc';
+        $sortParam = (string) ($this->request->getGet('sort') ?? 'nama_siswa-asc');
         $sortParts = explode('-', $sortParam);
         $sortCol   = $sortParts[0] ?? 'nama_siswa';
         $sortDir   = $sortParts[1] ?? 'asc';
@@ -109,6 +121,9 @@ class Siswa extends BaseController
         return view('web/siswa', $data);
     }
 
+    /**
+     * @return mixed
+     */
     public function store()
     {
         $kelasIdPost = (int) $this->request->getPost('kelas_id');
@@ -119,30 +134,36 @@ class Siswa extends BaseController
 
         $aturanValidasi = [
             'nis'        => ['rules' => 'required|is_unique[siswa.nis]', 'errors' => ['is_unique' => 'NIS sudah terdaftar.']],
-            'nama_siswa' => 'required'
+            'nama_siswa' => 'required',
+            'kelas_id'   => 'required|numeric'
         ];
 
         if (!$this->validate($aturanValidasi)) {
-            return redirect()->back()->withInput()->with('error', $this->validator->getError('nis') ?: 'Mohon lengkapi semua data wajib.');
+            return redirect()->back()->withInput()->with('error', $this->validator->getError('nis') ?: 'Mohon lengkapi semua data wajib (termasuk pemilihan kelas).');
         }
 
         $uploadFoto = $this->handleUploadFoto($this->request->getFile('foto'));
-        if (!$uploadFoto['status']) return redirect()->back()->withInput()->with('error', $uploadFoto['error']);
+        if (!$uploadFoto['status']) return redirect()->back()->withInput()->with('error', (string) $uploadFoto['error']);
 
-        $nis = $this->request->getPost('nis');
+        $nis = (string) $this->request->getPost('nis');
 
         $this->siswaModel->insert([
             'nis'          => $nis,
-            'nama_siswa'   => $this->request->getPost('nama_siswa'),
+            'nama_siswa'   => (string) $this->request->getPost('nama_siswa'),
             'kelas_id'     => $kelasIdPost,
-            // zona_id dihilangkan, biarkan bernilai default null di DB
             'password'     => password_hash($nis, PASSWORD_BCRYPT),
             'foto_profil'  => $uploadFoto['data']
         ]);
 
+        cache()->deleteMatching('list_siswa_dropdown_*');
+
         return redirect()->to('/admin/siswa')->with('success', 'Data siswa berhasil ditambahkan.');
     }
 
+    /**
+     * @param string $id
+     * @return mixed
+     */
     public function update(string $id)
     {
         $siswaLama = $this->siswaModel->find($id);
@@ -156,19 +177,21 @@ class Siswa extends BaseController
 
         $aturanValidasi = [
             'nis'        => ['rules' => "required|is_unique[siswa.nis,id_siswa,{$id}]", 'errors' => ['is_unique' => 'NIS dipakai siswa lain.']],
-            'nama_siswa' => 'required'
+            'nama_siswa' => 'required',
+            'kelas_id'   => 'required|numeric'
         ];
 
-        if (!$this->validate($aturanValidasi)) return redirect()->back()->withInput()->with('error', $this->validator->getError('nis') ?: 'Cek kembali isian Anda.');
+        if (!$this->validate($aturanValidasi)) {
+            return redirect()->back()->withInput()->with('error', $this->validator->getError('nis') ?: 'Cek kembali isian Anda.');
+        }
 
-        $uploadFoto = $this->handleUploadFoto($this->request->getFile('foto'), $siswaLama['foto_profil']);
-        if (!$uploadFoto['status']) return redirect()->back()->withInput()->with('error', $uploadFoto['error']);
+        $uploadFoto = $this->handleUploadFoto($this->request->getFile('foto'), (string) $siswaLama['foto_profil']);
+        if (!$uploadFoto['status']) return redirect()->back()->withInput()->with('error', (string) $uploadFoto['error']);
 
         $updateData = [
-            'nis'          => $this->request->getPost('nis'),
-            'nama_siswa'   => $this->request->getPost('nama_siswa'),
+            'nis'          => (string) $this->request->getPost('nis'),
+            'nama_siswa'   => (string) $this->request->getPost('nama_siswa'),
             'kelas_id'     => $kelasIdPost,
-            // zona_id dihilangkan agar tidak menimpa data pengaturan Zona
             'foto_profil'  => $uploadFoto['data']
         ];
 
@@ -178,9 +201,15 @@ class Siswa extends BaseController
 
         $this->siswaModel->update($id, $updateData);
 
+        cache()->deleteMatching('list_siswa_dropdown_*');
+
         return redirect()->to('/admin/siswa')->with('success', 'Data siswa berhasil diperbarui.');
     }
 
+    /**
+     * @param string $id
+     * @return mixed
+     */
     public function delete(string $id)
     {
         $siswa = $this->siswaModel->find($id);
@@ -201,9 +230,14 @@ class Siswa extends BaseController
             unlink(FCPATH . 'uploads/siswa/' . $siswa['foto_profil']);
         }
 
+        cache()->deleteMatching('list_siswa_dropdown_*');
+
         return redirect()->to('/admin/siswa')->with('success', 'Data siswa beserta foto berhasil dihapus permanen.');
     }
 
+    /**
+     * @return mixed
+     */
     public function deleteBulk()
     {
         $ids = $this->request->getPost('ids');
@@ -250,9 +284,15 @@ class Siswa extends BaseController
             }
         }
 
+        cache()->deleteMatching('list_siswa_dropdown_*');
+
         return redirect()->back()->with('success', count($validIds) . ' data siswa berhasil dihapus secara permanen.');
     }
 
+    /**
+     * @param string $id
+     * @return mixed
+     */
     public function resetDevice(string $id)
     {
         $siswa = $this->siswaModel->find($id);
@@ -264,6 +304,10 @@ class Siswa extends BaseController
         return redirect()->to('/admin/siswa')->with('success', 'Perangkat berhasil di-reset.');
     }
 
+    /**
+     * @param string $id
+     * @return mixed
+     */
     public function unblock(string $id)
     {
         $siswa = $this->siswaModel->find($id);
@@ -278,6 +322,10 @@ class Siswa extends BaseController
         return redirect()->to('/admin/siswa')->with('success', 'Akun siswa berhasil di-unblock dan fraud count di-reset.');
     }
 
+    /**
+     * @param string $id
+     * @return mixed
+     */
     public function block(string $id)
     {
         $siswa = $this->siswaModel->find($id);
@@ -291,6 +339,9 @@ class Siswa extends BaseController
         return redirect()->to('/admin/siswa')->with('success', 'Akses absensi dan login siswa berhasil dikunci sementara.');
     }
 
+    /**
+     * @return void
+     */
     public function downloadTemplate()
     {
         $spreadsheet = new Spreadsheet();
@@ -355,6 +406,9 @@ class Siswa extends BaseController
         exit;
     }
 
+    /**
+     * @return void
+     */
     public function export()
     {
         $isWaliKelas = session()->get('is_wali_kelas');
@@ -389,6 +443,9 @@ class Siswa extends BaseController
         exit;
     }
 
+    /**
+     * @return mixed
+     */
     public function import()
     {
         $file = $this->request->getFile('file_excel');
@@ -422,6 +479,8 @@ class Siswa extends BaseController
                 return redirect()->back()->with('error', 'Terjadi kesalahan sistem saat proses import database. Seluruh data dibatalkan secara aman.');
             }
 
+            cache()->deleteMatching('list_siswa_dropdown_*');
+
             return redirect()->to('/admin/siswa')->with('success', "Berhasil import {$result['inserted']} data siswa. {$result['skipped']} baris dilewati (NIS duplikat/salah kelas).");
         } catch (\PhpOffice\PhpSpreadsheet\Reader\Exception $e) {
             return redirect()->back()->with('error', 'Struktur file Excel rusak atau tidak dapat dibaca: ' . $e->getMessage());
@@ -430,6 +489,10 @@ class Siswa extends BaseController
         }
     }
 
+    /**
+     * @param string $idSiswa
+     * @return mixed
+     */
     public function detail(string $idSiswa)
     {
         $siswa = $this->siswaModel->getSiswaWithKelas($idSiswa);
@@ -438,8 +501,8 @@ class Siswa extends BaseController
             return redirect()->to('/admin/siswa')->with('error', 'Data siswa tidak ditemukan atau Akses Ditolak.');
         }
 
-        $startDate   = $this->request->getGet('start_date');
-        $endDate     = $this->request->getGet('end_date');
+        $startDate   = (string) $this->request->getGet('start_date');
+        $endDate     = (string) $this->request->getGet('end_date');
         $pageAbsensi = (int) ($this->request->getGet('page_absensi') ?? 1);
         $perPage     = 10;
 

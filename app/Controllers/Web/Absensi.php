@@ -21,20 +21,28 @@ class Absensi extends BaseController
         $this->kelasModel   = new KelasModel();
     }
 
+    /**
+     * @param int $targetKelasId
+     * @return bool
+     */
     private function checkAksesWaliKelas(int $targetKelasId): bool
     {
         if (session()->get('is_wali_kelas')) {
-            return $targetKelasId === session()->get('kelas_id');
+            return $targetKelasId === (int) session()->get('kelas_id');
         }
         return true;
     }
 
+    /**
+     * @return mixed
+     */
     public function index()
     {
-        $tanggalFilter = $this->request->getGet('tanggal') ?? Time::now('Asia/Jakarta')->toDateString();
-        $searchFilter  = $this->request->getGet('search');
+        $sekarang      = Time::now('Asia/Jakarta');
+        $tanggalFilter = (string) ($this->request->getGet('tanggal') ?? $sekarang->toDateString());
+        $searchFilter  = (string) $this->request->getGet('search');
 
-        $sortParam = $this->request->getGet('sort') ?? 'jam_masuk-desc';
+        $sortParam = (string) ($this->request->getGet('sort') ?? 'jam_masuk-desc');
         $sortParts = explode('-', $sortParam);
         $sortCol   = $sortParts[0] ?? 'jam_masuk';
         $sortDir   = $sortParts[1] ?? 'desc';
@@ -42,8 +50,8 @@ class Absensi extends BaseController
         $page    = (int) ($this->request->getGet('page') ?? 1);
         $perPage = 20;
 
-        $isWaliKelas    = session()->get('is_wali_kelas');
-        $kelasSessionId = session()->get('kelas_id');
+        $isWaliKelas    = (bool) session()->get('is_wali_kelas');
+        $kelasSessionId = (int) session()->get('kelas_id');
 
         $kelasFilterRaw = $isWaliKelas ? $kelasSessionId : $this->request->getGet('kelas_id');
         $kelasFilter    = !empty($kelasFilterRaw) ? (int)$kelasFilterRaw : null;
@@ -51,17 +59,23 @@ class Absensi extends BaseController
         $absensi = $this->absensiModel->getPaginatedAbsensiHarian($tanggalFilter, $kelasFilter, $searchFilter, $perPage, $sortCol, $sortDir);
         $pager   = $this->absensiModel->pager;
 
-        $siswaQuery = $this->siswaModel
-            ->select('siswa.id_siswa, siswa.nis, siswa.nama_siswa, kelas.nama_kelas')
-            ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left')
-            ->orderBy('siswa.nama_siswa', 'ASC');
+        $cacheKeySiswa = 'list_siswa_dropdown_' . ($isWaliKelas ? $kelasSessionId : 'all');
 
-        if ($isWaliKelas) {
-            $siswaQuery->where('siswa.kelas_id', $kelasSessionId);
-            $listKelas = $this->kelasModel->where('id_kelas', $kelasSessionId)->findAll();
-        } else {
-            $listKelas = $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll();
-        }
+        $siswaList = cache()->remember($cacheKeySiswa, 3600, function () use ($isWaliKelas, $kelasSessionId) {
+            $query = $this->siswaModel
+                ->select('siswa.id_siswa, siswa.nis, siswa.nama_siswa, kelas.nama_kelas')
+                ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left')
+                ->orderBy('siswa.nama_siswa', 'ASC');
+
+            if ($isWaliKelas) {
+                $query->where('siswa.kelas_id', $kelasSessionId);
+            }
+            return $query->findAll();
+        });
+
+        $listKelas = $isWaliKelas
+            ? $this->kelasModel->where('id_kelas', $kelasSessionId)->findAll()
+            : $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll();
 
         $data = [
             'title'        => 'Data Absensi Harian',
@@ -71,7 +85,7 @@ class Absensi extends BaseController
             'sort_col'     => $sortCol,
             'sort_dir'     => $sortDir,
             'absensi'      => $absensi,
-            'siswa'        => $siswaQuery->findAll(),
+            'siswa'        => $siswaList,
             'list_kelas'   => $listKelas,
             'pager_links'  => $pager->links('default', 'tailwind_pagination'),
             'total_data'   => $pager->getTotal('default'),
@@ -82,6 +96,9 @@ class Absensi extends BaseController
         return view('web/absensi', $data);
     }
 
+    /**
+     * @return mixed
+     */
     public function inputManual()
     {
         $aturanValidasi = [
@@ -105,13 +122,18 @@ class Absensi extends BaseController
             return redirect()->back()->with('error', 'Akses Ditolak: Siswa tidak ditemukan atau berada di luar otoritas Anda.');
         }
 
-        $waktuSekarang = Time::now('Asia/Jakarta')->toTimeString();
+        $sekarangObject = Time::now('Asia/Jakarta');
+        $tanggalHariIni = $sekarangObject->toDateString();
+
+        $jamMasuk = null;
+        if ($status === 'Hadir') {
+            $jamMasuk = ($tanggal === $tanggalHariIni) ? $sekarangObject->toTimeString() : '07:00:00';
+        }
+
         $absenLama = $this->absensiModel->where(['siswa_id' => $siswaId, 'tanggal' => $tanggal])->first();
 
-        $jamMasuk = ($status == 'Hadir') ? $waktuSekarang : null;
-
         if ($absenLama) {
-            if ($status == 'Hadir' && !empty($absenLama['jam_masuk'])) {
+            if ($status === 'Hadir' && !empty($absenLama['jam_masuk'])) {
                 $jamMasuk = $absenLama['jam_masuk'];
             }
 

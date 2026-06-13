@@ -32,14 +32,17 @@ abstract class BaseController extends Controller
         $allowedMenus = [];
 
         if ($roleId > 0) {
-            $allowedMenus = $this->db->table('menus')
-                ->join('role_menus', 'role_menus.id_menu = menus.id_menu')
-                ->where('role_menus.id_role', $roleId)
-                ->where('menus.is_active', 1)
-                ->orderBy('menus.urutan', 'ASC')
-                ->get()
-                ->getResultArray();
+            $allowedMenus = cache()->remember('global_menus_role_' . $roleId, 3600, function () use ($roleId) {
+                return $this->db->table('menus')
+                    ->join('role_menus', 'role_menus.id_menu = menus.id_menu')
+                    ->where('role_menus.id_role', $roleId)
+                    ->where('menus.is_active', 1)
+                    ->orderBy('menus.urutan', 'ASC')
+                    ->get()
+                    ->getResultArray();
+            });
         }
+
         \Config\Services::renderer()->setData(['allowedMenus' => $allowedMenus]);
     }
 }
