@@ -21,7 +21,6 @@ class InitDataSeeder extends Seeder
         $this->db->table('zona_absensi')->truncate();
         $this->db->table('pengaturan')->truncate();
         $this->db->table('kelas')->truncate();
-        $this->db->table('jadwal_absen')->truncate();
         $this->db->table('hari_libur')->truncate();
 
         $this->db->table('roles')->insertBatch([
@@ -114,16 +113,6 @@ class InitDataSeeder extends Seeder
             'updated_at'    => date('Y-m-d H:i:s')
         ]);
 
-        $jadwalGlobal = [];
-        foreach ($hari as $kode => $nama) {
-            $jadwalGlobal[] = [
-                'kode_hari'  => $kode,
-                'nama_hari'  => $nama,
-                'is_libur'   => ($kode >= 6) ? 1 : 0
-            ];
-        }
-        $this->db->table('jadwal_absen')->insertBatch($jadwalGlobal);
-
         $this->db->table('menus')->insertBatch([
             ['id_menu' => 1,  'nama_menu' => 'Dashboard',         'url' => 'admin/dashboard',  'icon' => 'fas fa-home',               'urutan' => 1,  'is_active' => 1],
             ['id_menu' => 2,  'nama_menu' => 'Live Radar',        'url' => 'admin/tracking',   'icon' => 'fas fa-map-marked-alt',     'urutan' => 2,  'is_active' => 1],
@@ -135,7 +124,6 @@ class InitDataSeeder extends Seeder
             ['id_menu' => 8,  'nama_menu' => 'Data Siswa',        'url' => 'admin/siswa',      'icon' => 'fas fa-users',              'urutan' => 8,  'is_active' => 1],
             ['id_menu' => 9,  'nama_menu' => 'Mutasi Kelas',      'url' => 'admin/mutasi',     'icon' => 'fas fa-exchange-alt',       'urutan' => 9,  'is_active' => 1],
             ['id_menu' => 10, 'nama_menu' => 'Zona Absensi',      'url' => 'admin/zona',       'icon' => 'fas fa-map-marker-alt',     'urutan' => 10, 'is_active' => 1],
-            ['id_menu' => 11, 'nama_menu' => 'Jadwal Harian',     'url' => 'admin/jadwal',     'icon' => 'fas fa-clock',              'urutan' => 11, 'is_active' => 1],
             ['id_menu' => 12, 'nama_menu' => 'Hari Libur',        'url' => 'admin/libur',      'icon' => 'fas fa-calendar-times',     'urutan' => 12, 'is_active' => 1],
             ['id_menu' => 13, 'nama_menu' => 'Pengumuman',        'url' => 'admin/pengumuman', 'icon' => 'fas fa-bullhorn',           'urutan' => 13, 'is_active' => 1],
             ['id_menu' => 14, 'nama_menu' => 'Laporan Rekap',     'url' => 'admin/laporan',    'icon' => 'fas fa-file-excel',         'urutan' => 14, 'is_active' => 1],
@@ -145,12 +133,13 @@ class InitDataSeeder extends Seeder
 
         $roleMenus = [];
 
-        // Admin mendapatkan semua 16 menu
-        for ($i = 1; $i <= 16; $i++) {
-            $roleMenus[] = ['id_role' => 1, 'id_menu' => $i];
+        // Admin mendapatkan seluruh akses menu yang tersedia
+        $adminMenus = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15, 16];
+        foreach ($adminMenus as $menuId) {
+            $roleMenus[] = ['id_role' => 1, 'id_menu' => $menuId];
         }
 
-        // Guru hanya mendapatkan menu tertentu
+        // Guru hanya mendapatkan akses menu tertentu
         $aksesGuru = [1, 2, 3, 4, 5, 8, 13, 14];
         foreach ($aksesGuru as $menuId) {
             $roleMenus[] = ['id_role' => 2, 'id_menu' => $menuId];

@@ -151,8 +151,15 @@
                     <svg class="w-5 h-5 absolute left-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                     </svg>
-                    <input type="text" id="map-search" placeholder="Cari nama lokasi, jalan, atau kota..." class="w-full pl-10 pr-10 py-3 text-sm font-medium outline-none border-none focus:ring-0 placeholder-gray-400 text-gray-700" autocomplete="off">
-                    <div id="search-spinner" class="absolute right-3 hidden">
+                    <input type="text" id="map-search" placeholder="Cari nama lokasi, jalan, kota, atau URL Google Maps..." class="w-full pl-10 pr-10 py-3 text-sm font-medium outline-none border-none focus:ring-0 placeholder-gray-400 text-gray-700" autocomplete="off">
+
+                    <button type="button" id="search-clear" class="absolute right-3 hidden text-gray-400 hover:text-red-500 transition-colors bg-white z-10">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+
+                    <div id="search-spinner" class="absolute right-3 hidden pointer-events-none bg-white z-10 pl-2">
                         <div class="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                     </div>
                 </div>
@@ -342,58 +349,141 @@
     const searchInput = document.getElementById('map-search');
     const searchResults = document.getElementById('search-results');
     const searchSpinner = document.getElementById('search-spinner');
+    const searchClear = document.getElementById('search-clear');
+
+    searchInput.addEventListener('input', function(e) {
+        if (e.target.value.length > 0) {
+            searchClear.classList.remove('hidden');
+        } else {
+            searchClear.classList.add('hidden');
+        }
+    });
+
+    searchClear.addEventListener('click', function() {
+        searchInput.value = '';
+        searchResults.classList.add('hidden');
+        searchClear.classList.add('hidden');
+        searchInput.focus();
+    });
 
     searchInput.addEventListener('input', function(e) {
         clearTimeout(searchTimeout);
         const query = e.target.value.trim();
+
+        if (query.length === 0) {
+            searchResults.classList.add('hidden');
+            searchSpinner.classList.add('hidden');
+            return;
+        }
+
+        searchClear.classList.remove('hidden');
+
+        const gmapsRegex = /@(-?\d+\.\d+),(-?\d+\.\d+)/;
+        const gmapsMatch = query.match(gmapsRegex);
+
+        const coordRegex = /^(-?\d+(\.\d+)?)(?:\s*,\s*|\s+)(-?\d+(\.\d+)?)$/;
+        const coordMatch = query.match(coordRegex);
+
+        if (gmapsMatch || coordMatch) {
+            let lat, lng;
+            if (gmapsMatch) {
+                lat = parseFloat(gmapsMatch[1]);
+                lng = parseFloat(gmapsMatch[2]);
+            } else {
+                lat = parseFloat(coordMatch[1]);
+                lng = parseFloat(coordMatch[3]);
+            }
+
+            interactiveMap.flyTo([lat, lng], 17, {
+                animate: true,
+                duration: 1.5
+            });
+            updateMapMarker(lat, lng, document.getElementById('input-rad').value);
+
+            searchSpinner.classList.add('hidden');
+            searchResults.innerHTML = `
+                <li class="p-4 bg-emerald-50 text-emerald-700 text-center font-bold border-b border-emerald-100">
+                    <i class="fa-solid fa-check-circle mr-1"></i> Data Koordinat berhasil diekstrak!
+                </li>`;
+            searchResults.classList.remove('hidden');
+
+            setTimeout(() => {
+                searchResults.classList.add('hidden');
+            }, 3500);
+            return;
+        }
+
         if (query.length < 3) {
             searchResults.classList.add('hidden');
             searchSpinner.classList.add('hidden');
             return;
         }
+
         searchSpinner.classList.remove('hidden');
 
         searchTimeout = setTimeout(() => {
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=id`, {
-                    headers: {
-                        'Accept-Language': 'id'
-                    }
+            const apiUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5`;
+
+            fetch(apiUrl)
+                .then(res => {
+                    if (!res.ok) throw new Error('API Error');
+                    return res.json();
                 })
-                .then(res => res.json())
                 .then(data => {
                     searchSpinner.classList.add('hidden');
                     searchResults.innerHTML = '';
-                    if (data.length > 0) {
-                        data.forEach(item => {
+
+                    if (data.features && data.features.length > 0) {
+                        data.features.forEach(item => {
+                            const props = item.properties;
+
+                            let displayName = '';
+                            if (props.city && props.city !== props.name) displayName += props.city;
+                            else if (props.state && props.state !== props.name) displayName += props.state;
+
+                            if (!displayName) displayName = `${props.street || 'Area Publik'}, ${props.country || ''}`;
+
                             const li = document.createElement('li');
                             li.className = 'px-4 py-3 hover:bg-blue-50 cursor-pointer transition-colors text-gray-700 font-medium border-b border-gray-50 last:border-0';
-                            li.textContent = item.display_name;
+                            li.innerHTML = `
+                                <div class="font-bold text-gray-800">${props.name || 'Lokasi Terdaftar'}</div>
+                                <div class="text-[10px] text-gray-500 mt-0.5"><i class="fa-solid fa-map-pin mr-1 text-gray-400"></i>${displayName}</div>
+                            `;
+
                             li.onclick = () => {
-                                const lat = parseFloat(item.lat);
-                                const lon = parseFloat(item.lon);
+                                const lat = parseFloat(item.geometry.coordinates[1]);
+                                const lon = parseFloat(item.geometry.coordinates[0]);
+
                                 interactiveMap.flyTo([lat, lon], 17, {
                                     animate: true,
                                     duration: 1.5
                                 });
                                 updateMapMarker(lat, lon, document.getElementById('input-rad').value);
-                                searchInput.value = item.display_name;
+                                searchInput.value = props.name || displayName;
                                 searchResults.classList.add('hidden');
                             };
                             searchResults.appendChild(li);
                         });
                         searchResults.classList.remove('hidden');
                     } else {
-                        searchResults.innerHTML = '<li class="p-4 text-gray-500 text-center italic">Lokasi tidak ditemukan.</li>';
+                        searchResults.innerHTML = `
+                            <li class="p-4 flex flex-col items-center justify-center text-center bg-slate-50">
+                                <i class="fa-solid fa-search-location text-2xl text-slate-300 mb-2"></i>
+                                <span class="text-sm font-bold text-slate-600">Tidak ditemukan di Database</span>
+                                <span class="text-[10px] text-slate-500 mt-1">Tips: Cari lokasi di Google Maps lalu paste Link URL-nya ke kotak ini.</span>
+                            </li>`;
                         searchResults.classList.remove('hidden');
                     }
                 }).catch(() => {
                     searchSpinner.classList.add('hidden');
+                    searchResults.innerHTML = '<li class="p-4 text-red-500 text-center font-bold italic"><i class="fa-solid fa-wifi mr-1"></i> Gagal terhubung ke satelit pencarian.</li>';
+                    searchResults.classList.remove('hidden');
                 });
         }, 600);
     });
 
     document.addEventListener('click', function(e) {
-        if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+        if (!searchInput.contains(e.target) && !searchResults.contains(e.target) && !searchClear.contains(e.target)) {
             searchResults.classList.add('hidden');
         }
     });
@@ -418,7 +508,7 @@
     function openEditModal(data) {
         document.getElementById('modal-title').innerText = "Edit Pengaturan Zona";
         document.getElementById('form-action').action = "<?= base_url('admin/zona/update/') ?>" + data.id_zona;
-        document.getElementById('wrapper-jam-default').style.display = 'none'; // Sembunyikan karena jam diedit di modal jadwal
+        document.getElementById('wrapper-jam-default').style.display = 'none';
         document.getElementById('input-nama').value = data.nama_zona;
         document.getElementById('input-lat').value = data.latitude;
         document.getElementById('input-lng').value = data.longitude;

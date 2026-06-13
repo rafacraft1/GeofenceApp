@@ -3,12 +3,14 @@
 <?= $this->section('content') ?>
 <?php
 /**
- * UI Profil Elegan & Profesional
  * @var array $user
  */
 $fotoProfil = (!empty($user['foto']) && file_exists(FCPATH . 'uploads/profiles/' . $user['foto']))
     ? base_url('uploads/profiles/' . $user['foto'])
     : 'https://ui-avatars.com/api/?name=' . urlencode($user['nama_lengkap'] ?? 'U') . '&background=eff6ff&color=1d4ed8&size=256';
+
+$roleId  = (int) session()->get('role_id');
+$isAdmin = ($roleId === 1);
 ?>
 
 <div class="max-w-5xl mx-auto mt-2">
@@ -51,7 +53,18 @@ $fotoProfil = (!empty($user['foto']) && file_exists(FCPATH . 'uploads/profiles/'
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Username Login <span class="text-red-500">*</span></label>
-                        <input type="text" name="username" value="<?= esc((string) ($user['username'] ?? session()->get('username') ?? '')) ?>" class="w-full rounded-lg border-gray-300 bg-gray-50/50 shadow-sm focus:border-blue-500 focus:ring-blue-500 transition-colors" required>
+                        <?php
+                        $usernameClass = $isAdmin
+                            ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed focus:ring-0 focus:border-gray-200'
+                            : 'bg-gray-50/50 border-gray-300 text-gray-900 focus:border-blue-500 focus:ring-blue-500';
+                        ?>
+                        <input type="text" name="username" value="<?= esc((string) ($user['username'] ?? session()->get('username') ?? '')) ?>" <?= $isAdmin ? 'readonly' : 'required' ?> class="w-full rounded-lg shadow-sm transition-colors <?= $usernameClass ?>">
+
+                        <?php if ($isAdmin): ?>
+                            <div class="mt-2 text-[11px] font-medium text-red-500 flex items-center gap-1.5 bg-red-50 p-2 rounded-lg border border-red-100 w-max">
+                                <i class="fas fa-lock"></i> Sesuai kebijakan keamanan, Username Administrator tidak dapat diubah.
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -111,7 +124,6 @@ $fotoProfil = (!empty($user['foto']) && file_exists(FCPATH . 'uploads/profiles/'
 
 <?= $this->section('scripts') ?>
 <script>
-    // FUNGSI 1: Tampilkan/Sembunyikan Password
     function togglePasswordVisibility(inputId, iconId) {
         const input = document.getElementById(inputId);
         const icon = document.getElementById(iconId);
@@ -127,7 +139,6 @@ $fotoProfil = (!empty($user['foto']) && file_exists(FCPATH . 'uploads/profiles/'
         }
     }
 
-    // FUNGSI 2: Live Preview & Klien-Side Kompresi Gambar
     function previewAndCompressImage(input) {
         if (input.files && input.files[0]) {
             let file = input.files[0];

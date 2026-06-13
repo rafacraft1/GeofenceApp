@@ -18,6 +18,9 @@ class Dashboard extends BaseController
         $this->absensiModel = new AbsensiModel();
     }
 
+    /**
+     * @return mixed
+     */
     public function index()
     {
         $sekarang    = Time::now('Asia/Jakarta');
@@ -47,19 +50,19 @@ class Dashboard extends BaseController
         $persenHadir  = ($totalSiswa > 0) ? round(($hadirHariIni / $totalSiswa) * 100) : 0;
 
         $grafikLabels    = [];
-        $grafikHadir     = array_fill(0, 7, 0);
-        $grafikTerlambat = array_fill(0, 7, 0);
-        $grafikAlpa      = array_fill(0, 7, 0);
+        $grafikHadir     = array_fill(0, 30, 0);
+        $grafikTerlambat = array_fill(0, 30, 0);
+        $grafikAlpa      = array_fill(0, 30, 0);
         $dates           = [];
 
-        for ($i = 6; $i >= 0; $i--) {
+        for ($i = 29; $i >= 0; $i--) {
             $tgl = Time::parse($hariIni, 'Asia/Jakarta')->subDays($i)->toDateString();
             $dates[] = $tgl;
             $grafikLabels[] = date('d M', strtotime($tgl));
         }
 
-        $rekapTrend = cache()->remember('trend_mingguan_' . $cacheSuffix, 3600, function () use ($absensiLokal, $dates, $kelasId) {
-            return $absensiLokal->getTrendKehadiran($dates[0], $dates[6], $kelasId);
+        $rekapTrend = cache()->remember('trend_bulanan_' . $cacheSuffix, 3600, function () use ($absensiLokal, $dates, $kelasId) {
+            return $absensiLokal->getTrendKehadiran($dates[0], $dates[29], $kelasId);
         });
 
         foreach ($rekapTrend as $row) {

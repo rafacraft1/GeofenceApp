@@ -57,7 +57,7 @@
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
     <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col">
-        <h3 class="text-xs font-bold text-gray-700 mb-6 uppercase tracking-wider">Tren Kehadiran & Pelanggaran (7 Hari)</h3>
+        <h3 class="text-xs font-bold text-gray-700 mb-6 uppercase tracking-wider">Tren Kehadiran & Pelanggaran (30 Hari)</h3>
         <div class="flex-1 min-h-[250px]"><canvas id="attendanceChart"></canvas></div>
     </div>
 

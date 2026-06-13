@@ -6,7 +6,25 @@
  * @var string|null $pager_links
  * @var string $search
  * @var string $date
+ * @var string $sort_col
+ * @var string $sort_dir
  */
+
+$buildSortUrl = function (string $column) use ($sort_col, $sort_dir, $search, $date) {
+    $newDir = ($sort_col === $column && $sort_dir === 'asc') ? 'desc' : 'asc';
+    $params = [];
+    if (!empty($search)) $params['search'] = $search;
+    if (!empty($date)) $params['date'] = $date;
+    $params['sort'] = "{$column}-{$newDir}";
+    return '?' . http_build_query($params);
+};
+
+$sortIcon = function (string $column) use ($sort_col, $sort_dir) {
+    if ($sort_col !== $column) return '<i class="fa-solid fa-sort text-gray-300 ml-1"></i>';
+    return $sort_dir === 'asc'
+        ? '<i class="fa-solid fa-sort-up text-blue-500 ml-1 translate-y-0.5"></i>'
+        : '<i class="fa-solid fa-sort-down text-blue-500 ml-1 -translate-y-0.5"></i>';
+};
 ?>
 <?= $this->extend('layout/admin') ?>
 
@@ -21,6 +39,7 @@
 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
     <div class="p-4 border-b border-gray-100 bg-gray-50/50">
         <form action="" method="get" class="flex flex-col sm:flex-row gap-3">
+            <input type="hidden" name="sort" value="<?= esc($sort_col . '-' . $sort_dir) ?>">
             <div class="relative flex-1">
                 <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                     <i class="fa-solid fa-search text-gray-400"></i>
@@ -47,10 +66,22 @@
         <table class="w-full text-left">
             <thead>
                 <tr class="bg-gray-50/80 text-gray-500 text-[11px] font-bold uppercase tracking-wider border-b border-gray-100">
-                    <th class="px-6 py-4">Waktu & Perangkat</th>
-                    <th class="px-6 py-4">Identitas Siswa</th>
-                    <th class="px-6 py-4">Tipe Pelanggaran</th>
-                    <th class="px-6 py-4">Titik Koordinat Forensik</th>
+                    <th class="px-6 py-4 whitespace-nowrap">
+                        <a href="<?= $buildSortUrl('created_at') ?>" class="flex items-center group hover:text-blue-600 transition-colors">
+                            Waktu & Perangkat <?= $sortIcon('created_at') ?>
+                        </a>
+                    </th>
+                    <th class="px-6 py-4 whitespace-nowrap">
+                        <a href="<?= $buildSortUrl('nama_siswa') ?>" class="flex items-center group hover:text-blue-600 transition-colors">
+                            Identitas Siswa <?= $sortIcon('nama_siswa') ?>
+                        </a>
+                    </th>
+                    <th class="px-6 py-4 whitespace-nowrap">
+                        <a href="<?= $buildSortUrl('tipe_fraud') ?>" class="flex items-center group hover:text-blue-600 transition-colors">
+                            Tipe Pelanggaran <?= $sortIcon('tipe_fraud') ?>
+                        </a>
+                    </th>
+                    <th class="px-6 py-4 whitespace-nowrap">Titik Koordinat Forensik</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">

@@ -159,16 +159,6 @@ class InitSistem extends Migration
         $this->forge->createTable('pengumuman');
 
         $this->forge->addField([
-            'id_jadwal'  => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
-            'kode_hari'  => ['type' => 'TINYINT', 'constraint' => 1, 'unsigned' => true],
-            'nama_hari'  => ['type' => 'VARCHAR', 'constraint' => '20'],
-            'is_libur'   => ['type' => 'TINYINT', 'constraint' => 1, 'default' => 0],
-        ]);
-        $this->forge->addKey('id_jadwal', true);
-        $this->forge->addKey('kode_hari');
-        $this->forge->createTable('jadwal_absen');
-
-        $this->forge->addField([
             'id_libur'   => ['type' => 'INT', 'constraint' => 11, 'unsigned' => true, 'auto_increment' => true],
             'tanggal'    => ['type' => 'DATE'],
             'keterangan' => ['type' => 'VARCHAR', 'constraint' => '255'],
@@ -259,7 +249,6 @@ class InitSistem extends Migration
         $this->forge->dropTable('log_fraud', true);
         $this->forge->dropTable('pengajuan_izin', true);
         $this->forge->dropTable('hari_libur', true);
-        $this->forge->dropTable('jadwal_absen', true);
         $this->forge->dropTable('pengumuman', true);
         $this->forge->dropTable('absensi', true);
         $this->forge->dropTable('pengaturan', true);

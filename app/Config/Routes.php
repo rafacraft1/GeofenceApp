@@ -20,7 +20,7 @@ $routes->group('admin', ['filter' => 'webAuth', 'namespace' => 'App\Controllers\
 });
 
 $routes->group('admin', ['filter' => ['webAuth', 'dynamicAccess'], 'namespace' => 'App\Controllers\Web'], function ($routes) {
-    // Elegant Redirect untuk root /admin/ agar tidak 404 dan menghindari duplikasi konten
+
     $routes->get('/', function () {
         return redirect()->to('/admin/dashboard');
     });
@@ -69,6 +69,7 @@ $routes->group('admin', ['filter' => ['webAuth', 'dynamicAccess'], 'namespace' =
     $routes->post('izin/reject/(:num)', 'Izin::reject/$1');
 
     $routes->get('log-fraud', 'LogFraud::index');
+    $routes->get('audit-log', 'AuditLog::index');
     $routes->get('laporan', 'Laporan::index');
     $routes->get('laporan/export', 'Laporan::export');
 
@@ -87,9 +88,6 @@ $routes->group('admin', ['filter' => ['webAuth', 'dynamicAccess'], 'namespace' =
     $routes->get('pengaturan', 'Pengaturan::index');
     $routes->post('pengaturan/save', 'Pengaturan::save');
 
-    $routes->get('jadwal', 'Jadwal::index');
-    $routes->post('jadwal/update', 'Jadwal::update');
-
     $routes->get('libur', 'Libur::index');
     $routes->post('libur/store', 'Libur::store');
     $routes->post('libur/delete/(:num)', 'Libur::delete/$1');
@@ -101,8 +99,6 @@ $routes->group('admin', ['filter' => ['webAuth', 'dynamicAccess'], 'namespace' =
     $routes->get('mutasi', 'Mutasi::index');
     $routes->post('mutasi/proses', 'Mutasi::proses');
     $routes->get('mutasi/checkTujuan/(:any)', 'Mutasi::checkTujuan/$1');
-
-    $routes->get('audit-log', 'AuditLog::index');
 });
 
 $routes->group('api/v1', ['filter' => 'throttle', 'namespace' => 'App\Controllers\Api'], function ($routes) {

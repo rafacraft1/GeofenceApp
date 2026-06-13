@@ -14,16 +14,26 @@ class Libur extends BaseController
         $this->liburModel = new HariLiburModel();
     }
 
+    /**
+     * @return mixed
+     */
     public function index()
     {
+        $perPage = 15;
+        $page    = (int) ($this->request->getGet('page') ?? 1);
+
         $data = [
             'title'        => 'Manajemen Hari Libur',
-            'daftar_libur' => $this->liburModel->orderBy('tanggal', 'DESC')->findAll()
+            'daftar_libur' => $this->liburModel->orderBy('tanggal', 'DESC')->paginate($perPage, 'default'),
+            'pager_links'  => $this->liburModel->pager->links('default', 'tailwind_pagination')
         ];
 
         return view('web/libur', $data);
     }
 
+    /**
+     * @return mixed
+     */
     public function store()
     {
         $aturanValidasi = [
@@ -53,6 +63,10 @@ class Libur extends BaseController
         return redirect()->to('/admin/libur')->with('success', 'Hari libur berhasil ditambahkan.');
     }
 
+    /**
+     * @param string $id
+     * @return mixed
+     */
     public function delete(string $id)
     {
         $libur = $this->liburModel->find($id);
