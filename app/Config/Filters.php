@@ -39,7 +39,6 @@ class Filters extends BaseFilters
         'after' => [
             'pagecache',
             'performance',
-            'toolbar',
         ],
     ];
 
@@ -49,6 +48,7 @@ class Filters extends BaseFilters
         ],
         'after' => [
             'secureheaders',
+            'toolbar' => ['except' => ['api/*']],
         ],
     ];
 

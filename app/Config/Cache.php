@@ -2,7 +2,6 @@
 
 namespace Config;
 
-use CodeIgniter\Cache\CacheInterface;
 use CodeIgniter\Cache\Handlers\ApcuHandler;
 use CodeIgniter\Cache\Handlers\DummyHandler;
 use CodeIgniter\Cache\Handlers\FileHandler;
@@ -114,13 +113,13 @@ class Cache extends BaseConfig
      * the Redis or Predis drivers.
      *
      * @var array{
-     *     host?: string,
-     *     password?: string|null,
-     *     port?: int,
-     *     timeout?: int,
-     *     async?: bool,
-     *     persistent?: bool,
-     *     database?: int
+     * host?: string,
+     * password?: string|null,
+     * port?: int,
+     * timeout?: int,
+     * async?: bool,
+     * persistent?: bool,
+     * database?: int
      * }
      */
     public array $redis = [
@@ -141,7 +140,7 @@ class Cache extends BaseConfig
      * This is an array of cache engine alias' and class names. Only engines
      * that are listed here are allowed to be used.
      *
-     * @var array<string, class-string<CacheInterface>>
+     * @var array<string, class-string<\CodeIgniter\Cache\CacheInterface>>
      */
     public array $validHandlers = [
         'apcu'      => ApcuHandler::class,
@@ -161,12 +160,12 @@ class Cache extends BaseConfig
      * Whether to take the URL query string into consideration when generating
      * output cache files. Valid options are:
      *
-     *    false = Disabled
-     *    true  = Enabled, take all query parameters into account.
-     *            Please be aware that this may result in numerous cache
-     *            files generated for the same page over and over again.
-     *    ['q'] = Enabled, but only take into account the specified list
-     *            of query parameters.
+     * false = Disabled
+     * true  = Enabled, take all query parameters into account.
+     * Please be aware that this may result in numerous cache
+     * files generated for the same page over and over again.
+     * ['q'] = Enabled, but only take into account the specified list
+     * of query parameters.
      *
      * @var bool|list<string>
      */
@@ -185,8 +184,8 @@ class Cache extends BaseConfig
      * Recommended: [200] - Only cache successful responses
      *
      * You can also use status codes like:
-     *   [200, 404, 410] - Cache successful responses and specific error codes
-     *   [200, 201, 202, 203, 204] - All 2xx successful responses
+     * [200, 404, 410] - Cache successful responses and specific error codes
+     * [200, 201, 202, 203, 204] - All 2xx successful responses
      *
      * WARNING: Using [] may cache temporary error pages (404, 500, etc).
      * Consider restricting to [200] for production applications to avoid
@@ -194,5 +193,5 @@ class Cache extends BaseConfig
      *
      * @var list<int>
      */
-    public array $cacheStatusCodes = [];
+    public array $cacheStatusCodes = [200];
 }
