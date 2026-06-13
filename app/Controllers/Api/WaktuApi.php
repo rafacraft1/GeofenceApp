@@ -40,30 +40,20 @@ class WaktuApi extends ResourceController
             ];
         }
 
-        // 4. Kalkulasi Status Libur Berlapis (Prioritas Nasional -> Global -> Zona)
         $isLibur   = false;
         $namaLibur = '';
 
-        // A. Cek Libur Nasional / Tanggal Merah
         $liburNasional = $db->table('hari_libur')->where('tanggal', $tanggalHariIni)->get()->getRowArray();
         if ($liburNasional) {
             $isLibur   = true;
             $namaLibur = $liburNasional['keterangan'];
         } else {
-            // B. Cek Libur Akhir Pekan Global
-            $liburGlobal = $db->table('jadwal_absen')->where('kode_hari', $kodeHari)->get()->getRowArray();
-            if ($liburGlobal && $liburGlobal['is_libur'] == 1) {
-                $isLibur   = true;
-                $namaLibur = 'Libur Akhir Pekan (Global)';
-            }
-            // C. Cek Libur Khusus Zona (Misal shift PKL libur di hari kerja)
-            elseif ($aturanZona['is_libur'] == 1) {
+            if ($aturanZona['is_libur'] == 1) {
                 $isLibur   = true;
                 $namaLibur = 'Libur Jadwal ' . ($aturanZona['nama_zona'] ?? 'Zona PKL');
             }
         }
 
-        // 5. Kirim ke Frontend Aplikasi Flutter dengan format yang persis sama (Backward Compatibility)
         return $this->respond([
             'status'  => 200,
             'message' => 'Berhasil mengambil data konfigurasi server & lokasi zona',

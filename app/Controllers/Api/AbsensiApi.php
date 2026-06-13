@@ -150,9 +150,6 @@ class AbsensiApi extends ResourceController
         $liburNasional = $this->db->table('hari_libur')->where('tanggal', $tanggalSekarang)->get()->getRowArray();
         if ($liburNasional) return $this->failForbidden('Hari ini Libur Nasional: ' . $liburNasional['keterangan']);
 
-        $liburGlobal = $this->db->table('jadwal_absen')->where('kode_hari', $kodeHari)->get()->getRowArray();
-        if ($liburGlobal && $liburGlobal['is_libur'] == 1) return $this->failForbidden('Sistem Absensi Terkunci (Akhir Pekan/Libur).');
-
         $absenHariIni = $this->absensiModel->where(['siswa_id' => $siswa['id_siswa'], 'tanggal' => $tanggalSekarang])->first();
         $isDispensasi = ($absenHariIni && $absenHariIni['status'] === 'Dispensasi');
 
@@ -258,9 +255,6 @@ class AbsensiApi extends ResourceController
 
         $liburNasional = $this->db->table('hari_libur')->where('tanggal', $tanggalSekarang)->get()->getRowArray();
         if ($liburNasional) return $this->failForbidden('Hari ini Libur Nasional: ' . $liburNasional['keterangan']);
-
-        $liburGlobal = $this->db->table('jadwal_absen')->where('kode_hari', $kodeHari)->get()->getRowArray();
-        if ($liburGlobal && $liburGlobal['is_libur'] == 1) return $this->failForbidden('Sistem Absensi Terkunci (Akhir Pekan/Libur).');
 
         $absen = $this->absensiModel->where(['siswa_id' => $siswa['id_siswa'], 'tanggal' => $tanggalSekarang])->first();
         if (!$absen) return $this->failNotFound('Anda belum presensi masuk hari ini.');
