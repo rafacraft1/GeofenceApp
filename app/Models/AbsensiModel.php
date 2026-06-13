@@ -34,12 +34,107 @@ class AbsensiModel extends Model
     protected $createdField     = 'created_at';
     protected $updatedField     = 'updated_at';
 
+    protected array $tempOldData = [];
+    protected $afterInsert       = ['auditInsert'];
+    protected $beforeUpdate      = ['auditBeforeUpdate'];
+    protected $afterUpdate       = ['auditAfterUpdate'];
+    protected $beforeDelete      = ['auditBeforeDelete'];
+    protected $afterDelete       = ['auditAfterDelete'];
+
+    /**
+     * @param array $data
+     * @return array
+     */
+    protected function auditInsert(array $data): array
+    {
+        if (!isset($data['result']) || !$data['result']) return $data;
+        $auditService = new \App\Services\AuditService();
+        $auditService->log('INSERT', $this->table, null, (array) ($data['data'] ?? []));
+        return $data;
+    }
+
+    /**
+     * @param array $data
+     * @return array
+     */
+    protected function auditBeforeUpdate(array $data): array
+    {
+        $ids = $data['id'] ?? [];
+        if (!is_array($ids)) $ids = [$ids];
+
+        if (!empty($ids)) {
+            $this->tempOldData = $this->db->table($this->table)->whereIn($this->primaryKey, $ids)->get()->getResultArray();
+        } else {
+            $this->tempOldData = [];
+        }
+        return $data;
+    }
+
+    /**
+     * @param array $data
+     * @return array
+     */
+    protected function auditAfterUpdate(array $data): array
+    {
+        if (!isset($data['result']) || !$data['result']) return $data;
+        $auditService = new \App\Services\AuditService();
+
+        foreach ($this->tempOldData as $oldRow) {
+            $auditService->log('UPDATE', $this->table, $oldRow, (array) ($data['data'] ?? []));
+        }
+        $this->tempOldData = [];
+        return $data;
+    }
+
+    /**
+     * @param array $data
+     * @return array
+     */
+    protected function auditBeforeDelete(array $data): array
+    {
+        $ids = $data['id'] ?? [];
+        if (!is_array($ids)) $ids = [$ids];
+
+        if (!empty($ids)) {
+            $this->tempOldData = $this->db->table($this->table)->whereIn($this->primaryKey, $ids)->get()->getResultArray();
+        } else {
+            $this->tempOldData = [];
+        }
+        return $data;
+    }
+
+    /**
+     * @param array $data
+     * @return array
+     */
+    protected function auditAfterDelete(array $data): array
+    {
+        if (!isset($data['result']) || !$data['result']) return $data;
+        $auditService = new \App\Services\AuditService();
+
+        foreach ($this->tempOldData as $oldRow) {
+            $auditService->log('DELETE', $this->table, $oldRow, null);
+        }
+        $this->tempOldData = [];
+        return $data;
+    }
+
+    /**
+     * @param AbsensiModel $model
+     * @param int|null $kelasId
+     * @return AbsensiModel
+     */
     private function applyScopeKelas(AbsensiModel $model, ?int $kelasId = null): AbsensiModel
     {
         if ($kelasId !== null) $model->where('absensi.kelas_id', $kelasId);
         return $model;
     }
 
+    /**
+     * @param string $tanggal
+     * @param int|null $kelasId
+     * @return array
+     */
     public function getDashboardStats(string $tanggal, ?int $kelasId = null): array
     {
         $builder = $this->select('
@@ -52,6 +147,11 @@ class AbsensiModel extends Model
         return $builder->first() ?? ['hadir' => 0, 'alpa' => 0, 'fraud' => 0];
     }
 
+    /**
+     * @param string $tanggal
+     * @param int|null $kelasId
+     * @return array
+     */
     public function getDashboardDistribution(string $tanggal, ?int $kelasId = null): array
     {
         $builder = $this->select('
@@ -69,6 +169,11 @@ class AbsensiModel extends Model
         return [(int)$res['hadir'], (int)$res['dispensasi'], (int)$res['terlambat'], (int)$res['sakit'], (int)$res['izin'], (int)$res['alpa']];
     }
 
+    /**
+     * @param string $tanggal
+     * @param int|null $kelasId
+     * @return array
+     */
     public function getFraudList(string $tanggal, ?int $kelasId = null): array
     {
         $builder = $this->select('absensi.id_absensi, absensi.jam_masuk, absensi.is_fake_gps, absensi.lat_masuk, absensi.long_masuk, siswa.nama_siswa, kelas.nama_kelas as kelas')
@@ -81,6 +186,11 @@ class AbsensiModel extends Model
         return $builder->orderBy('absensi.jam_masuk', 'DESC')->findAll();
     }
 
+    /**
+     * @param string $tanggal
+     * @param int|null $kelasId
+     * @return array
+     */
     public function getLeaderboardKelas(string $tanggal, ?int $kelasId = null): array
     {
         $builder = $this->select('kelas.nama_kelas, COUNT(absensi.id_absensi) as total_hadir')
@@ -94,6 +204,12 @@ class AbsensiModel extends Model
         return $builder->findAll();
     }
 
+    /**
+     * @param string $startDate
+     * @param string $endDate
+     * @param int|null $kelasId
+     * @return array
+     */
     public function getTrendKehadiran(string $startDate, string $endDate, ?int $kelasId = null): array
     {
         $builder = $this->select('tanggal, status, COUNT(id_absensi) as total')
@@ -103,6 +219,15 @@ class AbsensiModel extends Model
         return $builder->findAll();
     }
 
+    /**
+     * @param string $tanggal
+     * @param int|null $kelasId
+     * @param string|null $search
+     * @param int $perPage
+     * @param string $sortCol
+     * @param string $sortDir
+     * @return mixed
+     */
     public function getPaginatedAbsensiHarian(string $tanggal, ?int $kelasId = null, ?string $search = null, int $perPage = 20, string $sortCol = 'jam_masuk', string $sortDir = 'desc')
     {
         $builder = $this->select('absensi.*, siswa.nama_siswa, siswa.nis, kelas.nama_kelas')
@@ -117,7 +242,13 @@ class AbsensiModel extends Model
         return $builder->orderBy($orderCol, $sortDir)->paginate($perPage, 'default');
     }
 
-    // WAJIB KEMBALIKAN FUNGSI INI UNTUK PROFIL 360 (DETAIL SISWA)
+    /**
+     * @param string $idSiswa
+     * @param string|null $startDate
+     * @param string|null $endDate
+     * @param int $perPage
+     * @return mixed
+     */
     public function getRiwayatAbsensiSiswa(string $idSiswa, ?string $startDate = null, ?string $endDate = null, int $perPage = 10)
     {
         $builder = $this->where('siswa_id', $idSiswa);
@@ -126,6 +257,10 @@ class AbsensiModel extends Model
         return $builder->orderBy('tanggal', 'DESC')->paginate($perPage, 'absensi');
     }
 
+    /**
+     * @param string $idSiswa
+     * @return array
+     */
     public function getStatistikSiswa(string $idSiswa): array
     {
         $result = $this->select('

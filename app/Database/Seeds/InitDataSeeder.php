@@ -6,6 +6,9 @@ use CodeIgniter\Database\Seeder;
 
 class InitDataSeeder extends Seeder
 {
+    /**
+     * @return void
+     */
     public function run()
     {
         $this->db->query('SET FOREIGN_KEY_CHECKS=0;');
@@ -27,6 +30,7 @@ class InitDataSeeder extends Seeder
         ]);
 
         $passwordDefault = password_hash('123456', PASSWORD_BCRYPT);
+
         $this->db->table('users')->insertBatch([
             [
                 'id_user'       => 1,
@@ -70,7 +74,6 @@ class InitDataSeeder extends Seeder
             ]
         ]);
 
-        // 1. BUAT ZONA SEKOLAH PUSAT
         $this->db->table('zona_absensi')->insert([
             'id_zona'          => 1,
             'nama_zona'        => 'Sekolah Pusat (Default)',
@@ -82,9 +85,9 @@ class InitDataSeeder extends Seeder
             'updated_at'       => date('Y-m-d H:i:s'),
         ]);
 
-        // 2. BUAT JADWAL 7 HARI KHUSUS UNTUK ZONA SEKOLAH PUSAT (Jumat pulang cepat)
         $jadwalDefaultZona = [];
         $hari = [1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat', 6 => 'Sabtu', 7 => 'Minggu'];
+
         foreach ($hari as $kode => $nama) {
             $jadwalDefaultZona[] = [
                 'zona_id'          => 1,
@@ -92,7 +95,7 @@ class InitDataSeeder extends Seeder
                 'nama_hari'        => $nama,
                 'waktu_buka_absen' => '05:00:00',
                 'jam_masuk'        => '06:30:00',
-                'jam_pulang'       => ($kode == 5) ? '11:30:00' : '15:00:00',
+                'jam_pulang'       => ($kode === 5) ? '11:30:00' : '15:00:00',
                 'is_libur'         => ($kode >= 6) ? 1 : 0
             ];
         }
@@ -111,7 +114,6 @@ class InitDataSeeder extends Seeder
             'updated_at'    => date('Y-m-d H:i:s')
         ]);
 
-        // JADWAL GLOBAL (Hanya status libur akhir pekan)
         $jadwalGlobal = [];
         foreach ($hari as $kode => $nama) {
             $jadwalGlobal[] = [
@@ -122,7 +124,6 @@ class InitDataSeeder extends Seeder
         }
         $this->db->table('jadwal_absen')->insertBatch($jadwalGlobal);
 
-        // PENATAAN URUTAN MENU BERDASARKAN PRIORITAS DEPENDENSI DATA
         $this->db->table('menus')->insertBatch([
             ['id_menu' => 1,  'nama_menu' => 'Dashboard',         'url' => 'admin/dashboard',  'icon' => 'fas fa-home',               'urutan' => 1,  'is_active' => 1],
             ['id_menu' => 2,  'nama_menu' => 'Live Radar',        'url' => 'admin/tracking',   'icon' => 'fas fa-map-marked-alt',     'urutan' => 2,  'is_active' => 1],
@@ -139,13 +140,17 @@ class InitDataSeeder extends Seeder
             ['id_menu' => 13, 'nama_menu' => 'Pengumuman',        'url' => 'admin/pengumuman', 'icon' => 'fas fa-bullhorn',           'urutan' => 13, 'is_active' => 1],
             ['id_menu' => 14, 'nama_menu' => 'Laporan Rekap',     'url' => 'admin/laporan',    'icon' => 'fas fa-file-excel',         'urutan' => 14, 'is_active' => 1],
             ['id_menu' => 15, 'nama_menu' => 'Pengaturan Sistem', 'url' => 'admin/pengaturan', 'icon' => 'fas fa-cogs',               'urutan' => 15, 'is_active' => 1],
+            ['id_menu' => 16, 'nama_menu' => 'Audit Trail',       'url' => 'admin/audit-log',  'icon' => 'fas fa-shield-halved',      'urutan' => 16, 'is_active' => 1],
         ]);
 
         $roleMenus = [];
-        for ($i = 1; $i <= 15; $i++) {
+
+        // Admin mendapatkan semua 16 menu
+        for ($i = 1; $i <= 16; $i++) {
             $roleMenus[] = ['id_role' => 1, 'id_menu' => $i];
         }
 
+        // Guru hanya mendapatkan menu tertentu
         $aksesGuru = [1, 2, 3, 4, 5, 8, 13, 14];
         foreach ($aksesGuru as $menuId) {
             $roleMenus[] = ['id_role' => 2, 'id_menu' => $menuId];

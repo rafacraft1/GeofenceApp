@@ -101,6 +101,8 @@ $routes->group('admin', ['filter' => ['webAuth', 'dynamicAccess'], 'namespace' =
     $routes->get('mutasi', 'Mutasi::index');
     $routes->post('mutasi/proses', 'Mutasi::proses');
     $routes->get('mutasi/checkTujuan/(:any)', 'Mutasi::checkTujuan/$1');
+
+    $routes->get('audit-log', 'AuditLog::index');
 });
 
 $routes->group('api/v1', ['filter' => 'throttle', 'namespace' => 'App\Controllers\Api'], function ($routes) {

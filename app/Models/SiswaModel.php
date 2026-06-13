@@ -33,6 +33,95 @@ class SiswaModel extends Model
     protected $createdField     = 'created_at';
     protected $updatedField     = 'updated_at';
 
+    protected array $tempOldData = [];
+    protected $afterInsert       = ['auditInsert'];
+    protected $beforeUpdate      = ['auditBeforeUpdate'];
+    protected $afterUpdate       = ['auditAfterUpdate'];
+    protected $beforeDelete      = ['auditBeforeDelete'];
+    protected $afterDelete       = ['auditAfterDelete'];
+
+    /**
+     * @param array $data
+     * @return array
+     */
+    protected function auditInsert(array $data): array
+    {
+        if (!isset($data['result']) || !$data['result']) return $data;
+        $auditService = new \App\Services\AuditService();
+        $auditService->log('INSERT', $this->table, null, (array) ($data['data'] ?? []));
+        return $data;
+    }
+
+    /**
+     * @param array $data
+     * @return array
+     */
+    protected function auditBeforeUpdate(array $data): array
+    {
+        $ids = $data['id'] ?? [];
+        if (!is_array($ids)) $ids = [$ids];
+
+        if (!empty($ids)) {
+            $this->tempOldData = $this->db->table($this->table)->whereIn($this->primaryKey, $ids)->get()->getResultArray();
+        } else {
+            $this->tempOldData = [];
+        }
+        return $data;
+    }
+
+    /**
+     * @param array $data
+     * @return array
+     */
+    protected function auditAfterUpdate(array $data): array
+    {
+        if (!isset($data['result']) || !$data['result']) return $data;
+        $auditService = new \App\Services\AuditService();
+
+        foreach ($this->tempOldData as $oldRow) {
+            $auditService->log('UPDATE', $this->table, $oldRow, (array) ($data['data'] ?? []));
+        }
+        $this->tempOldData = [];
+        return $data;
+    }
+
+    /**
+     * @param array $data
+     * @return array
+     */
+    protected function auditBeforeDelete(array $data): array
+    {
+        $ids = $data['id'] ?? [];
+        if (!is_array($ids)) $ids = [$ids];
+
+        if (!empty($ids)) {
+            $this->tempOldData = $this->db->table($this->table)->whereIn($this->primaryKey, $ids)->get()->getResultArray();
+        } else {
+            $this->tempOldData = [];
+        }
+        return $data;
+    }
+
+    /**
+     * @param array $data
+     * @return array
+     */
+    protected function auditAfterDelete(array $data): array
+    {
+        if (!isset($data['result']) || !$data['result']) return $data;
+        $auditService = new \App\Services\AuditService();
+
+        foreach ($this->tempOldData as $oldRow) {
+            $auditService->log('DELETE', $this->table, $oldRow, null);
+        }
+        $this->tempOldData = [];
+        return $data;
+    }
+
+    /**
+     * @param string|null $id
+     * @return array|object|null
+     */
     public function getSiswaWithKelas(?string $id = null)
     {
         $this->select('siswa.*, kelas.nama_kelas, zona_absensi.nama_zona')
@@ -43,6 +132,14 @@ class SiswaModel extends Model
         return $this->findAll();
     }
 
+    /**
+     * @param string|null $kelasFilter
+     * @param string|null $searchFilter
+     * @param int $perPage
+     * @param string $sortCol
+     * @param string $sortDir
+     * @return mixed
+     */
     public function getPaginatedSiswa(?string $kelasFilter, ?string $searchFilter, int $perPage, string $sortCol = 'nama_siswa', string $sortDir = 'asc')
     {
         $this->select('siswa.*, kelas.nama_kelas, zona_absensi.nama_zona')
@@ -61,6 +158,10 @@ class SiswaModel extends Model
         return $this->orderBy($orderColumn, $orderDir)->paginate($perPage, 'default');
     }
 
+    /**
+     * @param int|null $kelasId
+     * @return array
+     */
     public function getSiswaForExport(?int $kelasId = null): array
     {
         $this->select('siswa.*, kelas.nama_kelas, zona_absensi.nama_zona')
@@ -71,6 +172,13 @@ class SiswaModel extends Model
         return $this->orderBy('kelas.nama_kelas', 'ASC')->orderBy('siswa.nama_siswa', 'ASC')->findAll();
     }
 
+    /**
+     * @param array $dataSiswa
+     * @param array $kelasMap
+     * @param bool $isWaliKelas
+     * @param int|null $waliKelasId
+     * @return array
+     */
     public function processBulkImport(array $dataSiswa, array $kelasMap, bool $isWaliKelas, ?int $waliKelasId): array
     {
         $skipped = 0;
@@ -119,7 +227,11 @@ class SiswaModel extends Model
         return ['status' => true, 'inserted' => 0, 'skipped' => $skipped];
     }
 
-    // FUNGSI INI AKAN MEMBACA ZONA + JADWAL HARI INI SECARA BERSAMAAN
+    /**
+     * @param string $idSiswa
+     * @param int $kodeHari
+     * @return array|null
+     */
     public function getAturanZonaSiswa(string $idSiswa, int $kodeHari)
     {
         $builder = $this->db->table('siswa')

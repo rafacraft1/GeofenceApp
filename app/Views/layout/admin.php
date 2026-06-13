@@ -1,3 +1,12 @@
+<?php
+
+/**
+ * @var string|null $title
+ * @var array|null $allowedMenus
+ * @var int|null $pendingIzinCount
+ */
+$safeIzinCount = $pendingIzinCount ?? 0;
+?>
 <!DOCTYPE html>
 <html lang="id">
 
@@ -70,9 +79,9 @@
 <body class="bg-gray-50 font-sans antialiased flex h-screen overflow-hidden">
 
     <?php
-    $uri = service('uri');
+    $uri     = service('uri');
     $segment = (string) $uri->getSegment(2);
-    $roleId = (int) session()->get('role_id');
+    $roleId  = (int) session()->get('role_id');
     ?>
 
     <div id="sidebar-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-40 hidden md:hidden transition-opacity" onclick="toggleSidebar()"></div>
@@ -107,9 +116,17 @@
                 $isActive = ($currentUri === $urlMenu) || (strpos($currentUri, $urlMenu . '/') === 0);
                 $activeClass = $isActive ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800 hover:text-white';
             ?>
-                <a href="<?= base_url($urlMenu) ?>" class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors <?= $activeClass ?>">
-                    <i class="<?= esc($iconMenu) ?> opacity-80 text-center w-5 text-lg"></i>
-                    <span class="font-medium text-sm"><?= esc($namaMenu) ?></span>
+                <a href="<?= base_url($urlMenu) ?>" class="flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors <?= $activeClass ?> group">
+                    <div class="flex items-center gap-3">
+                        <i class="<?= esc($iconMenu) ?> opacity-80 text-center w-5 text-lg transition-transform group-hover:scale-110"></i>
+                        <span class="font-medium text-sm"><?= esc($namaMenu) ?></span>
+                    </div>
+
+                    <?php if ($urlMenu === 'admin/izin' && $safeIzinCount > 0): ?>
+                        <span class="bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm animate-pulse">
+                            <?= $safeIzinCount > 99 ? '99+' : $safeIzinCount ?>
+                        </span>
+                    <?php endif; ?>
                 </a>
             <?php endforeach; ?>
         </nav>

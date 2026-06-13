@@ -26,10 +26,14 @@ abstract class BaseController extends Controller
         $this->loadGlobalMenus();
     }
 
+    /**
+     * @return void
+     */
     private function loadGlobalMenus(): void
     {
-        $roleId = (int) $this->session->get('role_id');
-        $allowedMenus = [];
+        $roleId           = (int) $this->session->get('role_id');
+        $allowedMenus     = [];
+        $pendingIzinCount = 0;
 
         if ($roleId > 0) {
             $allowedMenus = cache()->remember('global_menus_role_' . $roleId, 3600, function () use ($roleId) {
@@ -41,8 +45,23 @@ abstract class BaseController extends Controller
                     ->get()
                     ->getResultArray();
             });
+
+            $isWaliKelas = (bool) $this->session->get('is_wali_kelas');
+            $kelasId     = (int) $this->session->get('kelas_id');
+
+            $builder = $this->db->table('pengajuan_izin')->where('pengajuan_izin.status', 'Pending');
+
+            if ($isWaliKelas && $kelasId > 0) {
+                $builder->join('siswa', 'siswa.id_siswa = pengajuan_izin.siswa_id')
+                    ->where('siswa.kelas_id', $kelasId);
+            }
+
+            $pendingIzinCount = $builder->countAllResults();
         }
 
-        \Config\Services::renderer()->setData(['allowedMenus' => $allowedMenus]);
+        \Config\Services::renderer()->setData([
+            'allowedMenus'     => $allowedMenus,
+            'pendingIzinCount' => $pendingIzinCount
+        ]);
     }
 }
