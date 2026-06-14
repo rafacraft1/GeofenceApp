@@ -100,12 +100,6 @@ class InitDataSeeder extends Seeder
         }
         $this->db->table('zona_jadwal')->insertBatch($jadwalDefaultZona);
 
-        $this->db->table('kelas')->insertBatch([
-            ['id_kelas' => 1, 'nama_kelas' => '10-A', 'wali_kelas_id' => 2, 'zona_id' => null, 'created_at' => date('Y-m-d H:i:s')],
-            ['id_kelas' => 2, 'nama_kelas' => '10-B', 'wali_kelas_id' => 3, 'zona_id' => null, 'created_at' => date('Y-m-d H:i:s')],
-            ['id_kelas' => 3, 'nama_kelas' => '11-A', 'wali_kelas_id' => null, 'zona_id' => null, 'created_at' => date('Y-m-d H:i:s')],
-        ]);
-
         $this->db->table('pengaturan')->insert([
             'id_pengaturan' => 1,
             'nama_aplikasi' => 'GeofenceApp',

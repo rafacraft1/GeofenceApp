@@ -16,6 +16,8 @@ class PengaturanModel extends Model
         'nama_aplikasi',
         'nama_sekolah',
         'firebase_url',
+        'app_version', // Tambahan
+        'app_link',    // Tambahan
         'updated_at'
     ];
 }

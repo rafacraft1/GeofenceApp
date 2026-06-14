@@ -112,6 +112,10 @@ class InitSistem extends Migration
             'nama_aplikasi' => ['type' => 'VARCHAR', 'constraint' => '100', 'default' => 'GeofenceApp'],
             'nama_sekolah'  => ['type' => 'VARCHAR', 'constraint' => '150', 'default' => 'Nama Sekolah'],
             'firebase_url'  => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
+            // --- FIELD VERSI APLIKASI DAN LINK DOWNLOAD ---
+            'app_version'   => ['type' => 'VARCHAR', 'constraint' => '20', 'default' => '1.0.0'],
+            'app_link'      => ['type' => 'VARCHAR', 'constraint' => '255', 'null' => true],
+            // ----------------------------------------------
             'updated_at'    => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id_pengaturan', true);
