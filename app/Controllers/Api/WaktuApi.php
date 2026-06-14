@@ -21,14 +21,17 @@ class WaktuApi extends ResourceController
         $siswaAuth = $this->request->siswaAuth ?? null;
         $aturanZona = null;
 
-        if ($siswaAuth && isset($siswaAuth->id_siswa)) {
+        // PERBAIKAN 1: Gunakan sintaks Array ['id_siswa'], BUKAN Object ->id_siswa
+        if ($siswaAuth && isset($siswaAuth['id_siswa'])) {
             $siswaModel = new SiswaModel();
-            $aturanZona = $siswaModel->getAturanZonaSiswa((string)$siswaAuth->id_siswa, $kodeHari);
+            $aturanZona = $siswaModel->getAturanZonaSiswa((string)$siswaAuth['id_siswa'], $kodeHari);
         }
 
         if (!$aturanZona) {
             $zonaDefault = $db->table('zona_absensi')->where('is_default', 1)->get()->getRowArray();
-            $jadwalDefault = $db->table('zona_jadwal')->where(['zona_id' => $zonaDefault['id_zona'] ?? 1, 'kode_hari' => $kodeHari])->get()->getRowArray();
+            // Mencegah error 'null offset' jika database kosong
+            $idZonaDefault = isset($zonaDefault['id_zona']) ? $zonaDefault['id_zona'] : 1;
+            $jadwalDefault = $db->table('zona_jadwal')->where(['zona_id' => $idZonaDefault, 'kode_hari' => $kodeHari])->get()->getRowArray();
 
             $aturanZona = [
                 'latitude'   => $zonaDefault['latitude'] ?? -6.200000,

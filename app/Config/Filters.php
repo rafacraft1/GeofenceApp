@@ -56,5 +56,15 @@ class Filters extends BaseFilters
 
     public array $filters = [
         'throttle' => ['before' => ['api/v1/auth/login', 'admin/login']],
+
+        // Daftarkan rute yang WAJIB pakai Token JWT di sini
+        'apiAuth'  => [
+            'before' => [
+                'api/profile*',
+                'api/absen*',
+                'api/izin*',
+                // CATATAN: api/tracking/store DILARANG dimasukkan ke sini agar bisa diakses oleh Background Service tanpa Token!
+            ]
+        ]
     ];
 }

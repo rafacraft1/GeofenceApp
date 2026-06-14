@@ -37,11 +37,12 @@ class TrackingApi extends ResourceController
         $this->db->table('log_fraud')->insert([
             'siswa_id'          => $idSiswa,
             'jenis_pelanggaran' => $jenisPelanggaran,
-            'waktu_kejadian'    => Time::now('Asia/Jakarta')->toDateTimeString()
+            'waktu_kejadian'    => Time::now(getenv('app.appTimezone') ?: 'Asia/Jakarta')->toDateTimeString()
         ]);
     }
 
     /**
+     * Endpoint untuk dipanggil Admin guna memicu HP siswa menangkap lokasi
      * @param int|string $siswaId
      * @return mixed
      */
@@ -68,18 +69,26 @@ class TrackingApi extends ResourceController
     }
 
     /**
+     * Endpoint untuk menerima data koordinat dari HP siswa (Bypass JWT)
      * @return mixed
      */
     public function storeLocation()
     {
-        $siswaAuth = $this->request->siswaAuth ?? [];
-        $siswaId   = $siswaAuth['id_siswa'] ?? null;
+        $json = $this->request->getJSON(true);
+        $deviceId = $json['device_id'] ?? null;
 
-        if (!$siswaId) {
-            return $this->failUnauthorized('Sesi token tidak valid.');
+        // 1. Tolak jika Flutter tidak mengirimkan Device ID
+        if (empty($deviceId)) {
+            return $this->failUnauthorized('Akses ditolak. Device ID hilang.');
         }
 
-        $json      = $this->request->getJSON(true);
+        // 2. Bypass JWT: Cari identitas siswa berdasarkan kunci Device ID di Database
+        $siswa = $this->siswaModel->where('device_id', $deviceId)->first();
+        if (!$siswa) {
+            return $this->failUnauthorized('Perangkat tidak dikenali atau belum terikat pada siswa manapun.');
+        }
+
+        $siswaId   = $siswa['id_siswa'];
         $locations = $json['locations'] ?? [];
 
         if (empty($locations)) {
@@ -121,6 +130,7 @@ class TrackingApi extends ResourceController
     }
 
     /**
+     * Endpoint untuk Web Admin mengambil hasil pelacakan dari cache
      * @param int|string $siswaId
      * @return mixed
      */
