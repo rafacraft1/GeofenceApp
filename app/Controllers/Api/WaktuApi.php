@@ -21,7 +21,6 @@ class WaktuApi extends ResourceController
         $siswaAuth = $this->request->siswaAuth ?? null;
         $aturanZona = null;
 
-        // PERBAIKAN 1: Gunakan sintaks Array ['id_siswa'], BUKAN Object ->id_siswa
         if ($siswaAuth && isset($siswaAuth['id_siswa'])) {
             $siswaModel = new SiswaModel();
             $aturanZona = $siswaModel->getAturanZonaSiswa((string)$siswaAuth['id_siswa'], $kodeHari);
@@ -29,11 +28,12 @@ class WaktuApi extends ResourceController
 
         if (!$aturanZona) {
             $zonaDefault = $db->table('zona_absensi')->where('is_default', 1)->get()->getRowArray();
-            // Mencegah error 'null offset' jika database kosong
             $idZonaDefault = isset($zonaDefault['id_zona']) ? $zonaDefault['id_zona'] : 1;
             $jadwalDefault = $db->table('zona_jadwal')->where(['zona_id' => $idZonaDefault, 'kode_hari' => $kodeHari])->get()->getRowArray();
 
             $aturanZona = [
+                // PERBAIKAN 1: Tambahkan key nama_zona untuk user yang memakai zona default
+                'nama_zona'  => $zonaDefault['nama_zona'] ?? 'Area Sekolah Pusat',
                 'latitude'   => $zonaDefault['latitude'] ?? -6.200000,
                 'longitude'  => $zonaDefault['longitude'] ?? 106.816666,
                 'radius'     => $zonaDefault['radius'] ?? 50,
@@ -62,6 +62,8 @@ class WaktuApi extends ResourceController
             'message' => 'Berhasil mengambil data konfigurasi server & lokasi zona',
             'data'    => [
                 'waktu'       => $waktuNow->toDateTimeString(),
+                // PERBAIKAN 2: Lempar data nama_zona ke frontend Flutter!
+                'nama_zona'   => $aturanZona['nama_zona'] ?? 'Area Sekolah Default',
                 'jam_masuk'   => $aturanZona['jam_masuk'],
                 'jam_pulang'  => $aturanZona['jam_pulang'],
                 'lat_sekolah' => (float) $aturanZona['latitude'],
