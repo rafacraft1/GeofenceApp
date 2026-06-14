@@ -7,6 +7,7 @@ use CodeIgniter\I18n\Time;
 use CodeIgniter\HTTP\Files\UploadedFile;
 use App\Models\AbsensiModel;
 use App\Models\SiswaModel;
+use App\Services\AbsensiService;
 
 class AbsensiApi extends ResourceController
 {
@@ -14,58 +15,37 @@ class AbsensiApi extends ResourceController
     protected \CodeIgniter\Database\BaseConnection $db;
     protected AbsensiModel $absensiModel;
     protected SiswaModel $siswaModel;
+    protected AbsensiService $absensiService;
 
     public function __construct()
     {
-        $this->db           = \Config\Database::connect();
-        $this->absensiModel = model(AbsensiModel::class);
-        $this->siswaModel   = model(SiswaModel::class);
+        $this->db             = \Config\Database::connect();
+        $this->absensiModel   = model(AbsensiModel::class);
+        $this->siswaModel     = model(SiswaModel::class);
+        $this->absensiService = new AbsensiService();
         helper(['security']);
     }
 
-    /**
-     * @return array
-     */
     private function getSiswaAuth(): array
     {
         return (array) ($this->request->siswaAuth ?? []);
     }
 
-    /**
-     * @param UploadedFile|null $file
-     * @return string|null
-     */
     private function handleFileUpload(?UploadedFile $file): ?string
     {
         if ($file === null || !$file->isValid() || $file->hasMoved()) return null;
+
         $fileName = $file->getRandomName();
+        // Dikembalikan ke folder publik sesuai instruksi agar dapat diakses controller lain
         $file->move(FCPATH . 'uploads/absensi/', $fileName);
+
         return $fileName;
     }
 
-    /**
-     * @param float $lat1
-     * @param float $lon1
-     * @param float $lat2
-     * @param float $lon2
-     * @return float
-     */
-    private function hitungJarakMetres(float $lat1, float $lon1, float $lat2, float $lon2): float
-    {
-        $earthRadius = 6371000;
-        $dLat = deg2rad($lat2 - $lat1);
-        $dLon = deg2rad($lon2 - $lon1);
-        $a = sin($dLat / 2) * sin($dLat / 2) + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon / 2) * sin($dLon / 2);
-        return $earthRadius * (2 * atan2(sqrt($a), sqrt(1 - $a)));
-    }
-
-    /**
-     * @param int $idSiswa
-     * @param string $jenisPelanggaran
-     * @return bool
-     */
     private function catatFraud(int $idSiswa, string $jenisPelanggaran): bool
     {
+        $this->db->transStart();
+
         $siswa = $this->siswaModel->find($idSiswa);
         $newFraudCount = (int) ($siswa['fraud_count'] ?? 0) + 1;
         $isBlocked = ($newFraudCount >= 3) ? 1 : 0;
@@ -78,30 +58,34 @@ class AbsensiApi extends ResourceController
         $this->db->table('log_fraud')->insert([
             'siswa_id'          => $idSiswa,
             'jenis_pelanggaran' => $jenisPelanggaran,
-            'waktu_kejadian'    => Time::now('Asia/Jakarta')->toDateTimeString()
+            'waktu_kejadian'    => Time::now(getenv('app.appTimezone') ?: 'Asia/Jakarta')->toDateTimeString()
         ]);
+
+        $this->db->transComplete();
+
+        if ($this->db->transStatus() === false) {
+            return false;
+        }
+
+        cache()->delete("siswa_auth_{$idSiswa}");
 
         return (bool) $isBlocked;
     }
 
-    /**
-     * @param int $idSiswa
-     * @param int $deviceTimestamp
-     * @param float $accuracy
-     * @param int $isMock
-     * @return \CodeIgniter\HTTP\ResponseInterface|null
-     */
     private function cekAntiFraud(int $idSiswa, int $deviceTimestamp, float $accuracy, int $isMock): ?\CodeIgniter\HTTP\ResponseInterface
     {
         $serverTime = time();
 
-        if (abs($serverTime - $deviceTimestamp) > 120) {
+        $maxTimeDiff = getenv('GEO_MAX_TIME_DIFF') ?: 120;
+        $maxAccuracy = getenv('GEO_MAX_ACCURACY') ?: 100;
+
+        if (abs($serverTime - $deviceTimestamp) > $maxTimeDiff) {
             $isBlocked = $this->catatFraud($idSiswa, 'Manipulasi Waktu Perangkat (Selisih > 2 Menit)');
             $msg = $isBlocked ? 'Akun diblokir karena indikasi kecurangan berulang.' : 'Waktu perangkat tidak sinkron dengan server. Dilarang mengubah jam HP.';
             return $this->failForbidden($msg);
         }
 
-        if ($accuracy > 100) {
+        if ($accuracy > $maxAccuracy) {
             return $this->failForbidden('Akurasi GPS sangat rendah (' . round($accuracy) . 'm). Silakan cari area terbuka agar presisi.');
         }
 
@@ -114,9 +98,6 @@ class AbsensiApi extends ResourceController
         return null;
     }
 
-    /**
-     * @return mixed
-     */
     public function masuk()
     {
         $siswa = $this->getSiswaAuth();
@@ -142,10 +123,10 @@ class AbsensiApi extends ResourceController
 
         if ($fraudCheck) return $fraudCheck;
 
-        $sekarang = Time::now('Asia/Jakarta');
+        $timezone = getenv('app.appTimezone') ?: 'Asia/Jakarta';
+        $sekarang = Time::now($timezone);
         $kodeHari = (int) $sekarang->format('N');
         $tanggalSekarang = $sekarang->toDateString();
-        $currentTime = $sekarang->format('H:i:s');
 
         $liburNasional = $this->db->table('hari_libur')->where('tanggal', $tanggalSekarang)->get()->getRowArray();
         if ($liburNasional) return $this->failForbidden('Hari ini Libur Nasional: ' . $liburNasional['keterangan']);
@@ -159,37 +140,12 @@ class AbsensiApi extends ResourceController
         $aturanZona = $this->siswaModel->getAturanZonaSiswa((string)$siswa['id_siswa'], $kodeHari);
         if (!$aturanZona) return $this->failServerError('Gagal membaca Zona Absensi.');
 
-        if ($aturanZona['is_libur'] == 1) return $this->failForbidden("Hari libur khusus untuk zona " . $aturanZona['nama_zona']);
-
-        if (!$isDispensasi) {
-            if ($currentTime < $aturanZona['waktu_buka_absen']) {
-                return $this->failForbidden("Absensi di zona {$aturanZona['nama_zona']} dibuka pukul " . date('H:i', strtotime((string)$aturanZona['waktu_buka_absen'])) . " WIB.");
-            }
-            if ($currentTime > $aturanZona['jam_pulang']) return $this->failForbidden("Sesi absensi masuk sudah ditutup.");
-        }
-
-        $isTelat = $currentTime > $aturanZona['jam_masuk'];
-        $menitTelat = ($isTelat && !$isDispensasi) ? abs($sekarang->difference(Time::parse($tanggalSekarang . ' ' . $aturanZona['jam_masuk'], 'Asia/Jakarta'))->getMinutes()) : 0;
-
         $lat = (float) $this->request->getPost('latitude');
         $lon = (float) $this->request->getPost('longitude');
 
-        $status = $isDispensasi ? 'Dispensasi' : 'Hadir';
-        $keterangan = $isDispensasi ? 'Hadir di Lokasi Kegiatan' : 'Tepat Waktu';
-
-        if (!$isDispensasi) {
-            $jarakMeter = $this->hitungJarakMetres($lat, $lon, (float)$aturanZona['latitude'], (float)$aturanZona['longitude']);
-
-            if ($jarakMeter > (float)$aturanZona['radius']) {
-                return $this->failForbidden('Anda berada di luar zona absensi (' . round($jarakMeter) . ' meter dari titik pusat).');
-            }
-
-            if ($isTelat) {
-                $status = 'Terlambat';
-                $keterangan = "Terlambat {$menitTelat} Menit di " . $aturanZona['nama_zona'];
-            } else {
-                $keterangan = "Tepat Waktu di " . $aturanZona['nama_zona'];
-            }
+        $validasi = $this->absensiService->validasiMasuk($aturanZona, $lat, $lon, $sekarang, $isDispensasi);
+        if (!$validasi['status']) {
+            return $this->failForbidden($validasi['message']);
         }
 
         $fileName = $this->handleFileUpload($this->request->getFile('foto'));
@@ -203,8 +159,8 @@ class AbsensiApi extends ResourceController
             'lat_masuk'   => $lat,
             'long_masuk'  => $lon,
             'is_fake_gps' => 0,
-            'menit_telat' => $menitTelat,
-            'keterangan'  => $keterangan
+            'menit_telat' => $validasi['menit_telat'],
+            'keterangan'  => $validasi['keterangan']
         ];
 
         if ($isDispensasi) {
@@ -213,17 +169,14 @@ class AbsensiApi extends ResourceController
         } else {
             $dataAbsen['siswa_id'] = $siswa['id_siswa'];
             $dataAbsen['tanggal']  = $tanggalSekarang;
-            $dataAbsen['status']   = $status;
+            $dataAbsen['status']   = $validasi['absen_status'];
             $this->absensiModel->insert($dataAbsen);
             $msg = 'Presensi masuk tercatat.';
         }
 
-        return $this->respondCreated(['status' => 201, 'message' => $msg, 'detail' => $keterangan]);
+        return $this->respondCreated(['status' => 201, 'message' => $msg, 'detail' => $validasi['keterangan']]);
     }
 
-    /**
-     * @return mixed
-     */
     public function pulang()
     {
         $siswa = $this->getSiswaAuth();
@@ -249,7 +202,8 @@ class AbsensiApi extends ResourceController
 
         if ($fraudCheck) return $fraudCheck;
 
-        $sekarang = Time::now('Asia/Jakarta');
+        $timezone = getenv('app.appTimezone') ?: 'Asia/Jakarta';
+        $sekarang = Time::now($timezone);
         $kodeHari = (int) $sekarang->format('N');
         $tanggalSekarang = $sekarang->toDateString();
 
@@ -266,14 +220,11 @@ class AbsensiApi extends ResourceController
 
         if (!$isDispensasi) {
             $aturanZona = $this->siswaModel->getAturanZonaSiswa((string)$siswa['id_siswa'], $kodeHari);
+            if (!$aturanZona) return $this->failServerError('Gagal membaca Zona Absensi.');
 
-            if ($aturanZona && $sekarang->format('H:i:s') < $aturanZona['jam_pulang']) {
-                return $this->failForbidden("Belum waktunya pulang. Jam pulang untuk zona {$aturanZona['nama_zona']} adalah " . date('H:i', strtotime((string)$aturanZona['jam_pulang'])) . " WIB.");
-            }
-
-            $jarakMeter = $this->hitungJarakMetres($lat, $lon, (float)$aturanZona['latitude'], (float)$aturanZona['longitude']);
-            if ($jarakMeter > (float)$aturanZona['radius']) {
-                return $this->failForbidden('Anda berada di luar zona absensi (' . round($jarakMeter) . ' meter dari titik pusat).');
+            $validasi = $this->absensiService->validasiPulang($aturanZona, $lat, $lon, $sekarang, $isDispensasi);
+            if (!$validasi['status']) {
+                return $this->failForbidden($validasi['message']);
             }
         }
 
@@ -290,9 +241,6 @@ class AbsensiApi extends ResourceController
         return $this->respondUpdated(['status' => 200, 'message' => $isDispensasi ? 'Tugas selesai!' : 'Presensi pulang berhasil. Hati-hati di jalan!']);
     }
 
-    /**
-     * @return mixed
-     */
     public function riwayat()
     {
         $siswa = $this->getSiswaAuth();

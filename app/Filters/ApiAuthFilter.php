@@ -11,11 +11,6 @@ use App\Libraries\JWTAuth;
 
 class ApiAuthFilter implements FilterInterface
 {
-    /**
-     * @param RequestInterface $request
-     * @param array|null $arguments
-     * @return mixed
-     */
     public function before(RequestInterface $request, $arguments = null)
     {
         $header = (string) $request->getHeaderLine('Authorization');
@@ -24,6 +19,13 @@ class ApiAuthFilter implements FilterInterface
         if (empty($token)) {
             return Services::response()
                 ->setJSON(['status' => 401, 'message' => 'Token otorisasi tidak ditemukan.'])
+                ->setStatusCode(401);
+        }
+
+        // Poin 3: Blokir akses jika token sudah masuk daftar blacklist (sudah logout)
+        if (cache("blacklist_token_{$token}")) {
+            return Services::response()
+                ->setJSON(['status' => 401, 'error_code' => 'TOKEN_BLACKLISTED', 'message' => 'Token sudah tidak berlaku (sesi telah diakhiri).'])
                 ->setStatusCode(401);
         }
 
@@ -42,8 +44,14 @@ class ApiAuthFilter implements FilterInterface
                 ->setStatusCode(401);
         }
 
-        $siswaModel = new SiswaModel();
-        $siswa      = $siswaModel->select('id_siswa, nis, nama_siswa, kelas_id, is_blocked')->find($decoded['data']->id_siswa);
+        $idSiswa  = $decoded['data']->id_siswa;
+        $cacheKey = "siswa_auth_{$idSiswa}";
+
+        // Poin 2 (sudah diimplementasi sebelumnya)
+        $siswa = cache()->remember($cacheKey, 300, function () use ($idSiswa) {
+            $siswaModel = new SiswaModel();
+            return $siswaModel->select('id_siswa, nis, nama_siswa, kelas_id, is_blocked')->find($idSiswa);
+        });
 
         if (!$siswa) {
             return Services::response()
@@ -60,11 +68,5 @@ class ApiAuthFilter implements FilterInterface
         $request->siswaAuth = $siswa;
     }
 
-    /**
-     * @param RequestInterface $request
-     * @param ResponseInterface $response
-     * @param array|null $arguments
-     * @return void
-     */
     public function after(RequestInterface $request, ResponseInterface $response, $arguments = null) {}
 }

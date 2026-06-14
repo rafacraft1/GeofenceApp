@@ -91,13 +91,16 @@ class AuthApi extends ResourceController
      */
     public function logout()
     {
-        $siswa = $this->request->siswaAuth ?? null;
+        $siswa  = $this->request->siswaAuth ?? null;
+        $header = (string) $this->request->getHeaderLine('Authorization');
+        $token  = str_replace('Bearer ', '', $header);
 
-        if (!$siswa) {
-            return $this->failUnauthorized('Akses ditolak.');
+        if (!$siswa || empty($token)) {
+            return $this->failUnauthorized('Akses ditolak atau token tidak ditemukan.');
         }
 
-        $result = $this->authService->logoutSiswa((int) $siswa['id_siswa']);
+        // Meneruskan Access Token aktif ke service untuk dimasukkan ke blacklist
+        $result = $this->authService->logoutSiswa((int) $siswa['id_siswa'], $token);
 
         return $this->respond([
             'status'  => 200,

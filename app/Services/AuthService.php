@@ -117,14 +117,24 @@ class AuthService
 
     /**
      * @param int $idSiswa
+     * @param string $accessToken
      * @return array
      */
-    public function logoutSiswa(int $idSiswa): array
+    public function logoutSiswa(int $idSiswa, string $accessToken = ''): array
     {
+        // 1. Cabut token dari database
         $this->siswaModel->update($idSiswa, [
             'api_token' => null,
             'fcm_token' => null
         ]);
+
+        // 2. Simpan Access Token aktif ke cache blacklist (durasi 15 menit / 900 detik)
+        if (!empty($accessToken)) {
+            cache()->save("blacklist_token_{$accessToken}", true, 900);
+        }
+
+        // 3. Paksa hapus cache data auth agar filter langsung memperbarui status
+        cache()->delete("siswa_auth_{$idSiswa}");
 
         return ['status' => 200, 'message' => 'Logout berhasil. Sesi dan notifikasi telah dinonaktifkan.'];
     }

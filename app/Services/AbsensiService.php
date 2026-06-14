@@ -15,109 +15,99 @@ class AbsensiService
     }
 
     /**
-     * @param float $latSiswa
-     * @param float $lonSiswa
-     * @param int $isFakeGps
-     * @return array
+     * Menghitung jarak haversine antara dua titik koordinat (meter)
      */
-    public function validasiGeofencing(float $latSiswa, float $lonSiswa, int $isFakeGps): array
+    public function hitungJarakMetres(float $lat1, float $lon1, float $lat2, float $lon2): float
     {
-        if ($isFakeGps === 1) {
-            return [
-                'is_valid' => false,
-                'status'   => 'Manipulasi',
-                'message'  => 'Terdeteksi penggunaan aplikasi Fake GPS / Mock Location.'
-            ];
-        }
-
-        $pengaturan = cache()->remember('koordinat_sekolah', 86400, function () {
-            return $this->db->table('pengaturan')->where('id_pengaturan', 1)->get()->getRowArray();
-        });
-
-        if (!$pengaturan) {
-            return [
-                'is_valid' => false,
-                'status'   => 'Error',
-                'message'  => 'Koordinat pusat sekolah belum dikonfigurasi.'
-            ];
-        }
-
-        $latSekolah     = (float) $pengaturan['latitude_sekolah'];
-        $lonSekolah     = (float) $pengaturan['longitude_sekolah'];
-        $radiusMaksimal = (int) $pengaturan['radius_meter'];
-
-        $jarakMeter = hitung_jarak_haversine($latSiswa, $lonSiswa, $latSekolah, $lonSekolah);
-
-        if ($jarakMeter > $radiusMaksimal) {
-            return [
-                'is_valid' => false,
-                'status'   => 'Manipulasi',
-                'message'  => "Anda berada di luar area sekolah. Jarak Anda: {$jarakMeter} meter (Maks: {$radiusMaksimal}m)."
-            ];
-        }
-
-        return [
-            'is_valid'    => true,
-            'status'      => 'Aman',
-            'jarak_meter' => $jarakMeter
-        ];
+        $earthRadius = 6371000;
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLon = deg2rad($lon2 - $lon1);
+        $a = sin($dLat / 2) * sin($dLat / 2) + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon / 2) * sin($dLon / 2);
+        return $earthRadius * (2 * atan2(sqrt($a), sqrt(1 - $a)));
     }
 
     /**
-     * @param Time $sekarang
-     * @param string $jamMasuk
-     * @param string $jamPulang
-     * @return array
+     * Memproses seluruh validasi bisnis untuk presensi masuk
      */
-    public function evaluasiWaktuMasuk(Time $sekarang, string $jamMasuk, string $jamPulang): array
+    public function validasiMasuk(array $aturanZona, float $lat, float $lon, Time $sekarang, bool $isDispensasi): array
     {
+        $currentTime = $sekarang->format('H:i:s');
         $tanggalSekarang = $sekarang->toDateString();
-        $waktuMasuk      = Time::parse($tanggalSekarang . ' ' . $jamMasuk, 'Asia/Jakarta');
-        $waktuPulang     = Time::parse($tanggalSekarang . ' ' . $jamPulang, 'Asia/Jakarta');
 
-        $batasAwalMasuk  = $waktuMasuk->subMinutes(30);
-        $batasAkhirMasuk = $waktuPulang->subMinutes(30);
-
-        if ($sekarang->isBefore($batasAwalMasuk)) {
-            return ['status' => false, 'message' => 'Belum waktunya presensi masuk. Absen dibuka pukul ' . $batasAwalMasuk->toTimeString()];
+        if ($aturanZona['is_libur'] == 1) {
+            return [
+                'status'  => false,
+                'message' => "Hari libur khusus untuk zona " . $aturanZona['nama_zona']
+            ];
         }
 
-        if ($sekarang->isAfter($batasAkhirMasuk)) {
-            return ['status' => false, 'message' => 'Batas waktu presensi masuk hari ini telah habis.'];
+        if (!$isDispensasi) {
+            if ($currentTime < $aturanZona['waktu_buka_absen']) {
+                return [
+                    'status'  => false,
+                    'message' => "Absensi di zona {$aturanZona['nama_zona']} dibuka pukul " . date('H:i', strtotime((string)$aturanZona['waktu_buka_absen'])) . " WIB."
+                ];
+            }
+            if ($currentTime > $aturanZona['jam_pulang']) {
+                return [
+                    'status'  => false,
+                    'message' => "Sesi absensi masuk sudah ditutup."
+                ];
+            }
         }
 
-        $menitTelat = 0;
-        $isTelat    = false;
+        $isTelat = $currentTime > $aturanZona['jam_masuk'];
+        $menitTelat = ($isTelat && !$isDispensasi) ? abs($sekarang->difference(Time::parse($tanggalSekarang . ' ' . $aturanZona['jam_masuk'], 'Asia/Jakarta'))->getMinutes()) : 0;
 
-        if ($sekarang->isAfter($waktuMasuk)) {
-            $menitTelat = abs($sekarang->difference($waktuMasuk)->getMinutes());
-            $isTelat    = true;
+        $status = $isDispensasi ? 'Dispensasi' : 'Hadir';
+        $keterangan = $isDispensasi ? 'Hadir di Lokasi Kegiatan' : 'Tepat Waktu';
+
+        if (!$isDispensasi) {
+            $jarakMeter = $this->hitungJarakMetres($lat, $lon, (float)$aturanZona['latitude'], (float)$aturanZona['longitude']);
+
+            if ($jarakMeter > (float)$aturanZona['radius']) {
+                return [
+                    'status'  => false,
+                    'message' => 'Anda berada di luar zona absensi (' . round($jarakMeter) . ' meter dari titik pusat).'
+                ];
+            }
+
+            if ($isTelat) {
+                $status = 'Terlambat';
+                $keterangan = "Terlambat {$menitTelat} Menit di " . $aturanZona['nama_zona'];
+            } else {
+                $keterangan = "Tepat Waktu di " . $aturanZona['nama_zona'];
+            }
         }
 
         return [
-            'status'      => true,
-            'is_telat'    => $isTelat,
-            'menit_telat' => $menitTelat
+            'status'       => true,
+            'absen_status' => $status,
+            'keterangan'   => $keterangan,
+            'menit_telat'  => $menitTelat
         ];
     }
 
     /**
-     * @param Time $sekarang
-     * @param string $jamPulang
-     * @return array
+     * Memproses seluruh validasi bisnis untuk presensi pulang
      */
-    public function evaluasiWaktuPulang(Time $sekarang, string $jamPulang): array
+    public function validasiPulang(array $aturanZona, float $lat, float $lon, Time $sekarang, bool $isDispensasi): array
     {
-        $tanggalSekarang  = $sekarang->toDateString();
-        $waktuPulang      = Time::parse($tanggalSekarang . ' ' . $jamPulang, 'Asia/Jakarta');
-        $batasAkhirPulang = Time::parse($tanggalSekarang . ' 23:00:00', 'Asia/Jakarta');
+        if (!$isDispensasi) {
+            if ($sekarang->format('H:i:s') < $aturanZona['jam_pulang']) {
+                return [
+                    'status'  => false,
+                    'message' => "Belum waktunya pulang. Jam pulang untuk zona {$aturanZona['nama_zona']} adalah " . date('H:i', strtotime((string)$aturanZona['jam_pulang'])) . " WIB."
+                ];
+            }
 
-        if ($sekarang->isBefore($waktuPulang)) {
-            return ['status' => false, 'message' => 'Belum waktunya presensi pulang. Jadwal pulang pukul ' . $waktuPulang->toTimeString()];
-        }
-
-        if ($sekarang->isAfter($batasAkhirPulang)) {
-            return ['status' => false, 'message' => 'Batas waktu presensi pulang (23:00) telah habis.'];
+            $jarakMeter = $this->hitungJarakMetres($lat, $lon, (float)$aturanZona['latitude'], (float)$aturanZona['longitude']);
+            if ($jarakMeter > (float)$aturanZona['radius']) {
+                return [
+                    'status'  => false,
+                    'message' => 'Anda berada di luar zona absensi (' . round($jarakMeter) . ' meter dari titik pusat).'
+                ];
+            }
         }
 
         return ['status' => true];
