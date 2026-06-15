@@ -10,7 +10,9 @@ class HariLiburModel extends Model
     protected $primaryKey       = 'id_libur';
     protected $returnType       = 'array';
     protected $protectFields    = true;
-    protected $allowedFields    = ['tanggal', 'keterangan'];
+
+    // Tipe libur didaftarkan di sini
+    protected $allowedFields    = ['tanggal', 'keterangan', 'tipe_libur'];
 
     protected $useTimestamps    = true;
     protected $createdField     = 'created_at';
@@ -21,10 +23,6 @@ class HariLiburModel extends Model
     protected $beforeDelete      = ['auditBeforeDelete'];
     protected $afterDelete       = ['auditAfterDelete'];
 
-    /**
-     * @param array $data
-     * @return array
-     */
     protected function auditInsert(array $data): array
     {
         if (!isset($data['result']) || !$data['result']) return $data;
@@ -33,10 +31,6 @@ class HariLiburModel extends Model
         return $data;
     }
 
-    /**
-     * @param array $data
-     * @return array
-     */
     protected function auditBeforeDelete(array $data): array
     {
         $ids = $data['id'] ?? [];
@@ -50,10 +44,6 @@ class HariLiburModel extends Model
         return $data;
     }
 
-    /**
-     * @param array $data
-     * @return array
-     */
     protected function auditAfterDelete(array $data): array
     {
         if (!isset($data['result']) || !$data['result']) return $data;

@@ -44,8 +44,15 @@
                     <p class="text-[10px] text-gray-400 mt-1 font-medium leading-relaxed">
                         Format: JPG, PNG, PDF.<br>
                         - <strong class="text-gray-500">Gambar:</strong> Akan otomatis dikompres sebelum dikirim.<br>
-                        - <strong class="text-gray-500">PDF:</strong> Maksimal ukuran 1 MB.
+                        - <strong class="text-gray-500">PDF:</strong> Maksimal ukuran 2 MB.
                     </p>
+
+                    <div id="imagePreviewContainer" class="hidden mt-3 rounded-xl overflow-hidden border border-gray-200 shadow-sm relative bg-gray-50">
+                        <img id="imagePreview" src="" alt="Preview Lampiran" class="w-full h-auto object-cover max-h-48">
+                        <div class="absolute top-2 right-2 bg-black/60 text-white text-[9px] px-2 py-1 rounded backdrop-blur-sm shadow-sm flex items-center gap-1">
+                            <i class="fas fa-compress-arrows-alt"></i> <span id="imageSizeInfo"></span>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="pt-2">
@@ -145,26 +152,33 @@
 <script>
     const form = document.getElementById('formPengumuman');
     const fileInput = document.getElementById('inputFile');
-    const MAX_PDF_SIZE = 1 * 1024 * 1024; // 1 MB
+    const previewContainer = document.getElementById('imagePreviewContainer');
+    const previewImg = document.getElementById('imagePreview');
+    const sizeInfo = document.getElementById('imageSizeInfo');
+
+    const MAX_PDF_SIZE = 2 * 1024 * 1024; // Maksimal 2 MB
 
     fileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
+
+        // Sembunyikan preview setiap kali file diganti/dihapus
+        previewContainer.classList.add('hidden');
+        previewImg.src = '';
+
         if (!file) return;
 
         if (file.type === 'application/pdf') {
             if (file.size > MAX_PDF_SIZE) {
-                toastr.error('Ukuran file PDF tidak boleh lebih dari 1 MB.', 'File Terlalu Besar');
+                toastr.error('Ukuran file PDF tidak boleh lebih dari 2 MB.', 'File Terlalu Besar');
                 fileInput.value = '';
             }
             return;
         }
 
         if (file.type.startsWith('image/')) {
-            // FIX: Tambahkan prefix window. untuk menghindari false positive ekstensi PHP
             const reader = new window.FileReader();
 
             reader.onload = function(event) {
-                // FIX: Tambahkan prefix window.
                 const img = new window.Image();
                 img.src = event.target.result;
 
@@ -188,16 +202,19 @@
                     canvas.toBlob(function(blob) {
                         if (!blob) return;
 
-                        // FIX: Tambahkan prefix window.
                         const compressedFile = new window.File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
                             type: 'image/jpeg',
                             lastModified: Date.now()
                         });
 
-                        // FIX: Tambahkan prefix window.
                         const dataTransfer = new window.DataTransfer();
                         dataTransfer.items.add(compressedFile);
                         fileInput.files = dataTransfer.files;
+
+                        // --- TAMPILKAN PREVIEW UI ---
+                        previewImg.src = URL.createObjectURL(blob);
+                        previewContainer.classList.remove('hidden');
+                        sizeInfo.innerText = (compressedFile.size / 1024).toFixed(1) + ' KB';
 
                         console.log(`Kompresi berhasil. Ukuran awal: ${(file.size / 1024).toFixed(2)} KB | Ukuran baru: ${(compressedFile.size / 1024).toFixed(2)} KB`);
 

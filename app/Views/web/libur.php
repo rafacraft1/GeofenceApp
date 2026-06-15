@@ -18,7 +18,7 @@
 
 <div class="flex flex-col lg:flex-row gap-6">
     <div class="w-full lg:w-1/3">
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sticky top-6">
             <h3 class="text-lg font-bold text-gray-800 mb-5 flex items-center">
                 <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
@@ -27,14 +27,25 @@
             </h3>
             <form action="<?= base_url('admin/libur/store') ?>" method="POST" id="formLibur">
                 <?= csrf_field() ?>
+
                 <div class="mb-4">
                     <label class="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Pilih Tanggal</label>
                     <input type="date" name="tanggal" value="<?= old('tanggal') ?>" required class="w-full border border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-gray-50">
                 </div>
+
+                <div class="mb-4">
+                    <label class="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Cakupan Hari Libur</label>
+                    <select name="tipe_libur" required class="w-full border border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-gray-50 cursor-pointer text-gray-700">
+                        <option value="Nasional">🌍 Libur Nasional (Semua Libur, Termasuk PKL)</option>
+                        <option value="Internal">🏫 Libur Internal (Anak Magang/PKL Tetap Masuk)</option>
+                    </select>
+                </div>
+
                 <div class="mb-6">
                     <label class="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Keterangan Libur</label>
-                    <input type="text" name="keterangan" value="<?= esc(old('keterangan')) ?>" required placeholder="Contoh: Hari Raya Idul Fitri" class="w-full border border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-gray-50">
+                    <input type="text" name="keterangan" value="<?= esc(old('keterangan')) ?>" required placeholder="Contoh: Hari Raya / Rapat Guru" class="w-full border border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-gray-50">
                 </div>
+
                 <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200 btn-submit flex items-center justify-center gap-2">
                     <i class="fa-solid fa-save"></i> Simpan Hari Libur
                 </button>
@@ -49,7 +60,7 @@
                     <thead>
                         <tr class="bg-gray-50 border-b border-gray-100 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
                             <th class="px-6 py-4">Tanggal Libur</th>
-                            <th class="px-6 py-4">Keterangan</th>
+                            <th class="px-6 py-4">Detail & Cakupan</th>
                             <th class="px-6 py-4 text-center">Aksi</th>
                         </tr>
                     </thead>
@@ -64,9 +75,21 @@
                                         <?php endif; ?>
                                     </td>
                                     <td class="px-6 py-4">
-                                        <span class="text-sm text-gray-700 font-medium"><?= esc((string) $libur['keterangan']) ?></span>
-                                        <?php if ($libur['tanggal'] < date('Y-m-d')): ?>
-                                            <span class="ml-2 text-[10px] font-bold text-gray-400 border border-gray-200 bg-gray-50 px-2 py-0.5 rounded-md uppercase tracking-wider">Telah Berlalu</span>
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <span class="text-sm text-gray-800 font-bold"><?= esc((string) $libur['keterangan']) ?></span>
+                                            <?php if ($libur['tanggal'] < date('Y-m-d')): ?>
+                                                <span class="text-[9px] font-bold text-gray-400 border border-gray-200 bg-gray-50 px-2 py-0.5 rounded uppercase tracking-wider">Berlalu</span>
+                                            <?php endif; ?>
+                                        </div>
+
+                                        <?php if (($libur['tipe_libur'] ?? 'Nasional') === 'Nasional'): ?>
+                                            <span class="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded shadow-sm uppercase tracking-wider">
+                                                <i class="fas fa-globe-asia"></i> Libur Nasional
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="inline-flex items-center gap-1 text-[10px] font-bold text-orange-600 bg-orange-50 border border-orange-100 px-2 py-0.5 rounded shadow-sm uppercase tracking-wider">
+                                                <i class="fas fa-school"></i> Internal Sekolah
+                                            </span>
                                         <?php endif; ?>
                                     </td>
                                     <td class="px-6 py-4 text-center">

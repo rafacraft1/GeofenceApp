@@ -30,6 +30,7 @@ class Pengumuman extends BaseController
 
     public function store()
     {
+        // Validasi CI4: max_size 2048 berarti batas atas semua jenis file adalah 2MB
         $rules = [
             'judul'  => 'required|min_length[5]|max_length[150]',
             'isi'    => 'required',
@@ -45,9 +46,8 @@ class Pengumuman extends BaseController
         $namaGambar = null;
 
         if ($gambar && $gambar->isValid() && !$gambar->hasMoved()) {
-            if ($gambar->getExtension() === 'pdf' && $gambar->getSize() > 1048576) {
-                return redirect()->back()->withInput()->with('error', 'File PDF tidak boleh lebih dari 1MB');
-            }
+            // Pengecekan manual > 1MB dihapus agar tidak tumpang tindih. 
+            // CI4 sudah memblokir otomatis file di atas 2MB berdasarkan rules di atas.
             $namaGambar = $gambar->getRandomName();
             $gambar->move(FCPATH . 'uploads/pengumuman', $namaGambar);
         }
@@ -62,6 +62,7 @@ class Pengumuman extends BaseController
             'gambar' => $namaGambar
         ]);
 
+        // Ambil semua token fcm siswa
         $allTokens = $this->siswaModel->select('fcm_token')->where('fcm_token IS NOT NULL')->findAll();
         $tokenList = array_column($allTokens, 'fcm_token');
 
@@ -73,12 +74,18 @@ class Pengumuman extends BaseController
                 'id_ref' => (string) $insertedId
             ];
 
-            send_fcm_notification(
-                $tokenList,
-                "📢 " . $judul,
-                substr(strip_tags($isi), 0, 100) . "...",
-                $dataPayload
-            );
+            // --- ANTI CRASH FIREBASE: Pecah token per 500 data ---
+            $chunkedTokens = array_chunk($tokenList, 500);
+
+            foreach ($chunkedTokens as $batchTokens) {
+                send_fcm_notification(
+                    $batchTokens,
+                    "📢 " . $judul,
+                    substr(strip_tags($isi), 0, 100) . "...",
+                    $dataPayload
+                );
+            }
+            // -----------------------------------------------------
         }
 
         return redirect()->to(base_url('admin/pengumuman'))->with('success', 'Pengumuman berhasil disebarkan!');

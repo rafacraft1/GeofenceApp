@@ -36,7 +36,6 @@ class AbsensiApi extends ResourceController
         if ($file === null || !$file->isValid() || $file->hasMoved()) return null;
 
         $fileName = $file->getRandomName();
-        // Dikembalikan ke folder publik sesuai instruksi agar dapat diakses controller lain
         $file->move(FCPATH . 'uploads/absensi/', $fileName);
 
         return $fileName;
@@ -128,8 +127,7 @@ class AbsensiApi extends ResourceController
         $kodeHari = (int) $sekarang->format('N');
         $tanggalSekarang = $sekarang->toDateString();
 
-        $liburNasional = $this->db->table('hari_libur')->where('tanggal', $tanggalSekarang)->get()->getRowArray();
-        if ($liburNasional) return $this->failForbidden('Hari ini Libur Nasional: ' . $liburNasional['keterangan']);
+        // LOGIKA HARI LIBUR DIHAPUS DARI SINI: Diserahkan sepenuhnya ke AbsensiService
 
         $absenHariIni = $this->absensiModel->where(['siswa_id' => $siswa['id_siswa'], 'tanggal' => $tanggalSekarang])->first();
         $isDispensasi = ($absenHariIni && $absenHariIni['status'] === 'Dispensasi');
@@ -138,11 +136,12 @@ class AbsensiApi extends ResourceController
         if ($isDispensasi && $absenHariIni['jam_masuk'] !== null) return $this->failResourceExists('Bukti lokasi kegiatan sudah dikirim.');
 
         $aturanZona = $this->siswaModel->getAturanZonaSiswa((string)$siswa['id_siswa'], $kodeHari);
-        if (!$aturanZona) return $this->failServerError('Gagal membaca Zona Absensi.');
+        if (!$aturanZona) return $this->failServerError('Gagal membaca Zona Absensi Anda.');
 
         $lat = (float) $this->request->getPost('latitude');
         $lon = (float) $this->request->getPost('longitude');
 
+        // AbsensiService kini akan mengevaluasi Libur, Zona, Waktu, & Keterlambatan secara presisi
         $validasi = $this->absensiService->validasiMasuk($aturanZona, $lat, $lon, $sekarang, $isDispensasi);
         if (!$validasi['status']) {
             return $this->failForbidden($validasi['message']);
@@ -165,13 +164,13 @@ class AbsensiApi extends ResourceController
 
         if ($isDispensasi) {
             $this->absensiModel->update($absenHariIni['id_absensi'], $dataAbsen);
-            $msg = 'Bukti kehadiran tercatat.';
+            $msg = 'Bukti lokasi dispensasi tercatat.';
         } else {
             $dataAbsen['siswa_id'] = $siswa['id_siswa'];
             $dataAbsen['tanggal']  = $tanggalSekarang;
             $dataAbsen['status']   = $validasi['absen_status'];
             $this->absensiModel->insert($dataAbsen);
-            $msg = 'Presensi masuk tercatat.';
+            $msg = 'Presensi masuk berhasil tercatat.';
         }
 
         return $this->respondCreated(['status' => 201, 'message' => $msg, 'detail' => $validasi['keterangan']]);
@@ -207,12 +206,11 @@ class AbsensiApi extends ResourceController
         $kodeHari = (int) $sekarang->format('N');
         $tanggalSekarang = $sekarang->toDateString();
 
-        $liburNasional = $this->db->table('hari_libur')->where('tanggal', $tanggalSekarang)->get()->getRowArray();
-        if ($liburNasional) return $this->failForbidden('Hari ini Libur Nasional: ' . $liburNasional['keterangan']);
+        // LOGIKA HARI LIBUR DIHAPUS DARI SINI: Diserahkan sepenuhnya ke AbsensiService
 
         $absen = $this->absensiModel->where(['siswa_id' => $siswa['id_siswa'], 'tanggal' => $tanggalSekarang])->first();
         if (!$absen) return $this->failNotFound('Anda belum presensi masuk hari ini.');
-        if ($absen['jam_pulang'] !== null) return $this->failResourceExists('Anda sudah presensi pulang.');
+        if ($absen['jam_pulang'] !== null) return $this->failResourceExists('Anda sudah melakukan presensi pulang.');
 
         $isDispensasi = ($absen['status'] === 'Dispensasi');
         $lat = (float) $this->request->getPost('latitude');
@@ -220,7 +218,7 @@ class AbsensiApi extends ResourceController
 
         if (!$isDispensasi) {
             $aturanZona = $this->siswaModel->getAturanZonaSiswa((string)$siswa['id_siswa'], $kodeHari);
-            if (!$aturanZona) return $this->failServerError('Gagal membaca Zona Absensi.');
+            if (!$aturanZona) return $this->failServerError('Gagal membaca Zona Absensi Anda.');
 
             $validasi = $this->absensiService->validasiPulang($aturanZona, $lat, $lon, $sekarang, $isDispensasi);
             if (!$validasi['status']) {
@@ -229,7 +227,7 @@ class AbsensiApi extends ResourceController
         }
 
         $fileName = $this->handleFileUpload($this->request->getFile('foto'));
-        if (!$fileName) return $this->failValidationErrors('Gagal mengunggah file foto.');
+        if (!$fileName) return $this->failValidationErrors('Gagal mengunggah file foto pulang.');
 
         $this->absensiModel->update($absen['id_absensi'], [
             'jam_pulang'  => $sekarang->toTimeString(),
@@ -238,7 +236,7 @@ class AbsensiApi extends ResourceController
             'long_pulang' => $lon
         ]);
 
-        return $this->respondUpdated(['status' => 200, 'message' => $isDispensasi ? 'Tugas selesai!' : 'Presensi pulang berhasil. Hati-hati di jalan!']);
+        return $this->respondUpdated(['status' => 200, 'message' => $isDispensasi ? 'Laporan pulang dispensasi diterima.' : 'Presensi pulang berhasil. Hati-hati di jalan!']);
     }
 
     public function riwayat()

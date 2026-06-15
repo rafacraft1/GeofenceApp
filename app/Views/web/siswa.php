@@ -2,6 +2,7 @@
 
 /**
  * @var array<int, array<string, mixed>> $list_kelas
+ * @var array<int, array<string, mixed>> $list_zona
  * @var string|null $kelas_aktif
  * @var string|null $search_aktif
  * @var string|null $sort_aktif
@@ -69,7 +70,7 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
 <div class="mb-6 flex flex-col md:flex-row justify-between md:items-center gap-4">
     <div>
         <h2 class="text-2xl font-bold text-gray-800">Daftar Siswa</h2>
-        <p class="text-sm text-gray-500 mt-1">Kelola data siswa, foto, dan pantau perangkat.</p>
+        <p class="text-sm text-gray-500 mt-1">Kelola data siswa, foto, pemetaan zona PKL, dan perangkat.</p>
     </div>
 </div>
 
@@ -111,7 +112,7 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
     <div class="mb-4 border-b border-gray-100 pb-3">
         <h4 class="text-md font-bold text-gray-800">Tambah Siswa Baru</h4>
     </div>
-    <form action="<?= base_url('admin/siswa/store') ?>" method="POST" enctype="multipart/form-data" id="formSiswa" class="grid grid-cols-1 md:grid-cols-4 gap-5 items-start">
+    <form action="<?= base_url('admin/siswa/store') ?>" method="POST" enctype="multipart/form-data" id="formSiswa" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 items-start">
         <?= csrf_field() ?>
         <div>
             <label class="block text-xs font-bold text-gray-600 uppercase mb-2">NIS</label>
@@ -137,11 +138,26 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
                 </select>
             <?php endif; ?>
         </div>
+
+        <div>
+            <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Penempatan (Magang/PKL)</label>
+            <select name="zona_id" class="w-full border border-gray-200 rounded-xl p-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-amber-500 transition-all cursor-pointer text-gray-700">
+                <option value="">🏫 Mengikuti Zona Sekolah / Kelas</option>
+                <?php if (!empty($list_zona)) : ?>
+                    <?php foreach ($list_zona as $z): ?>
+                        <option value="<?= (string) $z['id_zona'] ?>">📍 <?= esc((string) $z['nama_zona']) ?></option>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </select>
+            <p class="text-[9px] text-gray-400 mt-1 font-medium">Kosongkan jika siswa belajar di sekolah (Reguler).</p>
+        </div>
+
         <div>
             <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Foto (Opsional)</label>
             <input type="file" name="foto" accept="image/*" class="w-full border border-gray-200 rounded-xl p-2 bg-gray-50 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all">
         </div>
-        <div class="md:col-span-4 flex justify-end gap-3 pt-2">
+
+        <div class="md:col-span-2 lg:col-span-3 flex justify-end gap-3 pt-2">
             <button type="button" onclick="toggleFormTambah()" class="text-sm font-semibold text-gray-500 px-4 py-2 hover:bg-gray-100 rounded-xl transition-colors">Batal</button>
             <button type="submit" class="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold shadow-md hover:bg-blue-700 btn-submit transition-all">Simpan Data</button>
         </div>
@@ -203,7 +219,7 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
                                         <div class="text-[11px] text-gray-500 font-medium mt-1">
                                             <span class="bg-gray-100 px-2 py-0.5 rounded inline-block"><?= esc((string) $s['nis']) ?> • <?= esc((string) ($s['nama_kelas'] ?? 'Belum ada kelas')) ?></span>
                                             <?php if (!empty($s['nama_zona'])): ?>
-                                                <span class="bg-amber-50 text-amber-600 border border-amber-100 px-2 py-0.5 rounded inline-block ml-1">📍 <?= esc((string) $s['nama_zona']) ?></span>
+                                                <span class="bg-amber-50 text-amber-600 border border-amber-100 px-2 py-0.5 rounded inline-block ml-1">📍 PKL: <?= esc((string) $s['nama_zona']) ?></span>
                                             <?php endif; ?>
                                         </div>
                                     </div>
@@ -301,7 +317,7 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
 
 <div id="modal-edit" class="fixed inset-0 z-[60] hidden items-center justify-center p-4">
     <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="closeEditModal()"></div>
-    <div class="bg-white rounded-3xl shadow-2xl z-10 w-full max-w-lg p-8 relative">
+    <div class="bg-white rounded-3xl shadow-2xl z-10 w-full max-w-lg p-8 relative max-h-[90vh] overflow-y-auto">
         <div class="flex justify-between items-center mb-6">
             <h3 class="text-xl font-bold text-gray-800">Edit Data Siswa</h3>
             <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600">
@@ -341,6 +357,19 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
                     </select>
                 <?php endif; ?>
             </div>
+
+            <div>
+                <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Penempatan (Magang/PKL)</label>
+                <select id="edit-zona" name="zona_id" class="w-full border border-gray-200 rounded-xl p-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-amber-500 transition-all cursor-pointer text-gray-700">
+                    <option value="">🏫 Mengikuti Zona Sekolah / Kelas</option>
+                    <?php if (!empty($list_zona)) : ?>
+                        <?php foreach ($list_zona as $z): ?>
+                            <option value="<?= (string) $z['id_zona'] ?>">📍 <?= esc((string) $z['nama_zona']) ?></option>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </select>
+            </div>
+
             <div>
                 <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Ganti Foto (Kosongkan jika tidak mengubah)</label>
                 <input type="file" id="edit-foto" name="foto" accept="image/*" class="w-full border border-gray-200 rounded-xl p-2 bg-gray-50 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all">
@@ -378,10 +407,11 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
 
             <div class="bg-amber-50 border border-amber-100 p-4 rounded-xl">
                 <p class="text-[11px] text-amber-700 leading-relaxed font-medium text-center">Gunakan format template agar tidak error.</p>
+                <p class="text-[10px] text-amber-600 mt-1 text-center font-semibold italic">*Siswa magang/PKL harap diatur manual setelah proses impor selesai.</p>
                 <?php if ($is_wali_kelas): ?>
-                    <p class="text-[11px] text-red-600 leading-relaxed font-bold text-center mt-1">Anda hanya dapat mengimpor data khusus untuk Kelas <?= esc((string) session()->get('nama_kelas')) ?>.</p>
+                    <p class="text-[11px] text-red-600 leading-relaxed font-bold text-center mt-2">Anda hanya dapat mengimpor data khusus untuk Kelas <?= esc((string) session()->get('nama_kelas')) ?>.</p>
                 <?php endif; ?>
-                <a href="<?= base_url('admin/siswa/downloadTemplate') ?>" class="block text-center text-amber-900 font-bold text-xs mt-2 underline">Unduh Template</a>
+                <a href="<?= base_url('admin/siswa/downloadTemplate') ?>" class="block text-center text-amber-900 font-bold text-xs mt-3 border border-amber-200 bg-amber-100 py-2 rounded-lg hover:bg-amber-200 transition-colors">Unduh Template Excel</a>
             </div>
             <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 btn-submit transition-all">Mulai Import</button>
         </form>
@@ -433,6 +463,12 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
         const editKelas = document.getElementById('edit-kelas');
         if (editKelas) editKelas.value = data.kelas_id;
 
+        // TANGKAP DATA ZONA
+        const editZona = document.getElementById('edit-zona');
+        if (editZona) {
+            editZona.value = data.zona_id || ""; // Jika null, atur ke string kosong (Default)
+        }
+
         document.getElementById('edit-foto').value = "";
         document.getElementById('form-edit-action').action = '<?= base_url("admin/siswa/update/") ?>' + data.id_siswa;
 
@@ -440,6 +476,7 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
             nis: data.nis,
             nama: data.nama_siswa,
             kelas: editKelas ? data.kelas_id : '',
+            zona: editZona ? (data.zona_id || "") : '',
             foto: ""
         };
 
@@ -453,8 +490,13 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
     function checkEditChanges() {
         const currentNis = document.getElementById('edit-nis').value;
         const currentNama = document.getElementById('edit-nama').value;
+
         const editKelas = document.getElementById('edit-kelas');
         const currentKelas = editKelas ? editKelas.value : '';
+
+        const editZona = document.getElementById('edit-zona');
+        const currentZona = editZona ? editZona.value : '';
+
         const currentFoto = document.getElementById('edit-foto').value;
 
         if (currentNis !== initialEditState.nis && currentNis !== '') {
@@ -467,6 +509,7 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
             currentNis !== initialEditState.nis ||
             currentNama !== initialEditState.nama ||
             (editKelas && currentKelas != initialEditState.kelas) ||
+            (editZona && currentZona != initialEditState.zona) ||
             currentFoto !== initialEditState.foto
         );
 
@@ -479,6 +522,11 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
     const editKelasInput = document.getElementById('edit-kelas');
     if (editKelasInput && editKelasInput.tagName === 'SELECT') {
         editKelasInput.addEventListener('change', checkEditChanges);
+    }
+
+    const editZonaInput = document.getElementById('edit-zona');
+    if (editZonaInput) {
+        editZonaInput.addEventListener('change', checkEditChanges);
     }
 
     document.getElementById('edit-foto').addEventListener('change', checkEditChanges);

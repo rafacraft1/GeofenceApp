@@ -31,10 +31,6 @@ class Siswa extends BaseController
         $this->zonaModel     = new ZonaModel();
     }
 
-    /**
-     * @param int $targetKelasId
-     * @return bool
-     */
     private function checkAksesWaliKelas(int $targetKelasId): bool
     {
         if (session()->get('is_wali_kelas')) {
@@ -43,11 +39,6 @@ class Siswa extends BaseController
         return true;
     }
 
-    /**
-     * @param UploadedFile|null $foto
-     * @param string|null $fotoLama
-     * @return array
-     */
     private function handleUploadFoto(?UploadedFile $foto, ?string $fotoLama = null): array
     {
         if ($foto && $foto->isValid() && !$foto->hasMoved()) {
@@ -75,9 +66,6 @@ class Siswa extends BaseController
         return ['status' => true, 'data' => $fotoLama];
     }
 
-    /**
-     * @return mixed
-     */
     public function index()
     {
         $isWaliKelas    = (bool) session()->get('is_wali_kelas');
@@ -97,7 +85,9 @@ class Siswa extends BaseController
             ? $this->kelasModel->where('id_kelas', $kelasSessionId)->findAll()
             : $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll();
 
-        $listZona = $this->zonaModel->orderBy('is_default', 'DESC')->orderBy('nama_zona', 'ASC')->findAll();
+        // MENCEGAH DUPLIKASI ZONA DEFAULT DI DROPDOWN UI
+        // Hanya memanggil zona PKL/Luar (is_default = 0)
+        $listZona = $this->zonaModel->where('is_default', 0)->orderBy('nama_zona', 'ASC')->findAll();
 
         $siswa = $this->siswaModel->getPaginatedSiswa($kelasFilter, $searchFilter, $perPage, $sortCol, $sortDir);
 
@@ -121,9 +111,6 @@ class Siswa extends BaseController
         return view('web/siswa', $data);
     }
 
-    /**
-     * @return mixed
-     */
     public function store()
     {
         $kelasIdPost = (int) $this->request->getPost('kelas_id');
@@ -135,22 +122,25 @@ class Siswa extends BaseController
         $aturanValidasi = [
             'nis'        => ['rules' => 'required|is_unique[siswa.nis]', 'errors' => ['is_unique' => 'NIS sudah terdaftar.']],
             'nama_siswa' => 'required',
-            'kelas_id'   => 'required|numeric'
+            'kelas_id'   => 'required|numeric',
+            'zona_id'    => 'permit_empty|numeric'
         ];
 
         if (!$this->validate($aturanValidasi)) {
-            return redirect()->back()->withInput()->with('error', $this->validator->getError('nis') ?: 'Mohon lengkapi semua data wajib (termasuk pemilihan kelas).');
+            return redirect()->back()->withInput()->with('error', $this->validator->getError('nis') ?: 'Mohon lengkapi semua data wajib.');
         }
 
         $uploadFoto = $this->handleUploadFoto($this->request->getFile('foto'));
         if (!$uploadFoto['status']) return redirect()->back()->withInput()->with('error', (string) $uploadFoto['error']);
 
         $nis = (string) $this->request->getPost('nis');
+        $zonaIdPost = $this->request->getPost('zona_id');
 
         $this->siswaModel->insert([
             'nis'          => $nis,
             'nama_siswa'   => (string) $this->request->getPost('nama_siswa'),
             'kelas_id'     => $kelasIdPost,
+            'zona_id'      => empty($zonaIdPost) ? null : (int) $zonaIdPost,
             'password'     => password_hash($nis, PASSWORD_BCRYPT),
             'foto_profil'  => $uploadFoto['data']
         ]);
@@ -160,10 +150,6 @@ class Siswa extends BaseController
         return redirect()->to('/admin/siswa')->with('success', 'Data siswa berhasil ditambahkan.');
     }
 
-    /**
-     * @param string $id
-     * @return mixed
-     */
     public function update(string $id)
     {
         $siswaLama = $this->siswaModel->find($id);
@@ -178,7 +164,8 @@ class Siswa extends BaseController
         $aturanValidasi = [
             'nis'        => ['rules' => "required|is_unique[siswa.nis,id_siswa,{$id}]", 'errors' => ['is_unique' => 'NIS dipakai siswa lain.']],
             'nama_siswa' => 'required',
-            'kelas_id'   => 'required|numeric'
+            'kelas_id'   => 'required|numeric',
+            'zona_id'    => 'permit_empty|numeric'
         ];
 
         if (!$this->validate($aturanValidasi)) {
@@ -188,10 +175,13 @@ class Siswa extends BaseController
         $uploadFoto = $this->handleUploadFoto($this->request->getFile('foto'), (string) $siswaLama['foto_profil']);
         if (!$uploadFoto['status']) return redirect()->back()->withInput()->with('error', (string) $uploadFoto['error']);
 
+        $zonaIdPost = $this->request->getPost('zona_id');
+
         $updateData = [
             'nis'          => (string) $this->request->getPost('nis'),
             'nama_siswa'   => (string) $this->request->getPost('nama_siswa'),
             'kelas_id'     => $kelasIdPost,
+            'zona_id'      => empty($zonaIdPost) ? null : (int) $zonaIdPost,
             'foto_profil'  => $uploadFoto['data']
         ];
 
@@ -202,14 +192,11 @@ class Siswa extends BaseController
         $this->siswaModel->update($id, $updateData);
 
         cache()->deleteMatching('list_siswa_dropdown_*');
+        cache()->delete("siswa_auth_{$id}");
 
         return redirect()->to('/admin/siswa')->with('success', 'Data siswa berhasil diperbarui.');
     }
 
-    /**
-     * @param string $id
-     * @return mixed
-     */
     public function delete(string $id)
     {
         $siswa = $this->siswaModel->find($id);
@@ -231,13 +218,11 @@ class Siswa extends BaseController
         }
 
         cache()->deleteMatching('list_siswa_dropdown_*');
+        cache()->delete("siswa_auth_{$id}");
 
         return redirect()->to('/admin/siswa')->with('success', 'Data siswa beserta foto berhasil dihapus permanen.');
     }
 
-    /**
-     * @return mixed
-     */
     public function deleteBulk()
     {
         $ids = $this->request->getPost('ids');
@@ -284,15 +269,15 @@ class Siswa extends BaseController
             }
         }
 
+        foreach ($validIds as $idSiswa) {
+            cache()->delete("siswa_auth_{$idSiswa}");
+        }
+
         cache()->deleteMatching('list_siswa_dropdown_*');
 
         return redirect()->back()->with('success', count($validIds) . ' data siswa berhasil dihapus secara permanen.');
     }
 
-    /**
-     * @param string $id
-     * @return mixed
-     */
     public function resetDevice(string $id)
     {
         $siswa = $this->siswaModel->find($id);
@@ -301,13 +286,11 @@ class Siswa extends BaseController
         }
 
         $this->siswaModel->update($id, ['device_id' => null]);
+        cache()->delete("siswa_auth_{$id}");
+
         return redirect()->to('/admin/siswa')->with('success', 'Perangkat berhasil di-reset.');
     }
 
-    /**
-     * @param string $id
-     * @return mixed
-     */
     public function unblock(string $id)
     {
         $siswa = $this->siswaModel->find($id);
@@ -319,13 +302,11 @@ class Siswa extends BaseController
             'is_blocked'  => 0,
             'fraud_count' => 0
         ]);
+        cache()->delete("siswa_auth_{$id}");
+
         return redirect()->to('/admin/siswa')->with('success', 'Akun siswa berhasil di-unblock dan fraud count di-reset.');
     }
 
-    /**
-     * @param string $id
-     * @return mixed
-     */
     public function block(string $id)
     {
         $siswa = $this->siswaModel->find($id);
@@ -336,12 +317,11 @@ class Siswa extends BaseController
         $this->siswaModel->update($id, [
             'is_blocked' => 1
         ]);
+        cache()->delete("siswa_auth_{$id}");
+
         return redirect()->to('/admin/siswa')->with('success', 'Akses absensi dan login siswa berhasil dikunci sementara.');
     }
 
-    /**
-     * @return void
-     */
     public function downloadTemplate()
     {
         $spreadsheet = new Spreadsheet();
@@ -406,9 +386,6 @@ class Siswa extends BaseController
         exit;
     }
 
-    /**
-     * @return void
-     */
     public function export()
     {
         $isWaliKelas = session()->get('is_wali_kelas');
@@ -443,9 +420,6 @@ class Siswa extends BaseController
         exit;
     }
 
-    /**
-     * @return mixed
-     */
     public function import()
     {
         $file = $this->request->getFile('file_excel');
@@ -489,10 +463,6 @@ class Siswa extends BaseController
         }
     }
 
-    /**
-     * @param string $idSiswa
-     * @return mixed
-     */
     public function detail(string $idSiswa)
     {
         $siswa = $this->siswaModel->getSiswaWithKelas($idSiswa);

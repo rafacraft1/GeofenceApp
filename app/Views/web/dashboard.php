@@ -12,6 +12,9 @@
  * @var string $chart_hadir
  * @var string $chart_terlambat
  * @var string $chart_alpa
+ * @var string $chart_izin
+ * @var string $chart_sakit
+ * @var string $chart_dispensasi
  * @var string $chart_distribution
  * @var array<int, array<string, mixed>> $top_classes
  * @var array<int, array<string, mixed>> $list_manipulasi
@@ -152,10 +155,14 @@
             hadir: <?= $chart_hadir ?>,
             terlambat: <?= $chart_terlambat ?>,
             alpa: <?= $chart_alpa ?>,
+            izin: <?= $chart_izin ?? '[]' ?>,
+            sakit: <?= $chart_sakit ?? '[]' ?>,
+            dispensasi: <?= $chart_dispensasi ?? '[]' ?>,
             distribution: <?= $chart_distribution ?>,
             manipulasi: <?= json_encode($list_manipulasi) ?>
         };
 
+        // Initialize Map
         const map = window.L.map('mapFraud').setView([-6.20000000, 106.81666600], 13);
 
         window.L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
@@ -200,6 +207,9 @@
             });
         }
 
+        // ==========================================
+        // GRAFIK BATANG (TREN BULANAN) - ANIMASI STAGGERED
+        // ==========================================
         new window.Chart(document.getElementById('attendanceChart'), {
             type: 'bar',
             data: {
@@ -211,9 +221,27 @@
                         borderRadius: 5
                     },
                     {
+                        label: 'Dispensasi',
+                        data: mapData.dispensasi,
+                        backgroundColor: '#14B8A6',
+                        borderRadius: 5
+                    },
+                    {
                         label: 'Terlambat',
                         data: mapData.terlambat,
                         backgroundColor: '#FBBF24',
+                        borderRadius: 5
+                    },
+                    {
+                        label: 'Sakit',
+                        data: mapData.sakit,
+                        backgroundColor: '#60A5FA',
+                        borderRadius: 5
+                    },
+                    {
+                        label: 'Izin',
+                        data: mapData.izin,
+                        backgroundColor: '#818CF8',
                         borderRadius: 5
                     },
                     {
@@ -234,10 +262,24 @@
                     x: {
                         stacked: true
                     }
+                },
+                animation: {
+                    duration: 1200,
+                    easing: 'easeOutQuart',
+                    delay: function(context) {
+                        let delay = 0;
+                        if (context.type === 'data' && context.mode === 'default') {
+                            delay = context.dataIndex * 35;
+                        }
+                        return delay;
+                    }
                 }
             }
         });
 
+        // ==========================================
+        // GRAFIK DONAT (PROPORSI) - ANIMASI BOUNCE & SCALE
+        // ==========================================
         new window.Chart(document.getElementById('distributionChart'), {
             type: 'doughnut',
             data: {
@@ -256,6 +298,12 @@
                     legend: {
                         display: false
                     }
+                },
+                animation: {
+                    animateScale: true,
+                    animateRotate: true,
+                    duration: 1800,
+                    easing: 'easeOutBounce'
                 }
             }
         });

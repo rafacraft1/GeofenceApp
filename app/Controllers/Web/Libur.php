@@ -14,9 +14,6 @@ class Libur extends BaseController
         $this->liburModel = new HariLiburModel();
     }
 
-    /**
-     * @return mixed
-     */
     public function index()
     {
         $perPage = 15;
@@ -31,22 +28,21 @@ class Libur extends BaseController
         return view('web/libur', $data);
     }
 
-    /**
-     * @return mixed
-     */
     public function store()
     {
         $aturanValidasi = [
             'tanggal'    => 'required|valid_date[Y-m-d]',
-            'keterangan' => 'required'
+            'keterangan' => 'required',
+            'tipe_libur' => 'required|in_list[Nasional,Internal]'
         ];
 
         if (!$this->validate($aturanValidasi)) {
-            return redirect()->back()->withInput()->with('error', 'Tanggal (Format Y-m-d) dan Keterangan wajib diisi dengan benar.');
+            return redirect()->back()->withInput()->with('error', 'Tanggal, Keterangan, atau Tipe Libur tidak valid.');
         }
 
         $tanggal    = (string) $this->request->getPost('tanggal');
         $keterangan = (string) $this->request->getPost('keterangan');
+        $tipeLibur  = (string) $this->request->getPost('tipe_libur');
 
         $cekLibur = $this->liburModel->where('tanggal', $tanggal)->first();
         if ($cekLibur) {
@@ -56,6 +52,7 @@ class Libur extends BaseController
         $this->liburModel->insert([
             'tanggal'    => $tanggal,
             'keterangan' => $keterangan,
+            'tipe_libur' => $tipeLibur
         ]);
 
         cache()->delete('hari_libur_' . $tanggal);
@@ -63,10 +60,6 @@ class Libur extends BaseController
         return redirect()->to('/admin/libur')->with('success', 'Hari libur berhasil ditambahkan.');
     }
 
-    /**
-     * @param string $id
-     * @return mixed
-     */
     public function delete(string $id)
     {
         $libur = $this->liburModel->find($id);

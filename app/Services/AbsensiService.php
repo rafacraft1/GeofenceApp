@@ -34,13 +34,47 @@ class AbsensiService
         $currentTime = $sekarang->format('H:i:s');
         $tanggalSekarang = $sekarang->toDateString();
 
+        // ---------------------------------------------------------
+        // 1. Cek Libur Rutin / Mingguan (Dari tabel zona_jadwal)
+        // ---------------------------------------------------------
         if ($aturanZona['is_libur'] == 1) {
             return [
                 'status'  => false,
-                'message' => "Hari libur khusus untuk zona " . $aturanZona['nama_zona']
+                'message' => "Hari libur rutin (akhir pekan) untuk zona " . $aturanZona['nama_zona']
             ];
         }
 
+        // ---------------------------------------------------------
+        // 2. Cek Libur Khusus / PKL Targetting (Dari tabel hari_libur)
+        // ---------------------------------------------------------
+        $liburNasional = cache()->remember('hari_libur_' . $tanggalSekarang, 86400, function () use ($tanggalSekarang) {
+            return $this->db->table('hari_libur')
+                ->where('tanggal', $tanggalSekarang)
+                ->get()
+                ->getRowArray();
+        });
+
+        if ($liburNasional) {
+            // Jika tipe libur Nasional, semua siswa libur tanpa terkecuali
+            if (($liburNasional['tipe_libur'] ?? 'Nasional') === 'Nasional') {
+                return [
+                    'status'  => false,
+                    'message' => "Absensi ditutup. Hari ini libur nasional: " . $liburNasional['keterangan']
+                ];
+            }
+
+            // Jika tipe libur Internal, blokir hanya untuk zona default sekolah
+            if (($liburNasional['tipe_libur'] ?? 'Nasional') === 'Internal' && $aturanZona['is_default'] == 1) {
+                return [
+                    'status'  => false,
+                    'message' => "Absensi ditutup karena agenda internal: " . $liburNasional['keterangan'] . ". Siswa magang/PKL tetap mengikuti aturan perusahaan."
+                ];
+            }
+        }
+
+        // ---------------------------------------------------------
+        // 3. Validasi Batas Waktu Masuk
+        // ---------------------------------------------------------
         if (!$isDispensasi) {
             if ($currentTime < $aturanZona['waktu_buka_absen']) {
                 return [
@@ -56,12 +90,18 @@ class AbsensiService
             }
         }
 
+        // ---------------------------------------------------------
+        // 4. Kalkulasi Keterlambatan
+        // ---------------------------------------------------------
         $isTelat = $currentTime > $aturanZona['jam_masuk'];
         $menitTelat = ($isTelat && !$isDispensasi) ? abs($sekarang->difference(Time::parse($tanggalSekarang . ' ' . $aturanZona['jam_masuk'], 'Asia/Jakarta'))->getMinutes()) : 0;
 
         $status = $isDispensasi ? 'Dispensasi' : 'Hadir';
         $keterangan = $isDispensasi ? 'Hadir di Lokasi Kegiatan' : 'Tepat Waktu';
 
+        // ---------------------------------------------------------
+        // 5. Validasi Radius Geofence (Jika bukan dispensasi)
+        // ---------------------------------------------------------
         if (!$isDispensasi) {
             $jarakMeter = $this->hitungJarakMetres($lat, $lon, (float)$aturanZona['latitude'], (float)$aturanZona['longitude']);
 

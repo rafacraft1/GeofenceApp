@@ -49,12 +49,17 @@ class Dashboard extends BaseController
         $hadirHariIni = $stats['hadir'];
         $persenHadir  = ($totalSiswa > 0) ? round(($hadirHariIni / $totalSiswa) * 100) : 0;
 
-        $grafikLabels    = [];
-        $grafikHadir     = array_fill(0, 30, 0);
-        $grafikTerlambat = array_fill(0, 30, 0);
-        $grafikAlpa      = array_fill(0, 30, 0);
-        $dates           = [];
+        // Inisialisasi Array untuk 6 Status
+        $grafikLabels     = [];
+        $grafikHadir      = array_fill(0, 30, 0);
+        $grafikTerlambat  = array_fill(0, 30, 0);
+        $grafikAlpa       = array_fill(0, 30, 0);
+        $grafikIzin       = array_fill(0, 30, 0);
+        $grafikSakit      = array_fill(0, 30, 0);
+        $grafikDispensasi = array_fill(0, 30, 0);
+        $dates            = [];
 
+        // Generate rentang tanggal 30 hari ke belakang
         for ($i = 29; $i >= 0; $i--) {
             $tgl = Time::parse($hariIni, 'Asia/Jakarta')->subDays($i)->toDateString();
             $dates[] = $tgl;
@@ -65,17 +70,22 @@ class Dashboard extends BaseController
             return $absensiLokal->getTrendKehadiran($dates[0], $dates[29], $kelasId);
         });
 
+        // Pemetaan data tren berdasarkan index tanggal (Menggunakan += secara konsisten)
         foreach ($rekapTrend as $row) {
             $idx = array_search($row['tanggal'], $dates);
             if ($idx !== false) {
-                if (in_array($row['status'], ['Hadir', 'Dispensasi'])) {
+                if ($row['status'] === 'Hadir') {
                     $grafikHadir[$idx] += (int) $row['total'];
-                }
-                if ($row['status'] === 'Terlambat') {
-                    $grafikTerlambat[$idx] = (int) $row['total'];
-                }
-                if ($row['status'] === 'Alpa') {
-                    $grafikAlpa[$idx] = (int) $row['total'];
+                } elseif ($row['status'] === 'Terlambat') {
+                    $grafikTerlambat[$idx] += (int) $row['total'];
+                } elseif ($row['status'] === 'Alpa') {
+                    $grafikAlpa[$idx] += (int) $row['total'];
+                } elseif ($row['status'] === 'Izin') {
+                    $grafikIzin[$idx] += (int) $row['total'];
+                } elseif ($row['status'] === 'Sakit') {
+                    $grafikSakit[$idx] += (int) $row['total'];
+                } elseif ($row['status'] === 'Dispensasi') {
+                    $grafikDispensasi[$idx] += (int) $row['total'];
                 }
             }
         }
@@ -94,6 +104,9 @@ class Dashboard extends BaseController
             'chart_hadir'        => json_encode($grafikHadir),
             'chart_terlambat'    => json_encode($grafikTerlambat),
             'chart_alpa'         => json_encode($grafikAlpa),
+            'chart_izin'         => json_encode($grafikIzin),
+            'chart_sakit'        => json_encode($grafikSakit),
+            'chart_dispensasi'   => json_encode($grafikDispensasi),
             'list_manipulasi'    => $manipulasi,
         ];
 

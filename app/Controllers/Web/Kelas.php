@@ -4,50 +4,50 @@ namespace App\Controllers\Web;
 
 use App\Controllers\BaseController;
 use App\Models\KelasModel;
-use App\Models\RoleModel;
 use App\Models\UserModel;
 use App\Models\SiswaModel;
+use App\Models\ZonaModel;
 
 class Kelas extends BaseController
 {
     protected KelasModel $kelasModel;
-    protected RoleModel $roleModel;
     protected UserModel $userModel;
     protected SiswaModel $siswaModel;
+    protected ZonaModel $zonaModel;
 
     public function __construct()
     {
         $this->kelasModel = new KelasModel();
-        $this->roleModel  = new RoleModel();
         $this->userModel  = new UserModel();
         $this->siswaModel = new SiswaModel();
+        $this->zonaModel  = new ZonaModel();
     }
 
     public function index()
     {
-        $listGuru = cache()->remember('list_dropdown_guru', 3600, function () {
-            $roleGuru = $this->roleModel->where('nama_role', 'Guru')->first();
-            if ($roleGuru) {
-                return $this->userModel
-                    ->where('role_id', $roleGuru['id_role'])
-                    ->orderBy('nama_lengkap', 'ASC')
-                    ->findAll();
-            }
-            return [];
-        });
+        // Ambil data guru untuk wali kelas (Role 2)
+        $listGuru = $this->userModel->where('role_id', 2)->orderBy('nama_lengkap', 'ASC')->findAll();
 
-        $kelas = $this->kelasModel
-            ->select('kelas.*, users.nama_lengkap as nama_wali, COUNT(siswa.id_siswa) as jumlah_siswa')
-            ->join('users', 'users.id_user = kelas.wali_kelas_id', 'left')
-            ->join('siswa', 'siswa.kelas_id = kelas.id_kelas', 'left')
-            ->groupBy('kelas.id_kelas')
-            ->orderBy('kelas.nama_kelas', 'ASC')
-            ->findAll();
+        // MENCEGAH DUPLIKASI ZONA DEFAULT DI DROPDOWN UI
+        // Hanya ambil data zona untuk penempatan kelas PKL/Magang massal (is_default = 0)
+        $listZona = $this->zonaModel->where('is_default', 0)->orderBy('nama_zona', 'ASC')->findAll();
+
+        $search = (string) $this->request->getGet('search');
+        $page   = (int) ($this->request->getGet('page') ?? 1);
+        $perPage = 10;
+
+        $daftarKelas = $this->kelasModel->getPaginatedKelas($search, $perPage);
 
         $data = [
-            'title'    => 'Manajemen Kelas',
-            'kelas'    => $kelas,
-            'listGuru' => $listGuru
+            'title'        => 'Manajemen Kelas & Zona PKL',
+            'daftar_kelas' => $daftarKelas,
+            'list_guru'    => $listGuru,
+            'list_zona'    => $listZona,
+            'search_aktif' => $search,
+            'pager_links'  => $this->kelasModel->pager->links('default', 'tailwind_pagination'),
+            'total_data'   => $this->kelasModel->pager->getTotal('default'),
+            'page'         => $page,
+            'perPage'      => $perPage
         ];
 
         return view('web/kelas', $data);
@@ -55,67 +55,72 @@ class Kelas extends BaseController
 
     public function store()
     {
-        $idKelas     = $this->request->getPost('id_kelas');
-        $namaKelas   = trim((string) $this->request->getPost('nama_kelas'));
-        $waliKelasId = $this->request->getPost('wali_kelas_id');
-
         $aturanValidasi = [
-            'nama_kelas' => 'required'
+            'nama_kelas'    => 'required|is_unique[kelas.nama_kelas]',
+            'wali_kelas_id' => 'permit_empty|numeric',
+            'zona_id'       => 'permit_empty|numeric'
         ];
 
         if (!$this->validate($aturanValidasi)) {
-            return redirect()->back()->with('error', 'Nama kelas wajib diisi.');
+            return redirect()->back()->withInput()->with('error', $this->validator->listErrors());
         }
 
-        $waliKelasId = empty($waliKelasId) ? null : (int) $waliKelasId;
+        $waliId = $this->request->getPost('wali_kelas_id');
+        $zonaId = $this->request->getPost('zona_id');
 
-        if (!empty($idKelas)) {
-            $cekDuplikat = $this->kelasModel
-                ->where('nama_kelas', $namaKelas)
-                ->where('id_kelas !=', $idKelas)
-                ->first();
+        $this->kelasModel->insert([
+            'nama_kelas'    => (string) $this->request->getPost('nama_kelas'),
+            'wali_kelas_id' => empty($waliId) ? null : (int) $waliId,
+            'zona_id'       => empty($zonaId) ? null : (int) $zonaId
+        ]);
 
-            if ($cekDuplikat) {
-                return redirect()->back()->with('error', 'Gagal update: Nama kelas "' . $namaKelas . '" sudah digunakan.');
-            }
+        return redirect()->to('/admin/kelas')->with('success', 'Data kelas berhasil ditambahkan.');
+    }
 
-            $this->kelasModel->update($idKelas, [
-                'nama_kelas'    => $namaKelas,
-                'wali_kelas_id' => $waliKelasId
-            ]);
-
-            $pesan = "Data kelas $namaKelas berhasil diperbarui.";
-        } else {
-            $cekDuplikat = $this->kelasModel->where('nama_kelas', $namaKelas)->first();
-
-            if ($cekDuplikat) {
-                return redirect()->back()->with('error', 'Gagal: Kelas "' . $namaKelas . '" sudah terdaftar.');
-            }
-
-            $this->kelasModel->insert([
-                'nama_kelas'    => $namaKelas,
-                'wali_kelas_id' => $waliKelasId
-            ]);
-
-            $pesan = "Kelas baru $namaKelas berhasil ditambahkan.";
+    public function update(string $id)
+    {
+        $kelasLama = $this->kelasModel->find($id);
+        if (!$kelasLama) {
+            return redirect()->to('/admin/kelas')->with('error', 'Data kelas tidak ditemukan.');
         }
 
-        return redirect()->to('/admin/kelas')->with('success', $pesan);
+        $aturanValidasi = [
+            'nama_kelas'    => "required|is_unique[kelas.nama_kelas,id_kelas,{$id}]",
+            'wali_kelas_id' => 'permit_empty|numeric',
+            'zona_id'       => 'permit_empty|numeric'
+        ];
+
+        if (!$this->validate($aturanValidasi)) {
+            return redirect()->back()->withInput()->with('error', $this->validator->listErrors());
+        }
+
+        $waliId = $this->request->getPost('wali_kelas_id');
+        $zonaId = $this->request->getPost('zona_id');
+
+        $this->kelasModel->update($id, [
+            'nama_kelas'    => (string) $this->request->getPost('nama_kelas'),
+            'wali_kelas_id' => empty($waliId) ? null : (int) $waliId,
+            'zona_id'       => empty($zonaId) ? null : (int) $zonaId
+        ]);
+
+        // Bersihkan cache siswa karena perubahan zona kelas berdampak pada aturan geofence siswa di dalamnya
+        cache()->deleteMatching('siswa_auth_*');
+
+        return redirect()->to('/admin/kelas')->with('success', 'Data kelas berhasil diperbarui.');
     }
 
     public function delete(string $id)
     {
-        $this->kelasModel->db->transStart();
+        $siswaCount = $this->siswaModel->where('kelas_id', $id)->countAllResults();
 
-        $this->siswaModel->where('kelas_id', $id)->delete();
-        $this->kelasModel->delete($id);
-
-        $this->kelasModel->db->transComplete();
-
-        if ($this->kelasModel->db->transStatus() === false) {
-            return redirect()->to('/admin/kelas')->with('error', 'Gagal menghapus kelas.');
+        if ($siswaCount > 0) {
+            return redirect()->to('/admin/kelas')->with('error', "Gagal dihapus! Terdapat {$siswaCount} siswa yang masih terdaftar di kelas ini. Kosongkan atau mutasikan siswa terlebih dahulu.");
         }
 
-        return redirect()->to('/admin/kelas')->with('success', 'Kelas beserta seluruh siswa di dalamnya berhasil dihapus.');
+        if ($this->kelasModel->delete($id)) {
+            return redirect()->to('/admin/kelas')->with('success', 'Data kelas berhasil dihapus.');
+        }
+
+        return redirect()->to('/admin/kelas')->with('error', 'Gagal menghapus data kelas.');
     }
 }
