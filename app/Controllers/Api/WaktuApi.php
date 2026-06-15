@@ -29,16 +29,23 @@ class WaktuApi extends ResourceController
             if ($token) {
                 try {
                     $jwt = new JWTAuth();
-                    $decoded = $jwt->decodeToken($token);
+                    $decodedResult = $jwt->decodeToken($token);
 
-                    // Deteksi ID Siswa (mendukung format object maupun array)
-                    $idSiswa = is_array($decoded) ? ($decoded['id_siswa'] ?? null) : ($decoded->id_siswa ?? null);
+                    // PERBAIKAN: Baca id_siswa dari dalam array ['data'] sesuai struktur JWTAuth.php
+                    if (isset($decodedResult['status']) && $decodedResult['status'] === 'valid' && isset($decodedResult['data'])) {
+                        // $decodedResult['data'] adalah stdClass (object) berdasarkan bawaan library Firebase/JWT
+                        $idSiswa = $decodedResult['data']->id_siswa ?? null;
 
-                    if ($idSiswa) {
-                        $siswa = $siswaModel->find($idSiswa);
-                        // Jika siswa dipasangkan ke zona PKL tertentu, ambil zona tersebut
-                        if ($siswa && !empty($siswa['zona_id'])) {
-                            $zona = $zonaModel->find($siswa['zona_id']);
+                        if ($idSiswa) {
+                            // Gunakan cache untuk optimasi performa karena endpoint ini di-hit setiap saat
+                            $siswa = cache()->remember("siswa_zona_{$idSiswa}", 300, function () use ($siswaModel, $idSiswa) {
+                                return $siswaModel->select('zona_id')->find($idSiswa);
+                            });
+
+                            // Jika siswa dipasangkan ke zona PKL tertentu, ambil zona tersebut
+                            if ($siswa && !empty($siswa['zona_id'])) {
+                                $zona = $zonaModel->find($siswa['zona_id']);
+                            }
                         }
                     }
                 } catch (\Exception $e) {
@@ -49,7 +56,9 @@ class WaktuApi extends ResourceController
 
         // 2. Jika bukan siswa PKL (atau belum login), ambil Zona Default (Sekolah)
         if (!$zona) {
-            $zona = $zonaModel->where('is_default', 1)->first();
+            $zona = cache()->remember('zona_default', 86400, function () use ($zonaModel) {
+                return $zonaModel->where('is_default', 1)->first();
+            });
         }
 
         // Safety check jika database zona masih kosong
@@ -63,7 +72,10 @@ class WaktuApi extends ResourceController
         $tz = getenv('app.appTimezone') ?: 'Asia/Jakarta';
         $tanggalSekarang = Time::now($tz)->format('Y-m-d');
 
-        $cekLibur = $liburModel->where('tanggal', $tanggalSekarang)->first();
+        $cekLibur = cache()->remember("libur_{$tanggalSekarang}", 86400, function () use ($liburModel, $tanggalSekarang) {
+            return $liburModel->where('tanggal', $tanggalSekarang)->first();
+        });
+
         if ($cekLibur) {
             $isLibur = true;
             $namaLibur = $cekLibur['keterangan'];
@@ -71,11 +83,13 @@ class WaktuApi extends ResourceController
 
         // 4. Ambil Jadwal Absensi Khusus untuk Zona yang Terpilih Hari Ini
         $kodeHariIni = Time::now($tz)->format('N'); // 1 = Senin, 7 = Minggu
-        $jadwal = $db->table('zona_jadwal')
-            ->where('zona_id', $zona['id_zona'])
-            ->where('kode_hari', $kodeHariIni)
-            ->get()
-            ->getRowArray();
+        $jadwal = cache()->remember("jadwal_zona_{$zona['id_zona']}_{$kodeHariIni}", 86400, function () use ($db, $zona, $kodeHariIni) {
+            return $db->table('zona_jadwal')
+                ->where('zona_id', $zona['id_zona'])
+                ->where('kode_hari', $kodeHariIni)
+                ->get()
+                ->getRowArray();
+        });
 
         // Cek Libur Akhir Pekan dari Jadwal Zona
         if ($jadwal && $jadwal['is_libur'] == 1) {
