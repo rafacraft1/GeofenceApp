@@ -4,7 +4,10 @@ namespace App\Controllers\Api;
 
 use CodeIgniter\RESTful\ResourceController;
 use CodeIgniter\I18n\Time;
+use App\Models\ZonaModel;
 use App\Models\SiswaModel;
+use App\Models\HariLiburModel;
+use App\Libraries\JWTAuth;
 
 class WaktuApi extends ResourceController
 {
@@ -12,65 +15,88 @@ class WaktuApi extends ResourceController
 
     public function index()
     {
-        $timezone = env('app.appTimezone', 'Asia/Jakarta');
-        $waktuNow = Time::now($timezone);
-        $kodeHari = (int) $waktuNow->format('N');
-        $tanggalHariIni = $waktuNow->format('Y-m-d');
+        $zonaModel  = new ZonaModel();
+        $siswaModel = new SiswaModel();
+        $liburModel = new HariLiburModel();
+        $db         = \Config\Database::connect();
 
-        $db = \Config\Database::connect();
-        $siswaAuth = $this->request->siswaAuth ?? null;
-        $aturanZona = null;
+        $zona = null;
 
-        if ($siswaAuth && isset($siswaAuth['id_siswa'])) {
-            $siswaModel = new SiswaModel();
-            $aturanZona = $siswaModel->getAturanZonaSiswa((string)$siswaAuth['id_siswa'], $kodeHari);
-        }
+        // 1. Ekstrak Token JWT secara manual untuk mendeteksi siapa yang login
+        $header = $this->request->getHeaderLine('Authorization');
+        if (!empty($header)) {
+            $token = explode(' ', $header)[1] ?? null;
+            if ($token) {
+                try {
+                    $jwt = new JWTAuth();
+                    $decoded = $jwt->decodeToken($token);
 
-        if (!$aturanZona) {
-            $zonaDefault = $db->table('zona_absensi')->where('is_default', 1)->get()->getRowArray();
-            $idZonaDefault = isset($zonaDefault['id_zona']) ? $zonaDefault['id_zona'] : 1;
-            $jadwalDefault = $db->table('zona_jadwal')->where(['zona_id' => $idZonaDefault, 'kode_hari' => $kodeHari])->get()->getRowArray();
+                    // Deteksi ID Siswa (mendukung format object maupun array)
+                    $idSiswa = is_array($decoded) ? ($decoded['id_siswa'] ?? null) : ($decoded->id_siswa ?? null);
 
-            $aturanZona = [
-                // PERBAIKAN 1: Tambahkan key nama_zona untuk user yang memakai zona default
-                'nama_zona'  => $zonaDefault['nama_zona'] ?? 'Area Sekolah Pusat',
-                'latitude'   => $zonaDefault['latitude'] ?? -6.200000,
-                'longitude'  => $zonaDefault['longitude'] ?? 106.816666,
-                'radius'     => $zonaDefault['radius'] ?? 50,
-                'jam_masuk'  => $jadwalDefault['jam_masuk'] ?? '06:30:00',
-                'jam_pulang' => $jadwalDefault['jam_pulang'] ?? '15:00:00',
-                'is_libur'   => $jadwalDefault['is_libur'] ?? 0,
-            ];
-        }
-
-        $isLibur   = false;
-        $namaLibur = '';
-
-        $liburNasional = $db->table('hari_libur')->where('tanggal', $tanggalHariIni)->get()->getRowArray();
-        if ($liburNasional) {
-            $isLibur   = true;
-            $namaLibur = $liburNasional['keterangan'];
-        } else {
-            if ($aturanZona['is_libur'] == 1) {
-                $isLibur   = true;
-                $namaLibur = 'Libur Jadwal ' . ($aturanZona['nama_zona'] ?? 'Zona PKL');
+                    if ($idSiswa) {
+                        $siswa = $siswaModel->find($idSiswa);
+                        // Jika siswa dipasangkan ke zona PKL tertentu, ambil zona tersebut
+                        if ($siswa && !empty($siswa['zona_id'])) {
+                            $zona = $zonaModel->find($siswa['zona_id']);
+                        }
+                    }
+                } catch (\Exception $e) {
+                    // Token invalid/expired, biarkan sistem melakukan fallback ke zona default
+                }
             }
         }
 
+        // 2. Jika bukan siswa PKL (atau belum login), ambil Zona Default (Sekolah)
+        if (!$zona) {
+            $zona = $zonaModel->where('is_default', 1)->first();
+        }
+
+        // Safety check jika database zona masih kosong
+        if (!$zona) {
+            return $this->failServerError('Data Zona Absensi belum dikonfigurasi di database server.');
+        }
+
+        // 3. Cek Hari Libur Nasional / Custom
+        $isLibur = false;
+        $namaLibur = '';
+        $tz = getenv('app.appTimezone') ?: 'Asia/Jakarta';
+        $tanggalSekarang = Time::now($tz)->format('Y-m-d');
+
+        $cekLibur = $liburModel->where('tanggal', $tanggalSekarang)->first();
+        if ($cekLibur) {
+            $isLibur = true;
+            $namaLibur = $cekLibur['keterangan'];
+        }
+
+        // 4. Ambil Jadwal Absensi Khusus untuk Zona yang Terpilih Hari Ini
+        $kodeHariIni = Time::now($tz)->format('N'); // 1 = Senin, 7 = Minggu
+        $jadwal = $db->table('zona_jadwal')
+            ->where('zona_id', $zona['id_zona'])
+            ->where('kode_hari', $kodeHariIni)
+            ->get()
+            ->getRowArray();
+
+        // Cek Libur Akhir Pekan dari Jadwal Zona
+        if ($jadwal && $jadwal['is_libur'] == 1) {
+            $isLibur = true;
+            $namaLibur = $namaLibur ?: 'Libur Akhir Pekan';
+        }
+
+        // 5. Kembalikan Response Dinamis
         return $this->respond([
-            'status'  => 200,
-            'message' => 'Berhasil mengambil data konfigurasi server & lokasi zona',
-            'data'    => [
-                'waktu'       => $waktuNow->toDateTimeString(),
-                // PERBAIKAN 2: Lempar data nama_zona ke frontend Flutter!
-                'nama_zona'   => $aturanZona['nama_zona'] ?? 'Area Sekolah Default',
-                'jam_masuk'   => $aturanZona['jam_masuk'],
-                'jam_pulang'  => $aturanZona['jam_pulang'],
-                'lat_sekolah' => (float) $aturanZona['latitude'],
-                'lon_sekolah' => (float) $aturanZona['longitude'],
-                'radius'      => (float) $aturanZona['radius'],
-                'is_libur'    => $isLibur,
-                'nama_libur'  => $namaLibur
+            'status'      => 200,
+            'waktu'       => Time::now($tz)->toDateTimeString(),
+            'is_libur'    => $isLibur,
+            'nama_libur'  => $namaLibur,
+            'lat_sekolah' => (float) $zona['latitude'],
+            'lon_sekolah' => (float) $zona['longitude'],
+            'radius'      => (float) $zona['radius'],
+            'nama_zona'   => $zona['nama_zona'],
+            'jam_masuk'   => $jadwal['jam_masuk'] ?? '07:00:00',
+            'jam_pulang'  => $jadwal['jam_pulang'] ?? '15:00:00',
+            'pengaturan'  => [
+                'jam_buka' => $jadwal['waktu_buka_absen'] ?? '06:00:00'
             ]
         ]);
     }

@@ -73,6 +73,9 @@ class Zona extends BaseController
         }
         $db->table('zona_jadwal')->insertBatch($jadwalDefault);
 
+        // PERBAIKAN: Hapus cache otentikasi siswa agar mengambil konfigurasi zona baru
+        cache()->deleteMatching('siswa_auth_*');
+
         return redirect()->to('/admin/zona')->with('success', 'Zona absensi baru beserta jadwal default berhasil dibuat.');
     }
 
@@ -84,6 +87,9 @@ class Zona extends BaseController
             'longitude' => $this->request->getPost('longitude'),
             'radius'    => $this->request->getPost('radius'),
         ]);
+
+        // PERBAIKAN: Bersihkan cache semua siswa agar radius/koordinat langsung update di HP
+        cache()->deleteMatching('siswa_auth_*');
 
         return redirect()->to('/admin/zona')->with('success', 'Lokasi dan radius zona absensi berhasil diperbarui.');
     }
@@ -115,6 +121,9 @@ class Zona extends BaseController
             return redirect()->to('/admin/zona')->with('error', 'Gagal menyimpan pembaruan jadwal.');
         }
 
+        // PERBAIKAN: Hapus cache jadwal siswa yang terdampak
+        cache()->deleteMatching('siswa_auth_*');
+
         return redirect()->to('/admin/zona')->with('success', 'Jadwal & Jam Absensi untuk zona ini berhasil diperbarui.');
     }
 
@@ -143,6 +152,9 @@ class Zona extends BaseController
             return redirect()->to('/admin/zona')->with('error', 'Terjadi kesalahan sistem saat mengatur anggota zona.');
         }
 
+        // PERBAIKAN FATAL: Wajib membersihkan cache siswa setelah mereka dipindahkan ke zona PKL
+        cache()->deleteMatching('siswa_auth_*');
+
         return redirect()->to('/admin/zona')->with('success', 'Anggota (Kelas & Siswa) zona PKL/Kegiatan berhasil diperbarui.');
     }
 
@@ -153,6 +165,9 @@ class Zona extends BaseController
         if ($zona['is_default'] == 1) return redirect()->to('/admin/zona')->with('error', 'Akses Ditolak: Zona Default tidak boleh dihapus.');
 
         $this->zonaModel->delete($id);
+
+        cache()->deleteMatching('siswa_auth_*');
+
         return redirect()->to('/admin/zona')->with('success', 'Data zona absensi berhasil dihapus.');
     }
 
@@ -160,6 +175,9 @@ class Zona extends BaseController
     {
         $this->zonaModel->set('is_default', 0)->update();
         $this->zonaModel->update($id, ['is_default' => 1]);
+
+        cache()->deleteMatching('siswa_auth_*');
+
         return redirect()->to('/admin/zona')->with('success', 'Status Zona Default berhasil dipindahkan.');
     }
 }

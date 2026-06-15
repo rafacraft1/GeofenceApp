@@ -34,7 +34,8 @@ class FcmApi extends ResourceController
             return $this->failValidationErrors('FCM Token wajib dikirim.');
         }
 
-        $fcmToken = (string) $this->request->getPost('fcm_token');
+        // PERBAIKAN: Gunakan getVar() agar bisa membaca raw JSON payload dari aplikasi Flutter
+        $fcmToken = (string) $this->request->getVar('fcm_token');
 
         $this->siswaModel->update($siswa['id_siswa'], [
             'fcm_token' => $fcmToken

@@ -85,8 +85,6 @@ class Siswa extends BaseController
             ? $this->kelasModel->where('id_kelas', $kelasSessionId)->findAll()
             : $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll();
 
-        // MENCEGAH DUPLIKASI ZONA DEFAULT DI DROPDOWN UI
-        // Hanya memanggil zona PKL/Luar (is_default = 0)
         $listZona = $this->zonaModel->where('is_default', 0)->orderBy('nama_zona', 'ASC')->findAll();
 
         $siswa = $this->siswaModel->getPaginatedSiswa($kelasFilter, $searchFilter, $perPage, $sortCol, $sortDir);
@@ -286,7 +284,12 @@ class Siswa extends BaseController
         }
 
         $this->siswaModel->update($id, ['device_id' => null]);
+
+        // PERBAIKAN: Hapus kedua jenis cache agar Tracking dan Auth keriset sempurna
         cache()->delete("siswa_auth_{$id}");
+        if (!empty($siswa['device_id'])) {
+            cache()->delete("siswa_device_" . $siswa['device_id']);
+        }
 
         return redirect()->to('/admin/siswa')->with('success', 'Perangkat berhasil di-reset.');
     }
