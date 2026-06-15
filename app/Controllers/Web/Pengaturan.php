@@ -29,8 +29,8 @@ class Pengaturan extends BaseController
         $rules = [
             'nama_aplikasi' => 'required|min_length[3]',
             'nama_sekolah'  => 'required|min_length[3]',
-            'app_version'   => 'required', // Tambahan wajib isi
-            'app_link'      => 'permit_empty' // Opsional (bisa dikosongkan jika belum ada link)
+            'app_version'   => 'required',
+            'app_link'      => 'permit_empty'
         ];
 
         if (!$this->validate($rules)) {
@@ -40,9 +40,8 @@ class Pengaturan extends BaseController
         $data = [
             'nama_aplikasi' => (string) $this->request->getPost('nama_aplikasi'),
             'nama_sekolah'  => (string) $this->request->getPost('nama_sekolah'),
-            'firebase_url'  => (string) $this->request->getPost('firebase_url'),
-            'app_version'   => (string) $this->request->getPost('app_version'), // Simpan versi
-            'app_link'      => (string) $this->request->getPost('app_link'),     // Simpan link
+            'app_version'   => (string) $this->request->getPost('app_version'),
+            'app_link'      => (string) $this->request->getPost('app_link'),
             'updated_at'    => date('Y-m-d H:i:s')
         ];
 
@@ -55,7 +54,7 @@ class Pengaturan extends BaseController
 
         // Hapus cache agar pengaturan baru langsung terbaca di Dashboard Web dan Aplikasi Flutter
         cache()->delete('pengaturan_global');
-        cache()->delete('app_pengaturan_data'); // Cache milik ApiAuthFilter yang kita buat sebelumnya
+        cache()->delete('app_pengaturan_data');
 
         return redirect()->to('/admin/pengaturan')->with('success', 'Pengaturan identitas dan versi aplikasi berhasil diperbarui!');
     }

@@ -3,47 +3,50 @@
 namespace App\Controllers\Web;
 
 use App\Controllers\BaseController;
-use App\Models\SiswaModel;
 use App\Models\KelasModel;
+use App\Models\SiswaModel;
 
 class Mutasi extends BaseController
 {
-    protected SiswaModel $siswaModel;
     protected KelasModel $kelasModel;
+    protected SiswaModel $siswaModel;
 
     public function __construct()
     {
-        $this->siswaModel = new SiswaModel();
         $this->kelasModel = new KelasModel();
+        $this->siswaModel = new SiswaModel();
     }
 
     public function index()
     {
-        if (session()->get('role_id') != 1) {
-            return redirect()->to('/admin/dashboard')->with('error', 'Akses Ditolak: Fitur Mutasi hanya diperuntukkan bagi Administrator.');
-        }
+        // 1. Ambil semua kelas untuk dropdown
+        $listKelas = $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll();
 
+        // 2. Tangkap query string 'asal' (Sesuai dengan name="asal" di View formPilihAsal)
         $kelasAsalId = $this->request->getGet('asal');
 
-        $listKelas = $this->kelasModel->orderBy('nama_kelas', 'ASC')->findAll();
         $siswaAsal = [];
         $kelasAsalData = null;
 
         if (!empty($kelasAsalId)) {
-            $siswaAsal = $this->siswaModel->where('kelas_id', $kelasAsalId)->orderBy('nama_siswa', 'ASC')->findAll();
-
+            // 3. Ambil detail kelas asal beserta nama Wali Kelasnya (jika ada)
             $kelasAsalData = $this->kelasModel->select('kelas.*, users.nama_lengkap as nama_wali')
                 ->join('users', 'users.id_user = kelas.wali_kelas_id', 'left')
-                ->where('id_kelas', $kelasAsalId)
-                ->first();
+                ->find($kelasAsalId);
+
+            // 4. Ambil daftar siswa di kelas tersebut
+            $siswaAsal = $this->siswaModel->where('kelas_id', $kelasAsalId)
+                ->orderBy('nama_siswa', 'ASC')
+                ->findAll();
         }
 
+        // 5. Kirim data ke View dengan nama variabel yang SAMA PERSIS dengan deklarasi di View
         $data = [
-            'title'         => 'Mutasi Siswa & Wali Kelas (SCD)',
+            'title'         => 'Mutasi & Kenaikan Kelas',
             'listKelas'     => $listKelas,
             'kelasAsalId'   => $kelasAsalId,
-            'siswaAsal'     => $siswaAsal,
-            'kelasAsalData' => $kelasAsalData
+            'kelasAsalData' => $kelasAsalData,
+            'siswaAsal'     => $siswaAsal
         ];
 
         return view('web/mutasi', $data);
@@ -51,41 +54,81 @@ class Mutasi extends BaseController
 
     public function proses()
     {
-        if (session()->get('role_id') != 1) {
-            return redirect()->to('/admin/dashboard')->with('error', 'Akses Ditolak.');
+        $aturanValidasi = [
+            'kelas_asal'   => 'required|numeric',
+            'kelas_tujuan' => 'required|numeric',
+            'siswa_ids'    => 'required'
+        ];
+
+        if (!$this->validate($aturanValidasi)) {
+            return redirect()->back()->with('error', 'Pilih kelas asal, kelas tujuan, dan minimal 1 siswa untuk dimutasi.');
         }
 
-        $kelasAsalId   = (int) $this->request->getPost('kelas_asal_id');
-        $kelasTujuanId = (int) $this->request->getPost('kelas_tujuan_id');
-        $siswaIds      = $this->request->getPost('siswa_id');
-        $pindahWali    = $this->request->getPost('pindah_wali') ? true : false;
+        $kelasAsal   = (int) $this->request->getPost('kelas_asal');
+        $kelasTujuan = (int) $this->request->getPost('kelas_tujuan');
+        $siswaIds    = $this->request->getPost('siswa_ids');
+        $pindahWali  = $this->request->getPost('pindah_wali') == '1';
 
-        if ($kelasAsalId === $kelasTujuanId) {
-            return redirect()->back()->with('error', 'Validasi gagal: Kelas asal dan tujuan tidak boleh sama.');
+        if ($kelasAsal === $kelasTujuan) {
+            return redirect()->back()->with('error', 'Kelas asal dan kelas tujuan tidak boleh sama.');
         }
 
-        if (empty($siswaIds) || !is_array($siswaIds)) {
-            return redirect()->back()->with('error', 'Validasi gagal: Pilih minimal satu siswa untuk dimutasi.');
+        if (!is_array($siswaIds) || empty($siswaIds)) {
+            return redirect()->back()->with('error', 'Tidak ada siswa yang dipilih.');
         }
 
-        $this->kelasModel->db->transStart();
+        $this->siswaModel->db->transStart();
 
-        $this->siswaModel->whereIn('id_siswa', $siswaIds)->set(['kelas_id' => $kelasTujuanId])->update();
+        // 1. Eksekusi pemindahan Siswa
+        foreach ($siswaIds as $idSiswa) {
+            $this->siswaModel->update($idSiswa, [
+                'kelas_id' => $kelasTujuan,
+                'zona_id'  => null // MENCEGAH GHOST PKL: Reset Zona PKL ke default saat pindah kelas
+            ]);
 
+            // Bersihkan cache absensi anak ini agar API-nya langsung minta zona yang baru
+            cache()->delete("siswa_auth_{$idSiswa}");
+        }
+
+        // 2. Eksekusi pemindahan Wali Kelas (Jika dicentang oleh Admin)
         if ($pindahWali) {
-            $kelasAsal = $this->kelasModel->find($kelasAsalId);
-            if (!empty($kelasAsal['wali_kelas_id'])) {
-                $this->kelasModel->update($kelasTujuanId, ['wali_kelas_id' => $kelasAsal['wali_kelas_id']]);
-                $this->kelasModel->update($kelasAsalId, ['wali_kelas_id' => null]);
+            $kelasAsalData = $this->kelasModel->find($kelasAsal);
+            if ($kelasAsalData && !empty($kelasAsalData['wali_kelas_id'])) {
+                $waliId = $kelasAsalData['wali_kelas_id'];
+                // Cabut guru dari kelas asal
+                $this->kelasModel->update($kelasAsal, ['wali_kelas_id' => null]);
+                // Pindahkan guru menjadi wali di kelas tujuan
+                $this->kelasModel->update($kelasTujuan, ['wali_kelas_id' => $waliId]);
             }
         }
 
-        $this->kelasModel->db->transComplete();
+        $this->siswaModel->db->transComplete();
 
-        if ($this->kelasModel->db->transStatus() === false) {
-            return redirect()->to('/admin/mutasi')->with('error', 'Terjadi fatal error pada database saat memproses mutasi.');
+        if ($this->siswaModel->db->transStatus() === false) {
+            return redirect()->back()->with('error', 'Terjadi kesalahan sistem saat memproses mutasi.');
         }
 
-        return redirect()->to('/admin/mutasi')->with('success', count($siswaIds) . ' Siswa berhasil dimutasi ke kelas baru.');
+        // Hapus cache publik
+        cache()->deleteMatching('list_siswa_dropdown_*');
+        cache()->deleteMatching('leaderboard_*');
+
+        // Redirect ke kelas tujuan untuk melihat hasilnya langsung
+        return redirect()->to('/admin/mutasi?asal=' . $kelasTujuan)
+            ->with('success', count($siswaIds) . ' siswa berhasil dipindahkan ke kelas baru.');
+    }
+
+    // Endpoint API Internal untuk AJAX "Smart Merge Warning" di Frontend
+    public function checkTujuan(string $id)
+    {
+        $jumlahSiswa = $this->siswaModel->where('kelas_id', $id)->countAllResults();
+        $kelasInfo   = $this->kelasModel->select('kelas.*, users.nama_lengkap as nama_wali')
+            ->join('users', 'users.id_user = kelas.wali_kelas_id', 'left')
+            ->find($id);
+
+        return $this->response->setJSON([
+            'status'    => 200,
+            'jumlah'    => $jumlahSiswa,
+            'nama_wali' => $kelasInfo['nama_wali'] ?? 'Belum Ditentukan'
+        ]);
     }
 }

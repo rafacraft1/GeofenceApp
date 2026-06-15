@@ -15,9 +15,8 @@ class PengaturanModel extends Model
     protected $allowedFields    = [
         'nama_aplikasi',
         'nama_sekolah',
-        'firebase_url',
-        'app_version', // Tambahan
-        'app_link',    // Tambahan
+        'app_version',
+        'app_link',
         'updated_at'
     ];
 }

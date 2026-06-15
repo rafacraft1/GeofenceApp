@@ -41,10 +41,6 @@ class AbsensiModel extends Model
     protected $beforeDelete      = ['auditBeforeDelete'];
     protected $afterDelete       = ['auditAfterDelete'];
 
-    /**
-     * @param array $data
-     * @return array
-     */
     protected function auditInsert(array $data): array
     {
         if (!isset($data['result']) || !$data['result']) return $data;
@@ -53,10 +49,6 @@ class AbsensiModel extends Model
         return $data;
     }
 
-    /**
-     * @param array $data
-     * @return array
-     */
     protected function auditBeforeUpdate(array $data): array
     {
         $ids = $data['id'] ?? [];
@@ -70,10 +62,6 @@ class AbsensiModel extends Model
         return $data;
     }
 
-    /**
-     * @param array $data
-     * @return array
-     */
     protected function auditAfterUpdate(array $data): array
     {
         if (!isset($data['result']) || !$data['result']) return $data;
@@ -86,10 +74,6 @@ class AbsensiModel extends Model
         return $data;
     }
 
-    /**
-     * @param array $data
-     * @return array
-     */
     protected function auditBeforeDelete(array $data): array
     {
         $ids = $data['id'] ?? [];
@@ -103,10 +87,6 @@ class AbsensiModel extends Model
         return $data;
     }
 
-    /**
-     * @param array $data
-     * @return array
-     */
     protected function auditAfterDelete(array $data): array
     {
         if (!isset($data['result']) || !$data['result']) return $data;
@@ -119,39 +99,42 @@ class AbsensiModel extends Model
         return $data;
     }
 
-    /**
-     * @param AbsensiModel $model
-     * @param int|null $kelasId
-     * @return AbsensiModel
-     */
     private function applyScopeKelas(AbsensiModel $model, ?int $kelasId = null): AbsensiModel
     {
         if ($kelasId !== null) $model->where('absensi.kelas_id', $kelasId);
         return $model;
     }
 
-    /**
-     * @param string $tanggal
-     * @param int|null $kelasId
-     * @return array
-     */
+    // -------------------------------------------------------------------
+    // FUNGSI DASHBOARD & STATISTIK (DIPERBAIKI)
+    // -------------------------------------------------------------------
+
     public function getDashboardStats(string $tanggal, ?int $kelasId = null): array
     {
         $builder = $this->select('
             SUM(CASE WHEN status IN ("Hadir", "Terlambat", "Dispensasi") THEN 1 ELSE 0 END) as hadir,
-            SUM(CASE WHEN status = "Alpa" THEN 1 ELSE 0 END) as alpa,
-            SUM(CASE WHEN status = "Manipulasi" THEN 1 ELSE 0 END) as fraud
+            SUM(CASE WHEN status = "Alpa" THEN 1 ELSE 0 END) as alpa
         ')->where('tanggal', $tanggal);
 
         $this->applyScopeKelas($builder, $kelasId);
-        return $builder->first() ?? ['hadir' => 0, 'alpa' => 0, 'fraud' => 0];
+        $stats = $builder->first() ?? ['hadir' => 0, 'alpa' => 0];
+
+        // Hitung total fraud (keamanan berlapis) dari tabel log_fraud
+        $fraudBuilder = $this->db->table('log_fraud');
+        $fraudBuilder->where('DATE(created_at)', $tanggal);
+        if ($kelasId) {
+            $fraudBuilder->join('siswa', 'siswa.id_siswa = log_fraud.siswa_id');
+            $fraudBuilder->where('siswa.kelas_id', $kelasId);
+        }
+        $fraudCount = $fraudBuilder->countAllResults();
+
+        return [
+            'hadir' => (int) ($stats['hadir'] ?? 0),
+            'alpa'  => (int) ($stats['alpa'] ?? 0),
+            'fraud' => $fraudCount
+        ];
     }
 
-    /**
-     * @param string $tanggal
-     * @param int|null $kelasId
-     * @return array
-     */
     public function getDashboardDistribution(string $tanggal, ?int $kelasId = null): array
     {
         $builder = $this->select('
@@ -169,28 +152,37 @@ class AbsensiModel extends Model
         return [(int)$res['hadir'], (int)$res['dispensasi'], (int)$res['terlambat'], (int)$res['sakit'], (int)$res['izin'], (int)$res['alpa']];
     }
 
-    /**
-     * @param string $tanggal
-     * @param int|null $kelasId
-     * @return array
-     */
     public function getFraudList(string $tanggal, ?int $kelasId = null): array
     {
-        $builder = $this->select('absensi.id_absensi, absensi.jam_masuk, absensi.is_fake_gps, absensi.lat_masuk, absensi.long_masuk, siswa.nama_siswa, kelas.nama_kelas as kelas')
-            ->join('siswa', 'siswa.id_siswa = absensi.siswa_id')
-            ->join('kelas', 'kelas.id_kelas = absensi.kelas_id', 'left')
-            ->where('absensi.tanggal', $tanggal)
-            ->groupStart()->where('absensi.status', 'Manipulasi')->orWhere('absensi.is_fake_gps', 1)->groupEnd();
+        $builder = $this->db->table('log_fraud');
 
-        $this->applyScopeKelas($builder, $kelasId);
-        return $builder->orderBy('absensi.jam_masuk', 'DESC')->findAll();
+        $builder->select('
+            log_fraud.id_log, 
+            log_fraud.created_at as jam_masuk, 
+            log_fraud.lat_fraud as lat_masuk, 
+            log_fraud.long_fraud as long_masuk, 
+            (CASE WHEN log_fraud.tipe_fraud LIKE \'%Fake GPS%\' THEN 1 ELSE 0 END) as is_fake_gps, 
+            siswa.nama_siswa, 
+            kelas.nama_kelas as kelas
+        ');
+        $builder->join('siswa', 'siswa.id_siswa = log_fraud.siswa_id');
+        $builder->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
+
+        $builder->where('DATE(log_fraud.created_at)', $tanggal);
+        $builder->where('log_fraud.lat_fraud IS NOT NULL');
+
+        if ($kelasId) {
+            $builder->where('siswa.kelas_id', $kelasId);
+        }
+
+        $builder->orderBy('log_fraud.created_at', 'DESC');
+        return $builder->get()->getResultArray();
     }
 
-    /**
-     * @param string $tanggal
-     * @param int|null $kelasId
-     * @return array
-     */
+    // -------------------------------------------------------------------
+    // FUNGSI UTAMA HALAMAN ABSENSI (YANG SEMPAT HILANG SEKARANG KEMBALI)
+    // -------------------------------------------------------------------
+
     public function getLeaderboardKelas(string $tanggal, ?int $kelasId = null): array
     {
         $builder = $this->select('kelas.nama_kelas, COUNT(absensi.id_absensi) as total_hadir')
@@ -204,12 +196,6 @@ class AbsensiModel extends Model
         return $builder->findAll();
     }
 
-    /**
-     * @param string $startDate
-     * @param string $endDate
-     * @param int|null $kelasId
-     * @return array
-     */
     public function getTrendKehadiran(string $startDate, string $endDate, ?int $kelasId = null): array
     {
         $builder = $this->select('tanggal, status, COUNT(id_absensi) as total')
@@ -219,15 +205,6 @@ class AbsensiModel extends Model
         return $builder->findAll();
     }
 
-    /**
-     * @param string $tanggal
-     * @param int|null $kelasId
-     * @param string|null $search
-     * @param int $perPage
-     * @param string $sortCol
-     * @param string $sortDir
-     * @return mixed
-     */
     public function getPaginatedAbsensiHarian(string $tanggal, ?int $kelasId = null, ?string $search = null, int $perPage = 20, string $sortCol = 'jam_masuk', string $sortDir = 'desc')
     {
         $builder = $this->select('absensi.*, siswa.nama_siswa, siswa.nis, kelas.nama_kelas')
@@ -242,13 +219,6 @@ class AbsensiModel extends Model
         return $builder->orderBy($orderCol, $sortDir)->paginate($perPage, 'default');
     }
 
-    /**
-     * @param string $idSiswa
-     * @param string|null $startDate
-     * @param string|null $endDate
-     * @param int $perPage
-     * @return mixed
-     */
     public function getRiwayatAbsensiSiswa(string $idSiswa, ?string $startDate = null, ?string $endDate = null, int $perPage = 10)
     {
         $builder = $this->where('siswa_id', $idSiswa);
@@ -257,10 +227,6 @@ class AbsensiModel extends Model
         return $builder->orderBy('tanggal', 'DESC')->paginate($perPage, 'absensi');
     }
 
-    /**
-     * @param string $idSiswa
-     * @return array
-     */
     public function getStatistikSiswa(string $idSiswa): array
     {
         $result = $this->select('
