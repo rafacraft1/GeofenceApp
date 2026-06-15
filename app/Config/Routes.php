@@ -112,7 +112,7 @@ $routes->group('api/v1', ['filter' => 'throttle', 'namespace' => 'App\Controller
         $routes->post('absen/masuk', 'AbsensiApi::masuk');
         $routes->post('absen/pulang', 'AbsensiApi::pulang');
         $routes->get('absen/riwayat', 'AbsensiApi::riwayat');
-        $routes->post('tracking/updateLokasi', 'TrackingApi::updateLokasi');
+        $routes->post('tracking/updateLokasi', 'TrackingApi::updateLocation');
         $routes->post('profile/upload-foto', 'ProfileApi::uploadFoto');
         $routes->post('izin/ajukan', 'IzinApi::ajukan');
         $routes->get('izin/riwayat', 'IzinApi::riwayat');

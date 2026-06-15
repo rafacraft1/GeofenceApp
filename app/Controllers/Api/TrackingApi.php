@@ -107,11 +107,11 @@ class TrackingApi extends ResourceController
             return $this->failValidationErrors($this->validator->getErrors());
         }
 
-        $lat       = (float) $this->request->getPost('latitude');
-        $lon       = (float) $this->request->getPost('longitude');
-        $accuracy  = (float) $this->request->getPost('accuracy');
-        $isMock    = (int) $this->request->getPost('is_mock');
-        $timestamp = (int) $this->request->getPost('device_timestamp');
+        $lat       = (float) $this->request->getVar('latitude');
+        $lon       = (float) $this->request->getVar('longitude');
+        $accuracy  = (float) $this->request->getVar('accuracy');
+        $isMock    = (int) $this->request->getVar('is_mock');
+        $timestamp = (int) $this->request->getVar('device_timestamp');
 
         $fraudCheck = $this->cekAntiFraud((int) $siswa['id_siswa'], $timestamp, $accuracy, $isMock, $lat, $lon);
         if ($fraudCheck) return $fraudCheck;
