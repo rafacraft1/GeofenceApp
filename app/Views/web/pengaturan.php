@@ -15,7 +15,7 @@ $isFirebaseEmpty = empty($envFirebaseUrl);
     <div class="mb-6 flex flex-col md:flex-row justify-between md:items-center gap-4">
         <div>
             <h2 class="text-2xl font-bold text-gray-800">Pengaturan Sistem</h2>
-            <p class="text-sm text-gray-500 mt-1">Kelola identitas aplikasi dan konfigurasi server Firebase.</p>
+            <p class="text-sm text-gray-500 mt-1">Kelola identitas aplikasi, kontrol pembaruan APK, dan konfigurasi Firebase.</p>
         </div>
     </div>
 
@@ -51,6 +51,29 @@ $isFirebaseEmpty = empty($envFirebaseUrl);
                 <div>
                     <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Nama Sekolah / Instansi</label>
                     <input type="text" name="nama_sekolah" value="<?= esc((string) ($pengaturan['nama_sekolah'] ?? 'SMKN 1 TGB')) ?>" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 text-sm font-bold text-gray-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all" required placeholder="Cth: Nama Instansi Anda">
+                </div>
+            </div>
+
+            <div class="w-full h-px bg-gray-100 my-6"></div>
+
+            <div class="space-y-5">
+                <div class="flex items-center gap-2 mb-2">
+                    <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                    <h3 class="text-sm font-bold text-gray-800 uppercase">Kontrol Pembaruan (APK)</h3>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Versi Aplikasi Wajib</label>
+                        <input type="text" name="app_version" value="<?= esc((string) ($pengaturan['app_version'] ?? '1.0.0')) ?>" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 text-sm font-bold text-gray-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all" required placeholder="Cth: 1.0.0">
+                        <p class="text-[10px] font-medium text-gray-500 mt-1.5 leading-relaxed">Jika versi aplikasi di HP siswa berada di bawah versi ini, akses akan ditolak secara otomatis.</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Link Download APK</label>
+                        <input type="url" name="app_link" value="<?= esc((string) ($pengaturan['app_link'] ?? '')) ?>" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 text-sm font-bold text-gray-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all" placeholder="https:// ...">
+                        <p class="text-[10px] font-medium text-gray-500 mt-1.5 leading-relaxed">Tautan unduhan ke G-Drive/Github. (Gunakan awalan http:// atau https://)</p>
+                    </div>
                 </div>
             </div>
 
