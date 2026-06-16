@@ -1,0 +1,4 @@
+<FilesMatch "\.(php|php4|php5|php7|phtml|pl|py|jsp|asp|htm|shtml|sh|cgi)$">
+    SetHandler None
+    ForceType text/plain
+</FilesMatch>

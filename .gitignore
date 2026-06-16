@@ -144,4 +144,10 @@ public/uploads/profiles/*
 !public/uploads/pengumuman/.gitkeep
 !public/uploads/profiles/.gitkeep
 
+!public/uploads/absensi/.htaccess
+!public/uploads/siswa/.htaccess
+!public/uploads/izin/.htaccess
+!public/uploads/pengumuman/.htaccess
+!public/uploads/profiles/.htaccess
+
 node_modules/
