@@ -142,7 +142,7 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
         <div>
             <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Penempatan (Magang/PKL)</label>
             <select name="zona_id" class="w-full border border-gray-200 rounded-xl p-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-amber-500 transition-all cursor-pointer text-gray-700">
-                <option value="">🏫 Mengikuti Zona Sekolah / Kelas</option>
+                <option value="">🗺️ Mengikuti Zona Sekolah / Kelas</option>
                 <?php if (!empty($list_zona)) : ?>
                     <?php foreach ($list_zona as $z): ?>
                         <option value="<?= (string) $z['id_zona'] ?>">📍 <?= esc((string) $z['nama_zona']) ?></option>
@@ -257,6 +257,17 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
                                         </svg>
                                     </button>
 
+                                    <?php if (!empty($s['device_id'])): ?>
+                                        <form action="<?= base_url('admin/siswa/resetDevice/' . (string) $s['id_siswa']) ?>" method="POST" class="inline">
+                                            <?= csrf_field() ?>
+                                            <button type="button" class="btn-confirm p-2 text-amber-600 bg-amber-50 hover:bg-amber-100 hover:text-amber-700 border border-amber-200 rounded-lg transition-colors" data-text="Ikatan perangkat (HP) siswa ini akan dilepas/direset. Lanjutkan?" data-btn="Ya, Reset HP" title="Reset Perangkat HP">
+                                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+                                                </svg>
+                                            </button>
+                                        </form>
+                                    <?php endif; ?>
+
                                     <form action="<?= base_url('admin/siswa/delete/' . (string) $s['id_siswa']) ?>" method="POST" class="inline">
                                         <?= csrf_field() ?>
                                         <button type="button" class="btn-confirm p-2 text-slate-600 bg-slate-50 hover:bg-red-100 hover:text-red-600 border border-slate-200 rounded-lg transition-colors" data-text="Data siswa beserta foto akan dihapus permanen. Lanjutkan?" data-btn="Ya, Hapus Permanen" title="Hapus Siswa">
@@ -361,7 +372,7 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
             <div>
                 <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Penempatan (Magang/PKL)</label>
                 <select id="edit-zona" name="zona_id" class="w-full border border-gray-200 rounded-xl p-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-amber-500 transition-all cursor-pointer text-gray-700">
-                    <option value="">🏫 Mengikuti Zona Sekolah / Kelas</option>
+                    <option value="">🗺️ Mengikuti Zona Sekolah / Kelas</option>
                     <?php if (!empty($list_zona)) : ?>
                         <?php foreach ($list_zona as $z): ?>
                             <option value="<?= (string) $z['id_zona'] ?>">📍 <?= esc((string) $z['nama_zona']) ?></option>
