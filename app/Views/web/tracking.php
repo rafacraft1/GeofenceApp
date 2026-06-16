@@ -29,7 +29,7 @@
             <?php if (!empty($list_siswa)) : ?>
                 <?php foreach ($list_siswa as $s): ?>
                     <button id="btn-siswa-<?= esc((string)$s['id_siswa']) ?>"
-                        onclick="focusSiswa(<?= esc((string)$s['id_siswa']) ?>, '<?= esc(addslashes((string)$s['nama_siswa'])) ?>')"
+                        onclick="focusSiswa(<?= esc((string)$s['id_siswa']) ?>, '<?= esc(addslashes((string)$s['nama_siswa'])) ?>', <?= isset($s['zona_lat']) && $s['zona_lat'] !== null ? $s['zona_lat'] : 'null' ?>, <?= isset($s['zona_lng']) && $s['zona_lng'] !== null ? $s['zona_lng'] : 'null' ?>, <?= isset($s['zona_radius']) && $s['zona_radius'] !== null ? $s['zona_radius'] : 'null' ?>)"
                         class="siswa-item w-full flex items-center justify-between p-3 rounded-xl hover:bg-blue-50 transition-all text-left group border border-transparent focus:outline-none gap-2"
                         data-nama="<?= esc(strtolower((string)$s['nama_siswa'])) ?>"
                         data-nis="<?= esc(strtolower((string)$s['nis'])) ?>">
@@ -108,6 +108,11 @@
     let polylineLayer = null;
     let currentTargetId = null;
     let intervalId = null;
+    let currentZoneCircle = null; // Menyimpan layer lingkaran zona agar bisa dihapus saat pindah siswa
+
+    // Variabel dinamis untuk token CSRF
+    let csrfTokenName = '<?= csrf_header() ?>';
+    let csrfTokenValue = '<?= csrf_hash() ?>';
 
     document.addEventListener('DOMContentLoaded', function() {
         const googleStreets = L.tileLayer('https://{s}.google.com/vt?lyrs=m&x={x}&y={y}&z={z}', {
@@ -145,9 +150,10 @@
         }).addTo(map);
 
         window.L.marker([<?= (string)$zona_default['latitude'] ?>, <?= (string)$zona_default['longitude'] ?>])
-            .addTo(map).bindPopup("<b>Zona Default</b><br>Radius: <?= (string)$zona_default['radius'] ?>m").openPopup();
+            .addTo(map).bindPopup("<b>Zona Sekolah (Default)</b><br>Radius: <?= (string)$zona_default['radius'] ?>m").openPopup();
 
-        window.L.circle([<?= (string)$zona_default['latitude'] ?>, <?= (string)$zona_default['longitude'] ?>], {
+        // Menggambar lingkaran zona awal dan memasukannya ke variabel global
+        currentZoneCircle = window.L.circle([<?= (string)$zona_default['latitude'] ?>, <?= (string)$zona_default['longitude'] ?>], {
             color: '#3b82f6',
             fillColor: '#3b82f6',
             fillOpacity: 0.15,
@@ -184,7 +190,7 @@
         }
     });
 
-    function focusSiswa(idSiswa, nama) {
+    function focusSiswa(idSiswa, nama, zonaLat, zonaLng, zonaRadius) {
         if (intervalId) clearInterval(intervalId);
         currentTargetId = idSiswa;
 
@@ -203,8 +209,28 @@
         document.getElementById('btn-ping').classList.remove('hidden');
         document.getElementById('btn-ping').classList.add('flex');
 
+        // Hapus lingkaran zona dari siswa sebelumnya
+        if (currentZoneCircle) {
+            map.removeLayer(currentZoneCircle);
+        }
+
+        // Tentukan koordinat (gunakan sekolah/default jika tidak punya PKL spesifik)
+        let lat = zonaLat !== null ? parseFloat(zonaLat) : <?= (string)$zona_default['latitude'] ?>;
+        let lng = zonaLng !== null ? parseFloat(zonaLng) : <?= (string)$zona_default['longitude'] ?>;
+        let rad = zonaRadius !== null ? parseFloat(zonaRadius) : <?= (string)$zona_default['radius'] ?>;
+
+        // Gambar lingkaran zona untuk siswa yang diklik
+        currentZoneCircle = window.L.circle([lat, lng], {
+            color: zonaLat !== null ? '#f59e0b' : '#3b82f6', // Kuning/Amber jika PKL, Biru jika Sekolah
+            fillColor: zonaLat !== null ? '#f59e0b' : '#3b82f6',
+            fillOpacity: 0.15,
+            radius: rad
+        }).addTo(map);
+
         pingSiswa();
-        intervalId = setInterval(fetchLocationArray, 3000);
+
+        // Membatasi polling lokasi per 5 detik untuk menghemat sumber daya server
+        intervalId = setInterval(fetchLocationArray, 5000);
     }
 
     function fetchLocationArray() {
@@ -274,23 +300,41 @@
 
     function pingSiswa() {
         if (!currentTargetId) return;
+
+        // Nonaktifkan tombol sementara agar tidak diklik berkali-kali
+        const btnPing = document.getElementById('btn-ping');
+        if (btnPing) btnPing.disabled = true;
+
         if (typeof toastr !== 'undefined') toastr.info("Mengirim sinyal pelacakan ke HP...");
+
         fetch(`<?= base_url('admin/tracking/pingSiswa/') ?>${currentTargetId}`, {
                 method: 'POST',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
-                    '<?= csrf_header() ?>': '<?= csrf_hash() ?>'
+                    [csrfTokenName]: csrfTokenValue // Menyisipkan token keamanan yang terbaru
                 }
             })
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error("Gagal / Sesi Kedaluwarsa");
+                return res.json();
+            })
             .then(data => {
+                if (btnPing) btnPing.disabled = false;
+
+                // Mengganti Token lama di memori Javascript dengan Token baru dari server
+                if (data.csrf_token) {
+                    csrfTokenValue = data.csrf_token;
+                }
+
                 if (data.status === 200) {
                     if (typeof toastr !== 'undefined') toastr.success(data.message);
                 } else {
                     if (typeof toastr !== 'undefined') toastr.error(data.message);
                 }
             }).catch(err => {
-                if (typeof toastr !== 'undefined') toastr.error("Gangguan jaringan ke server.");
+                if (btnPing) btnPing.disabled = false;
+                console.error(err);
+                if (typeof toastr !== 'undefined') toastr.error("Sesi pengamanan berubah. Silakan Refresh (F5) halaman Anda.");
             });
     }
 </script>

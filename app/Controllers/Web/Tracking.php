@@ -41,8 +41,10 @@ class Tracking extends BaseController
             'radius' => 50
         ];
 
-        $this->siswaModel->select('siswa.id_siswa, siswa.nis, siswa.nama_siswa, siswa.device_id, kelas.nama_kelas')
-            ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
+        // Join ke tabel zona_absensi untuk menampilkan spesifik zona PKL (jika ada)
+        $this->siswaModel->select('siswa.id_siswa, siswa.nis, siswa.nama_siswa, siswa.device_id, kelas.nama_kelas, zona_absensi.latitude as zona_lat, zona_absensi.longitude as zona_lng, zona_absensi.radius as zona_radius')
+            ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left')
+            ->join('zona_absensi', 'zona_absensi.id_zona = siswa.zona_id', 'left');
 
         if (session()->get('is_wali_kelas')) {
             $this->siswaModel->where('siswa.kelas_id', session()->get('kelas_id'));
@@ -138,19 +140,41 @@ class Tracking extends BaseController
         helper('fcm');
         $siswa = $this->siswaModel->find($idSiswa);
 
+        // Selalu return 'csrf_token' untuk memperbarui kunci pada Javascript browser
         if (!$siswa || !$this->checkAksesWaliKelas((int)$siswa['kelas_id'])) {
-            return $this->response->setJSON(['status' => 404, 'message' => 'Data siswa tidak ditemukan atau diluar akses.']);
+            return $this->response->setJSON([
+                'status' => 404,
+                'message' => 'Data siswa tidak ditemukan atau diluar akses.',
+                'csrf_token' => csrf_hash()
+            ]);
         }
         if (empty($siswa['fcm_token'])) {
-            return $this->response->setJSON(['status' => 400, 'message' => 'Perangkat siswa belum tersambung (Token FCM Kosong).']);
+            return $this->response->setJSON([
+                'status' => 400,
+                'message' => 'Perangkat siswa belum tersambung (Token FCM Kosong).',
+                'csrf_token' => csrf_hash()
+            ]);
         }
 
         $result = send_fcm_notification((string)$siswa['fcm_token'], "Pengingat Absensi", "Jangan Lupa Absen Masuk/Pulang Hari ini", ['action' => 'fetch_location']);
 
-        if ($result === false) return $this->response->setJSON(['status' => 500, 'message' => 'Gagal menghubungi Firebase Cloud.']);
-        $responseJson = json_decode($result, true);
-        if (isset($responseJson['error'])) return $this->response->setJSON(['status' => 400, 'message' => 'Error HP Siswa: ' . $responseJson['error']['message']]);
+        if ($result === false) return $this->response->setJSON([
+            'status' => 500,
+            'message' => 'Gagal menghubungi Firebase Cloud.',
+            'csrf_token' => csrf_hash()
+        ]);
 
-        return $this->response->setJSON(['status' => 200, 'message' => 'Sinyal PING berhasil dikirim ke perangkat.']);
+        $responseJson = json_decode($result, true);
+        if (isset($responseJson['error'])) return $this->response->setJSON([
+            'status' => 400,
+            'message' => 'Error HP Siswa: ' . $responseJson['error']['message'],
+            'csrf_token' => csrf_hash()
+        ]);
+
+        return $this->response->setJSON([
+            'status' => 200,
+            'message' => 'Sinyal PING berhasil dikirim ke perangkat.',
+            'csrf_token' => csrf_hash()
+        ]);
     }
 }
