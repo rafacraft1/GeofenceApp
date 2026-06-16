@@ -233,8 +233,9 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
                         <span class="text-xs font-mono bg-blue-600 text-white px-2 py-1 rounded-md font-bold shadow-sm" id="dtl-jam-masuk">--:--:--</span>
                     </div>
 
-                    <div class="w-full h-40 md:h-48 rounded-xl bg-gray-200 border-4 border-white shadow-sm overflow-hidden mb-4 flex flex-col items-center justify-center relative">
-                        <img id="dtl-foto-masuk" src="" class="w-full h-full object-cover hidden" alt="Foto Masuk">
+                    <div class="w-full h-40 md:h-48 rounded-xl bg-gray-200 border-4 border-white shadow-sm overflow-hidden mb-4 flex flex-col items-center justify-center relative group">
+                        <img id="dtl-foto-masuk" src="" class="w-full h-full object-cover hidden cursor-pointer hover:opacity-90 transition-opacity" alt="Foto Masuk" onclick="window.open(this.src, '_blank')" title="Klik untuk memperbesar">
+
                         <div id="dtl-nofoto-masuk" class="text-center flex flex-col items-center">
                             <svg class="w-8 h-8 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
@@ -269,8 +270,9 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
                         <span class="text-xs font-mono bg-emerald-600 text-white px-2 py-1 rounded-md font-bold shadow-sm" id="dtl-jam-pulang">--:--:--</span>
                     </div>
 
-                    <div class="w-full h-40 md:h-48 rounded-xl bg-gray-200 border-4 border-white shadow-sm overflow-hidden mb-4 flex flex-col items-center justify-center relative">
-                        <img id="dtl-foto-pulang" src="" class="w-full h-full object-cover hidden" alt="Foto Pulang">
+                    <div class="w-full h-40 md:h-48 rounded-xl bg-gray-200 border-4 border-white shadow-sm overflow-hidden mb-4 flex flex-col items-center justify-center relative group">
+                        <img id="dtl-foto-pulang" src="" class="w-full h-full object-cover hidden cursor-pointer hover:opacity-90 transition-opacity" alt="Foto Pulang" onclick="window.open(this.src, '_blank')" title="Klik untuk memperbesar">
+
                         <div id="dtl-nofoto-pulang" class="text-center flex flex-col items-center">
                             <svg class="w-8 h-8 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
@@ -315,7 +317,7 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
             <div>
                 <label class="block text-xs font-bold text-gray-600 uppercase mb-2">Pilih Siswa</label>
                 <select name="siswa_id" required class="w-full border border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-gray-50 cursor-pointer text-gray-700 font-medium">
-                    <option value="" disabled selected>-- Cari / Pilih Siswa --</option>
+                    <option value="" disabled selected>-- Ketik huruf awal nama siswa --</option>
                     <?php foreach ($siswa as $s): ?>
                         <option value="<?= esc((string) $s['id_siswa']) ?>">
                             <?= esc((string) $s['nama_siswa']) ?> (<?= esc((string) ($s['nama_kelas'] ?? '-')) ?>)
@@ -381,7 +383,8 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
         const linkMasuk = document.getElementById('dtl-lokasi-masuk');
         if (data.lat_masuk && data.long_masuk) {
             latLongMasuk.textContent = `${data.lat_masuk}, ${data.long_masuk}`;
-            linkMasuk.href = `https://www.google.com/maps/search/?api=1&query=${data.lat_masuk},${data.long_masuk}`;
+            // PERBAIKAN: Tautan URL Google Maps Universal
+            linkMasuk.href = `https://maps.google.com/?q=${data.lat_masuk},${data.long_masuk}`;
             linkMasuk.classList.remove('pointer-events-none', 'text-gray-400');
         } else {
             latLongMasuk.textContent = 'Lokasi tidak tercatat';
@@ -406,7 +409,8 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
         const linkPulang = document.getElementById('dtl-lokasi-pulang');
         if (data.lat_pulang && data.long_pulang) {
             latLongPulang.textContent = `${data.lat_pulang}, ${data.long_pulang}`;
-            linkPulang.href = `https://www.google.com/maps/search/?api=1&query=${data.lat_pulang},${data.long_pulang}`;
+            // PERBAIKAN: Tautan URL Google Maps Universal
+            linkPulang.href = `https://maps.google.com/?q=${data.lat_pulang},${data.long_pulang}`;
             linkPulang.classList.remove('pointer-events-none', 'text-gray-400');
         } else {
             latLongPulang.textContent = 'Lokasi tidak tercatat';
@@ -429,6 +433,29 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
             btn.innerHTML = 'Menyimpan...';
             btn.classList.add('opacity-75', 'cursor-not-allowed');
             btn.setAttribute('disabled', 'true');
+        }
+    });
+
+    document.addEventListener("DOMContentLoaded", function() {
+        const searchInput = document.querySelector('input[name="search"]');
+
+        // 1. Mengembalikan fokus ke input pencarian setelah halaman ter-reload
+        if (searchInput && searchInput.value.length > 0) {
+            searchInput.focus();
+            const val = searchInput.value;
+            searchInput.value = '';
+            searchInput.value = val;
+        }
+
+        // 2. Auto-Submit Form Pencarian saat selesai mengetik dengan jeda agar tidak agresif me-reload
+        let searchTimer;
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(() => {
+                    this.form.submit();
+                }, 1000);
+            });
         }
     });
 </script>

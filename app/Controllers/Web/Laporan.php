@@ -24,40 +24,54 @@ class Laporan extends BaseController
         $startDate = date('Y-m-d', strtotime("$tahun-$bulanMulai-01"));
         $endDate   = date('Y-m-t', strtotime("$tahun-$bulanSelesai-01"));
 
-        $this->absensiModel->select('absensi.siswa_id, absensi.kelas_id, absensi.status, COUNT(absensi.id_absensi) as total, siswa.nis, siswa.nama_siswa, kelas.nama_kelas')
-            ->join('siswa', 'siswa.id_siswa = absensi.siswa_id')
-            ->join('kelas', 'kelas.id_kelas = absensi.kelas_id', 'left')
-            ->where('absensi.tanggal >=', $startDate)
-            ->where('absensi.tanggal <=', $endDate);
+        // PERBAIKAN: 1. Ambil SEMUA data siswa aktif terlebih dahulu (Mencegah Bug Siswa Hilang)
+        $builderSiswa = $this->kelasModel->db->table('siswa')
+            ->select('siswa.id_siswa, siswa.nis, siswa.nama_siswa, kelas.nama_kelas')
+            ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
 
         if (!empty($kelasId)) {
-            $this->absensiModel->where('absensi.kelas_id', $kelasId);
+            $builderSiswa->where('siswa.kelas_id', $kelasId);
         }
+        $semuaSiswa = $builderSiswa->get()->getResultArray();
 
-        $dataAbsen = $this->absensiModel->groupBy('absensi.siswa_id, absensi.kelas_id, absensi.status')->findAll();
-
+        // 2. Siapkan Wadah/Map Kosong untuk seluruh siswa
         $rekapMap = [];
-
-        foreach ($dataAbsen as $row) {
-            $key = $row['siswa_id'] . '_' . $row['kelas_id'];
-
-            if (!isset($rekapMap[$key])) {
-                $rekapMap[$key] = [
-                    'nis'        => $row['nis'],
-                    'nama_siswa' => $row['nama_siswa'],
-                    'nama_kelas' => $row['nama_kelas'] ?? '-',
-                    'Hadir'      => 0,
-                    'Dispensasi' => 0,
-                    'Terlambat'  => 0,
-                    'Sakit'      => 0,
-                    'Izin'       => 0,
-                    'Alpa'       => 0,
-                ];
-            }
-
-            $rekapMap[$key][$row['status']] = (int) $row['total'];
+        foreach ($semuaSiswa as $s) {
+            $rekapMap[$s['id_siswa']] = [
+                'nis'        => $s['nis'],
+                'nama_siswa' => $s['nama_siswa'],
+                'nama_kelas' => $s['nama_kelas'] ?? 'Belum Ada Kelas',
+                'Hadir'      => 0,
+                'Dispensasi' => 0,
+                'Terlambat'  => 0,
+                'Sakit'      => 0,
+                'Izin'       => 0,
+                'Alpa'       => 0,
+            ];
         }
 
+        // 3. Ambil data rekap absensi dari database
+        $this->absensiModel->select('siswa_id, status, COUNT(id_absensi) as total')
+            ->where('tanggal >=', $startDate)
+            ->where('tanggal <=', $endDate);
+
+        if (!empty($kelasId)) {
+            $this->absensiModel->where('kelas_id', $kelasId);
+        }
+
+        $dataAbsen = $this->absensiModel->groupBy('siswa_id, status')->findAll();
+
+        // 4. Masukkan data absensi ke wadah siswa yang cocok
+        foreach ($dataAbsen as $row) {
+            $id = $row['siswa_id'];
+            $status = $row['status'];
+
+            if (isset($rekapMap[$id]) && isset($rekapMap[$id][$status])) {
+                $rekapMap[$id][$status] = (int) $row['total'];
+            }
+        }
+
+        // 5. Kalkulasi Persentase dan Total
         $hasilAkhir = [];
         foreach ($rekapMap as $data) {
             $hadir      = $data['Hadir'];
@@ -77,6 +91,7 @@ class Laporan extends BaseController
             $hasilAkhir[] = $data;
         }
 
+        // 6. Urutkan berdasarkan Kelas lalu Nama Siswa (A-Z)
         usort($hasilAkhir, function ($a, $b) {
             if ($a['nama_kelas'] === $b['nama_kelas']) {
                 return $a['nama_siswa'] <=> $b['nama_siswa'];

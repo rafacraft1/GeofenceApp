@@ -38,22 +38,22 @@
 
 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
     <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Siswa Terdaftar</p>
+        <p class="text-xs font-bold text-gray-400 uppercase tracking-widest">Siswa Terdaftar</p>
         <p class="text-2xl font-black text-gray-800"><?= number_format($total_siswa) ?></p>
     </div>
     <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-        <p class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Tingkat Kehadiran</p>
+        <p class="text-xs font-bold text-emerald-500 uppercase tracking-widest">Tingkat Kehadiran</p>
         <div class="flex items-end gap-2">
             <p class="text-2xl font-black text-gray-800"><?= (int) $persen_hadir ?>%</p>
-            <p class="text-[10px] text-gray-400 mb-1">(<?= (int) $hadir_hari_ini ?> Siswa)</p>
+            <p class="text-xs text-gray-400 mb-1">(<?= (int) $hadir_hari_ini ?> Siswa)</p>
         </div>
     </div>
     <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-        <p class="text-[10px] font-bold text-amber-500 uppercase tracking-widest">Absen (Alpa)</p>
+        <p class="text-xs font-bold text-amber-500 uppercase tracking-widest">Absen (Alpa)</p>
         <p class="text-2xl font-black text-gray-800"><?= (int) $alpa_hari_ini ?></p>
     </div>
     <div class="bg-white p-5 rounded-xl border-y border-r border-gray-100 shadow-sm border-l-4 border-l-red-500">
-        <p class="text-[10px] font-bold text-red-500 uppercase tracking-widest">Anomali Geofence</p>
+        <p class="text-xs font-bold text-red-500 uppercase tracking-widest">Anomali Geofence</p>
         <p class="text-2xl font-black text-gray-800"><?= (int) $fraud_hari_ini ?></p>
     </div>
 </div>
@@ -67,7 +67,7 @@
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col items-center">
         <h3 class="text-xs font-bold text-gray-700 mb-6 uppercase tracking-wider w-full text-left">Proporsi Kehadiran</h3>
         <div class="w-full h-48"><canvas id="distributionChart"></canvas></div>
-        <div class="mt-6 grid grid-cols-2 lg:grid-cols-3 gap-x-2 gap-y-3 w-full text-[9px] font-bold text-gray-500">
+        <div class="mt-6 grid grid-cols-2 lg:grid-cols-3 gap-x-2 gap-y-3 w-full text-xs font-bold text-gray-500">
             <div class="flex items-center gap-1.5"><span class="w-2 h-2 bg-emerald-500 rounded-full"></span> HADIR</div>
             <div class="flex items-center gap-1.5"><span class="w-2 h-2 bg-teal-500 rounded-full"></span> DISPEN</div>
             <div class="flex items-center gap-1.5"><span class="w-2 h-2 bg-amber-400 rounded-full"></span> TELAT</div>
@@ -87,12 +87,12 @@
             <?php foreach ($top_classes as $index => $tc): ?>
                 <div class="flex items-center justify-between group">
                     <div class="flex items-center gap-3">
-                        <span class="w-6 h-6 flex items-center justify-center rounded-lg bg-blue-50 text-blue-600 text-[10px] font-black"><?= $index + 1 ?></span>
+                        <span class="w-6 h-6 flex items-center justify-center rounded-lg bg-blue-50 text-blue-600 text-xs font-black"><?= $index + 1 ?></span>
                         <span class="text-sm font-bold text-gray-700 group-hover:text-blue-600 transition-colors"><?= esc((string) ($tc['nama_kelas'] ?? '')) ?></span>
                     </div>
                     <div class="text-right">
                         <span class="text-xs font-black text-emerald-600"><?= (int) ($tc['total_hadir'] ?? 0) ?></span>
-                        <p class="text-[8px] text-gray-400 uppercase font-bold">Hadir</p>
+                        <p class="text-[10px] text-gray-400 uppercase font-bold">Hadir</p>
                     </div>
                 </div>
             <?php endforeach; ?>
@@ -108,7 +108,7 @@
 
         <div class="overflow-x-auto">
             <table class="w-full text-left text-sm">
-                <thead class="text-[10px] text-gray-400 uppercase border-b border-gray-50">
+                <thead class="text-xs text-gray-400 uppercase border-b border-gray-50">
                     <tr>
                         <th class="pb-3">Siswa</th>
                         <th class="pb-3">Kelas</th>
@@ -127,7 +127,7 @@
                                 <td class="py-3 font-bold text-gray-800"><?= esc((string) ($m['nama_siswa'] ?? '')) ?></td>
                                 <td class="py-3 text-gray-500 text-xs font-medium"><?= esc((string) ($m['kelas'] ?? '-')) ?></td>
                                 <td class="py-3 text-center">
-                                    <span class="bg-red-100 text-red-600 text-[9px] font-black px-2 py-0.5 rounded shadow-sm border border-red-200">
+                                    <span class="bg-red-100 text-red-600 text-[10px] font-black px-2 py-0.5 rounded shadow-sm border border-red-200">
                                         <?= !empty($m['is_fake_gps']) ? '🚨 FAKE GPS' : '⚠️ MANIPULASI' ?>
                                     </span>
                                 </td>
@@ -189,10 +189,10 @@
                 const mapKelas = m.kelas ? m.kelas.replace(/</g, "&lt;").replace(/>/g, "&gt;") : '';
 
                 marker.bindPopup(`
-                <div class="text-[10px]">
+                <div class="text-xs">
                     <p class="font-black text-gray-800">${mapSiswa}</p>
                     <p class="text-gray-500 mb-1">${mapKelas}</p>
-                    <span class="bg-red-50 text-red-600 font-bold px-1 rounded border border-red-100">
+                    <span class="bg-red-50 text-red-600 font-bold px-1 rounded border border-red-100 inline-block mt-1 text-[10px]">
                         ${isFake ? 'Fake GPS' : 'Luar Zona'}
                     </span>
                 </div>

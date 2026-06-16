@@ -41,7 +41,6 @@ class AbsensiApi extends ResourceController
         return $fileName;
     }
 
-    // PERBAIKAN: Menambahkan Lat & Lon serta menyesuaikan nama kolom DB
     private function catatFraud(int $idSiswa, string $tipeFraud, float $lat, float $lon): bool
     {
         $this->db->transStart();
@@ -80,6 +79,11 @@ class AbsensiApi extends ResourceController
         $serverTime = time();
         $maxTimeDiff = getenv('GEO_MAX_TIME_DIFF') ?: 120;
         $maxAccuracy = getenv('GEO_MAX_ACCURACY') ?: 100;
+
+        // PERBAIKAN: Konversi mili-detik (Android) menjadi detik jika digitnya lebih dari 10
+        if (strlen((string)$deviceTimestamp) > 10) {
+            $deviceTimestamp = (int)($deviceTimestamp / 1000);
+        }
 
         if (abs($serverTime - $deviceTimestamp) > $maxTimeDiff) {
             $isBlocked = $this->catatFraud($idSiswa, 'Manipulasi Waktu Perangkat (Selisih > 2 Menit)', $lat, $lon);

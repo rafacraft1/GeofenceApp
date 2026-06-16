@@ -101,31 +101,44 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
                                     </div>
                                 <?php endif; ?>
                             </td>
+
                             <td class="px-6 py-4">
-                                <div class="flex items-center gap-2 mb-1">
-                                    <?php
-                                    $jenisColor = match ($izin['jenis']) {
-                                        'Sakit' => 'bg-blue-100 text-blue-700 border-blue-200',
-                                        'Izin' => 'bg-amber-100 text-amber-700 border-amber-200',
-                                        'Dispensasi' => 'bg-purple-100 text-purple-700 border-purple-200',
-                                        default => 'bg-gray-100 text-gray-700 border-gray-200'
-                                    };
-                                    ?>
-                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wide <?= $jenisColor ?>">
-                                        <?= esc((string) $izin['jenis']) ?>
-                                    </span>
+                                <div class="flex items-start gap-3">
                                     <?php if (!empty($izin['bukti_foto'])): ?>
-                                        <a href="<?= base_url('uploads/izin/' . (string) $izin['bukti_foto']) ?>" target="_blank" class="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded border border-gray-200 hover:bg-gray-200 font-bold flex items-center gap-1 transition-colors">
-                                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
-                                            </svg> Bukti
-                                        </a>
+                                        <img src="<?= base_url('uploads/izin/' . (string) $izin['bukti_foto']) ?>"
+                                            onclick="window.open(this.src, '_blank')"
+                                            title="Klik untuk membaca surat/bukti"
+                                            class="w-10 h-10 rounded-lg object-cover cursor-pointer hover:opacity-80 hover:scale-105 transition-all border border-gray-200 shadow-sm shrink-0"
+                                            alt="Bukti Izin">
+                                    <?php else: ?>
+                                        <div class="w-10 h-10 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center shrink-0" title="Tidak ada lampiran">
+                                            <svg class="w-4 h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </div>
                                     <?php endif; ?>
+
+                                    <div>
+                                        <div class="mb-1.5">
+                                            <?php
+                                            $jenisColor = match ($izin['jenis']) {
+                                                'Sakit' => 'bg-blue-100 text-blue-700 border-blue-200',
+                                                'Izin' => 'bg-amber-100 text-amber-700 border-amber-200',
+                                                'Dispensasi' => 'bg-purple-100 text-purple-700 border-purple-200',
+                                                default => 'bg-gray-100 text-gray-700 border-gray-200'
+                                            };
+                                            ?>
+                                            <span class="px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wide <?= $jenisColor ?>">
+                                                <?= esc((string) $izin['jenis']) ?>
+                                            </span>
+                                        </div>
+                                        <p class="text-xs text-gray-500 line-clamp-2 max-w-xs" title="<?= esc((string) $izin['alasan']) ?>">
+                                            <?= esc((string) $izin['alasan']) ?>
+                                        </p>
+                                    </div>
                                 </div>
-                                <p class="text-xs text-gray-500 line-clamp-2" title="<?= esc((string) $izin['alasan']) ?>">
-                                    <?= esc((string) $izin['alasan']) ?>
-                                </p>
                             </td>
+
                             <td class="px-6 py-4 text-center">
                                 <?php
                                 $statusColor = match ($izin['status']) {
@@ -206,6 +219,31 @@ $getSortIcon = function ($column) use ($sort_col, $sort_dir) {
                 btn.setAttribute('disabled', 'true');
             });
         });
+    });
+
+    document.addEventListener("DOMContentLoaded", function() {
+        const searchInput = document.querySelector('input[name="search"]');
+
+        // 1. Kembalikan fokus ke input pencarian setelah halaman ter-reload
+        if (searchInput && searchInput.value.length > 0) {
+            searchInput.focus();
+            // Trik untuk memindahkan posisi kursor ke ujung akhir teks
+            const val = searchInput.value;
+            searchInput.value = '';
+            searchInput.value = val;
+        }
+
+        // 2. Auto-Submit Form Pencarian saat selesai mengetik
+        let searchTimer;
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimer);
+                // Delay diset 1 detik (1000ms) agar tidak reload mid-typing
+                searchTimer = setTimeout(() => {
+                    this.form.submit();
+                }, 1000);
+            });
+        }
     });
 </script>
 <?= $this->endSection() ?>
