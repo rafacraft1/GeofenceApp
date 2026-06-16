@@ -109,6 +109,7 @@
     let currentTargetId = null;
     let intervalId = null;
     let currentZoneCircle = null; // Menyimpan layer lingkaran zona agar bisa dihapus saat pindah siswa
+    let isFirstTrackLoad = true; // Flag untuk mencegah map auto-snapping terus menerus
 
     // Variabel dinamis untuk token CSRF
     let csrfTokenName = '<?= csrf_header() ?>';
@@ -192,7 +193,9 @@
 
     function focusSiswa(idSiswa, nama, zonaLat, zonaLng, zonaRadius) {
         if (intervalId) clearInterval(intervalId);
+
         currentTargetId = idSiswa;
+        isFirstTrackLoad = true; // Reset flag kamera agar melakukan zoom saat ganti siswa
 
         document.querySelectorAll('.siswa-item').forEach(el => {
             el.classList.remove('bg-blue-50', 'border-blue-200');
@@ -286,15 +289,25 @@
                 dashArray: '5, 8',
                 lineJoin: 'round'
             }).addTo(map);
-            map.fitBounds(polylineLayer.getBounds(), {
-                padding: [50, 50],
-                maxZoom: 18
-            });
+
+            // HANYA AUTO-ZOOM JIKA INI PERTAMA KALI DI-KLIK PADA SISWA INI
+            if (isFirstTrackLoad) {
+                map.fitBounds(polylineLayer.getBounds(), {
+                    padding: [50, 50],
+                    maxZoom: 18
+                });
+                isFirstTrackLoad = false; // Matikan auto-zoom untuk polling berikutnya
+            }
+
         } else if (latlngs.length === 1) {
-            map.flyTo(latlngs[0], 18, {
-                animate: true,
-                duration: 1.5
-            });
+            // HANYA FLY-TO JIKA INI PERTAMA KALI DI-KLIK PADA SISWA INI
+            if (isFirstTrackLoad) {
+                map.flyTo(latlngs[0], 18, {
+                    animate: true,
+                    duration: 1.5
+                });
+                isFirstTrackLoad = false; // Matikan fly-to untuk polling berikutnya
+            }
         }
     }
 
