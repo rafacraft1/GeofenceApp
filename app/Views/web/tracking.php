@@ -108,10 +108,9 @@
     let polylineLayer = null;
     let currentTargetId = null;
     let intervalId = null;
-    let currentZoneCircle = null; // Menyimpan layer lingkaran zona agar bisa dihapus saat pindah siswa
-    let isFirstTrackLoad = true; // Flag untuk mencegah map auto-snapping terus menerus
+    let currentZoneCircle = null;
+    let isFirstTrackLoad = true;
 
-    // Variabel dinamis untuk token CSRF
     let csrfTokenName = '<?= csrf_header() ?>';
     let csrfTokenValue = '<?= csrf_hash() ?>';
 
@@ -153,7 +152,6 @@
         window.L.marker([<?= (string)$zona_default['latitude'] ?>, <?= (string)$zona_default['longitude'] ?>])
             .addTo(map).bindPopup("<b>Zona Sekolah (Default)</b><br>Radius: <?= (string)$zona_default['radius'] ?>m").openPopup();
 
-        // Menggambar lingkaran zona awal dan memasukannya ke variabel global
         currentZoneCircle = window.L.circle([<?= (string)$zona_default['latitude'] ?>, <?= (string)$zona_default['longitude'] ?>], {
             color: '#3b82f6',
             fillColor: '#3b82f6',
@@ -195,7 +193,7 @@
         if (intervalId) clearInterval(intervalId);
 
         currentTargetId = idSiswa;
-        isFirstTrackLoad = true; // Reset flag kamera agar melakukan zoom saat ganti siswa
+        isFirstTrackLoad = true;
 
         document.querySelectorAll('.siswa-item').forEach(el => {
             el.classList.remove('bg-blue-50', 'border-blue-200');
@@ -212,9 +210,17 @@
         document.getElementById('btn-ping').classList.remove('hidden');
         document.getElementById('btn-ping').classList.add('flex');
 
-        // Hapus lingkaran zona dari siswa sebelumnya
+        // 1. Hapus lingkaran zona dari siswa sebelumnya
         if (currentZoneCircle) {
             map.removeLayer(currentZoneCircle);
+        }
+
+        // 2. Hapus marker dan rute siswa sebelumnya agar tidak "nyantol"
+        markers.forEach(m => map.removeLayer(m));
+        markers = [];
+        if (polylineLayer) {
+            map.removeLayer(polylineLayer);
+            polylineLayer = null;
         }
 
         // Tentukan koordinat (gunakan sekolah/default jika tidak punya PKL spesifik)
@@ -232,7 +238,6 @@
 
         pingSiswa();
 
-        // Membatasi polling lokasi per 5 detik untuk menghemat sumber daya server
         intervalId = setInterval(fetchLocationArray, 5000);
     }
 
@@ -282,6 +287,7 @@
             markers.push(newMarker);
         });
 
+        // Gambar garis merah (Polyline) jika titik lebih dari 1
         if (latlngs.length > 1) {
             polylineLayer = window.L.polyline(latlngs, {
                 color: '#ef4444',
@@ -289,32 +295,31 @@
                 dashArray: '5, 8',
                 lineJoin: 'round'
             }).addTo(map);
+        }
 
-            // HANYA AUTO-ZOOM JIKA INI PERTAMA KALI DI-KLIK PADA SISWA INI
-            if (isFirstTrackLoad) {
-                map.fitBounds(polylineLayer.getBounds(), {
-                    padding: [50, 50],
-                    maxZoom: 18
-                });
-                isFirstTrackLoad = false; // Matikan auto-zoom untuk polling berikutnya
+        // SMART AUTO-FRAME KAMERA PETA (Hanya di trigger saat baru diklik)
+        if (isFirstTrackLoad) {
+            // Gabungkan marker siswa dan lingkaran zona ke dalam satu grup virtual
+            let groupLayers = [...markers];
+            if (currentZoneCircle) {
+                groupLayers.push(currentZoneCircle);
             }
 
-        } else if (latlngs.length === 1) {
-            // HANYA FLY-TO JIKA INI PERTAMA KALI DI-KLIK PADA SISWA INI
-            if (isFirstTrackLoad) {
-                map.flyTo(latlngs[0], 18, {
-                    animate: true,
-                    duration: 1.5
-                });
-                isFirstTrackLoad = false; // Matikan fly-to untuk polling berikutnya
-            }
+            let group = new window.L.featureGroup(groupLayers);
+
+            // Perintahkan peta untuk menyesuaikan zoom agar semua masuk dalam layar
+            map.fitBounds(group.getBounds(), {
+                padding: [50, 50],
+                maxZoom: 18 // Jangan terlalu dekat jika jaraknya sangat rapat
+            });
+
+            isFirstTrackLoad = false; // Matikan auto-zoom untuk polling berikutnya
         }
     }
 
     function pingSiswa() {
         if (!currentTargetId) return;
 
-        // Nonaktifkan tombol sementara agar tidak diklik berkali-kali
         const btnPing = document.getElementById('btn-ping');
         if (btnPing) btnPing.disabled = true;
 
@@ -324,7 +329,7 @@
                 method: 'POST',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
-                    [csrfTokenName]: csrfTokenValue // Menyisipkan token keamanan yang terbaru
+                    [csrfTokenName]: csrfTokenValue
                 }
             })
             .then(res => {
@@ -334,7 +339,6 @@
             .then(data => {
                 if (btnPing) btnPing.disabled = false;
 
-                // Mengganti Token lama di memori Javascript dengan Token baru dari server
                 if (data.csrf_token) {
                     csrfTokenValue = data.csrf_token;
                 }
