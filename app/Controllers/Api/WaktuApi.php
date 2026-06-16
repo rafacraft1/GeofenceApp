@@ -20,20 +20,20 @@ class WaktuApi extends ResourceController
 
         $zona = null;
 
-        // 1. Ekstrak Token JWT (Sama persis dengan metode di ApiAuthFilter)
         $header = (string) $this->request->getHeaderLine('Authorization');
         $token  = str_replace('Bearer ', '', $header);
 
         if (!empty($token)) {
             try {
                 $jwtAuth = new JWTAuth();
-                $decoded = $jwtAuth->decodeToken($token);
+                $decodedResult = $jwtAuth->decodeToken($token);
 
-                if ($decoded['status'] === 'valid') {
-                    $idSiswa = $decoded['data']->id_siswa ?? null;
+                if (isset($decodedResult['status']) && $decodedResult['status'] === 'valid' && isset($decodedResult['data'])) {
+                    // Support array dan object secara universal untuk cegah fatal error
+                    $dataJwt = $decodedResult['data'];
+                    $idSiswa = is_array($dataJwt) ? ($dataJwt['id_siswa'] ?? null) : ($dataJwt->id_siswa ?? null);
 
                     if ($idSiswa) {
-                        // Ambil data siswa & zona secara REAL-TIME (Tanpa Cache)
                         $siswa = $db->table('siswa')
                             ->select('siswa.zona_id as zona_siswa, kelas.zona_id as zona_kelas')
                             ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left')
@@ -42,9 +42,7 @@ class WaktuApi extends ResourceController
                             ->getRowArray();
 
                         if ($siswa) {
-                            // Prioritas: 1. Zona Individu Siswa (PKL), 2. Zona Kelas, 3. Null
                             $targetZonaId = $siswa['zona_siswa'] ?? $siswa['zona_kelas'] ?? null;
-
                             if ($targetZonaId) {
                                 $zona = $zonaModel->find($targetZonaId);
                             }
@@ -52,26 +50,23 @@ class WaktuApi extends ResourceController
                     }
                 }
             } catch (\Exception $e) {
-                // Abaikan jika token rusak/expired, biarkan API jatuh ke Zona Default
+                // Abaikan jika token invalid
             }
         }
 
-        // 2. Jika tidak ada zona PKL / Belum Login -> Ambil Zona Default (Sekolah)
         if (!$zona) {
-            // REAL-TIME (Tanpa Cache)
             $zona = $zonaModel->where('is_default', 1)->first();
         }
 
-        // Safety check jika tabel zona kosong
         if (!$zona) {
-            return $this->failServerError('Data Zona Absensi belum dikonfigurasi di database server.');
+            return $this->failServerError('Data Zona Absensi belum dikonfigurasi di database.');
         }
 
-        // 3. Cek Hari Libur Nasional / Custom secara REAL-TIME
-        $isLibur = false;
-        $namaLibur = '';
         $tz = getenv('app.appTimezone') ?: 'Asia/Jakarta';
         $tanggalSekarang = Time::now($tz)->format('Y-m-d');
+
+        $isLibur = false;
+        $namaLibur = '';
 
         $cekLibur = $liburModel->where('tanggal', $tanggalSekarang)->first();
         if ($cekLibur) {
@@ -79,8 +74,7 @@ class WaktuApi extends ResourceController
             $namaLibur = $cekLibur['keterangan'];
         }
 
-        // 4. Ambil Jadwal Absensi Khusus untuk Zona Terpilih (PKL/Sekolah) secara REAL-TIME
-        $kodeHariIni = Time::now($tz)->format('N'); // 1 = Senin, 7 = Minggu
+        $kodeHariIni = Time::now($tz)->format('N');
 
         $jadwal = $db->table('zona_jadwal')
             ->where('zona_id', $zona['id_zona'])
@@ -88,13 +82,11 @@ class WaktuApi extends ResourceController
             ->get()
             ->getRowArray();
 
-        // Cek jika jadwal diset libur akhir pekan
         if ($jadwal && $jadwal['is_libur'] == 1) {
             $isLibur = true;
             $namaLibur = $namaLibur ?: 'Libur Akhir Pekan';
         }
 
-        // 5. Kembalikan Response
         return $this->respond([
             'status'      => 200,
             'waktu'       => Time::now($tz)->toDateTimeString(),
