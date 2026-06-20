@@ -4,7 +4,7 @@
  * Deklarasi variabel untuk memuaskan strict type Intelephense
  * @var array<int, array<string, mixed>> $roles
  * @var array<int, array<string, mixed>> $menus
- * @var array<int, array<int, bool>> $access
+ * @var array<int, array<int, bool>> $akses
  */
 ?>
 <?= $this->extend('layout/admin') ?>
@@ -42,7 +42,9 @@
                             </td>
                             <?php foreach ($roles as $role): ?>
                                 <?php
-                                $isChecked = isset($access[$role['id_role']][$menu['id_menu']]) ? 'checked' : '';
+                                // PERBAIKAN: Menggunakan $akses dan mengecek nilai id_menu menggunakan in_array
+                                $isChecked = (isset($akses[$role['id_role']]) && in_array($menu['id_menu'], $akses[$role['id_role']])) ? 'checked' : '';
+                                
                                 // Proteksi Admin agar tidak terkunci (Wajib akses Dashboard & Manajemen User)
                                 $isLocked = ($role['id_role'] == 1 && in_array($menu['id_menu'], [1, 9])) ? 'disabled' : '';
                                 ?>

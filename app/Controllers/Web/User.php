@@ -219,27 +219,37 @@ class User extends BaseController
      */
     public function saveHakAkses()
     {
-        $roleId  = (int) $this->request->getPost('id_role');
-        $menuIds = $this->request->getPost('menu_id');
+        // PERBAIKAN: Ambil data matriks permissions dari form
+        $permissions = $this->request->getPost('permissions');
 
-        if ($roleId === 1) {
-            return redirect()->back()->with('error', 'Hak akses Super Administrator bersifat mutlak dan tidak dapat diubah.');
-        }
+        // Hapus semua hak akses terlebih dahulu (Kecuali Role 1 / Superadmin)
+        $this->db->table('role_menus')->where('id_role !=', 1)->delete();
 
-        $this->db->table('role_menus')->where('id_role', $roleId)->delete();
-
-        if (!empty($menuIds) && is_array($menuIds)) {
+        if (!empty($permissions) && is_array($permissions)) {
             $insertData = [];
-            foreach ($menuIds as $menuId) {
-                $insertData[] = [
-                    'id_role' => $roleId,
-                    'id_menu' => (int) $menuId
-                ];
-            }
-            $this->db->table('role_menus')->insertBatch($insertData);
-        }
 
-        cache()->delete('global_menus_role_' . $roleId);
+            // Looping berdasarkan role
+            foreach ($permissions as $roleId => $menuIds) {
+                // Lewati role 1 karena bersifat mutlak
+                if ($roleId == 1) continue;
+
+                // Looping berdasarkan menu yang dicentang pada role tersebut
+                foreach ($menuIds as $menuId) {
+                    $insertData[] = [
+                        'id_role' => (int) $roleId,
+                        'id_menu' => (int) $menuId
+                    ];
+                }
+
+                // Hapus cache untuk role ini (jika Anda menggunakan sistem caching menu)
+                cache()->delete('global_menus_role_' . $roleId);
+            }
+
+            // Simpan batch ke database
+            if (!empty($insertData)) {
+                $this->db->table('role_menus')->insertBatch($insertData);
+            }
+        }
 
         return redirect()->to('/admin/user/hak-akses')->with('success', 'Pengaturan hak akses berhasil diperbarui.');
     }
