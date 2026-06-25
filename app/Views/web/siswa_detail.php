@@ -42,6 +42,27 @@
         <h3 class="text-xl font-bold text-gray-800"><?= esc((string) ($siswa['nama_siswa'] ?? '')) ?></h3>
         <p class="text-sm text-gray-500 font-medium mb-6"><?= esc((string) ($siswa['nis'] ?? '')) ?> • <?= esc((string) ($siswa['nama_kelas'] ?? 'Belum ada kelas')) ?></p>
 
+        <div class="w-full bg-gray-50 rounded-xl border border-gray-100 p-4 mb-6 text-left space-y-3">
+            <div>
+                <div class="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">ID Perangkat (Device ID)</div>
+                <?php if (!empty($siswa['device_id'])): ?>
+                    <div class="flex items-center gap-2">
+                        <span class="bg-green-100 text-green-700 px-2.5 py-1 rounded text-xs font-mono font-semibold border border-green-200 break-all">
+                            <?= esc((string) $siswa['device_id']) ?>
+                        </span>
+                    </div>
+                <?php else: ?>
+                    <span class="text-gray-400 italic text-xs">Belum ada perangkat tertaut</span>
+                <?php endif; ?>
+            </div>
+            <div class="border-t border-gray-200 pt-3">
+                <div class="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Login Terakhir</div>
+                <div class="text-xs text-gray-800 font-medium">
+                    <?= !empty($siswa['last_login']) ? date('d M Y, H:i', strtotime((string) $siswa['last_login'])) . ' WIB' : '<span class="text-gray-400 italic">Belum pernah login</span>' ?>
+                </div>
+            </div>
+        </div>
+
         <div class="w-full grid grid-cols-2 gap-3 mt-auto">
             <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-100 flex flex-col items-center">
                 <div class="text-[10px] text-emerald-600 font-bold uppercase tracking-wider mb-1">Total Hadir</div>
