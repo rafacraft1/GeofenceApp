@@ -72,7 +72,7 @@ class Tracking extends BaseController
 
     public function getLocation(string $idSiswa)
     {
-        $siswa = cache()->remember('siswa_track_' . $idSiswa, 300, function () use ($idSiswa) {
+        $siswa = cache()->remember('siswa_track_' . $idSiswa, 60, function () use ($idSiswa) {
             return $this->siswaModel->find($idSiswa);
         });
 
@@ -83,9 +83,10 @@ class Tracking extends BaseController
         $points = [];
         $hariIni = \CodeIgniter\I18n\Time::now('Asia/Jakarta')->toDateString();
 
-        $absen = cache()->remember('absen_track_' . $idSiswa . '_' . $hariIni, 60, function () use ($idSiswa, $hariIni) {
+        $absen = cache()->remember('absen_track_' . $idSiswa . '_' . $hariIni, 10, function () use ($idSiswa, $hariIni) {
             return $this->absensiModel->where(['siswa_id' => $idSiswa, 'tanggal' => $hariIni])->first();
         });
+
 
         if ($absen && !empty($absen['lat_masuk']) && !empty($absen['long_masuk'])) {
             $points[] = [

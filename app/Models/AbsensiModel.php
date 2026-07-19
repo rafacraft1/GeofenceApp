@@ -109,19 +109,21 @@ class AbsensiModel extends Model
     // FUNGSI DASHBOARD & STATISTIK (DIPERBAIKI)
     // -------------------------------------------------------------------
 
-    public function getDashboardStats(string $tanggal, ?int $kelasId = null): array
+    public function getDashboardStats(string $startDate, ?int $kelasId = null, ?string $endDate = null): array
     {
+        $endDate = $endDate ?? $startDate;
+
         $builder = $this->select('
             SUM(CASE WHEN status IN ("Hadir", "Terlambat", "Dispensasi") THEN 1 ELSE 0 END) as hadir,
             SUM(CASE WHEN status = "Alpa" THEN 1 ELSE 0 END) as alpa
-        ')->where('tanggal', $tanggal);
+        ')->where('tanggal >=', $startDate)->where('tanggal <=', $endDate);
 
         $this->applyScopeKelas($builder, $kelasId);
         $stats = $builder->first() ?? ['hadir' => 0, 'alpa' => 0];
 
         // Hitung total fraud (keamanan berlapis) dari tabel log_fraud
         $fraudBuilder = $this->db->table('log_fraud');
-        $fraudBuilder->where('DATE(created_at)', $tanggal);
+        $fraudBuilder->where('DATE(created_at) >=', $startDate)->where('DATE(created_at) <=', $endDate);
         if ($kelasId) {
             $fraudBuilder->join('siswa', 'siswa.id_siswa = log_fraud.siswa_id');
             $fraudBuilder->where('siswa.kelas_id', $kelasId);
@@ -135,8 +137,10 @@ class AbsensiModel extends Model
         ];
     }
 
-    public function getDashboardDistribution(string $tanggal, ?int $kelasId = null): array
+    public function getDashboardDistribution(string $startDate, ?int $kelasId = null, ?string $endDate = null): array
     {
+        $endDate = $endDate ?? $startDate;
+
         $builder = $this->select('
             SUM(CASE WHEN status = "Hadir" THEN 1 ELSE 0 END) as hadir,
             SUM(CASE WHEN status = "Dispensasi" THEN 1 ELSE 0 END) as dispensasi,
@@ -144,7 +148,7 @@ class AbsensiModel extends Model
             SUM(CASE WHEN status = "Sakit" THEN 1 ELSE 0 END) as sakit,
             SUM(CASE WHEN status = "Izin" THEN 1 ELSE 0 END) as izin,
             SUM(CASE WHEN status = "Alpa" THEN 1 ELSE 0 END) as alpa
-        ')->where('tanggal', $tanggal);
+        ')->where('tanggal >=', $startDate)->where('tanggal <=', $endDate);
 
         $this->applyScopeKelas($builder, $kelasId);
         $res = $builder->first() ?? ['hadir' => 0, 'dispensasi' => 0, 'terlambat' => 0, 'sakit' => 0, 'izin' => 0, 'alpa' => 0];
@@ -152,8 +156,38 @@ class AbsensiModel extends Model
         return [(int)$res['hadir'], (int)$res['dispensasi'], (int)$res['terlambat'], (int)$res['sakit'], (int)$res['izin'], (int)$res['alpa']];
     }
 
-    public function getFraudList(string $tanggal, ?int $kelasId = null): array
+    /**
+     * Menghitung ringkasan jumlah per status kehadiran untuk satu tanggal tertentu.
+     * Digunakan di halaman Absensi Harian untuk menampilkan stat cards.
+     */
+    public function getDailySummary(string $tanggal, ?int $kelasId = null): array
     {
+        $builder = $this->select('
+            SUM(CASE WHEN status = "Hadir" THEN 1 ELSE 0 END) as hadir,
+            SUM(CASE WHEN status = "Terlambat" THEN 1 ELSE 0 END) as terlambat,
+            SUM(CASE WHEN status = "Dispensasi" THEN 1 ELSE 0 END) as dispensasi,
+            SUM(CASE WHEN status = "Sakit" THEN 1 ELSE 0 END) as sakit,
+            SUM(CASE WHEN status = "Izin" THEN 1 ELSE 0 END) as izin,
+            SUM(CASE WHEN status = "Alpa" THEN 1 ELSE 0 END) as alpa
+        ')->where('tanggal', $tanggal);
+
+        $this->applyScopeKelas($builder, $kelasId);
+        $res = $builder->first() ?? [];
+
+        return [
+            'hadir'      => (int)($res['hadir'] ?? 0),
+            'terlambat'  => (int)($res['terlambat'] ?? 0),
+            'dispensasi' => (int)($res['dispensasi'] ?? 0),
+            'sakit'      => (int)($res['sakit'] ?? 0),
+            'izin'       => (int)($res['izin'] ?? 0),
+            'alpa'       => (int)($res['alpa'] ?? 0),
+        ];
+    }
+
+    public function getFraudList(string $startDate, ?int $kelasId = null, ?string $endDate = null): array
+    {
+        $endDate = $endDate ?? $startDate;
+
         $builder = $this->db->table('log_fraud');
 
         $builder->select('
@@ -168,7 +202,8 @@ class AbsensiModel extends Model
         $builder->join('siswa', 'siswa.id_siswa = log_fraud.siswa_id');
         $builder->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left');
 
-        $builder->where('DATE(log_fraud.created_at)', $tanggal);
+        $builder->where('DATE(log_fraud.created_at) >=', $startDate);
+        $builder->where('DATE(log_fraud.created_at) <=', $endDate);
         $builder->where('log_fraud.lat_fraud IS NOT NULL');
 
         if ($kelasId) {
@@ -183,11 +218,14 @@ class AbsensiModel extends Model
     // FUNGSI UTAMA HALAMAN ABSENSI (YANG SEMPAT HILANG SEKARANG KEMBALI)
     // -------------------------------------------------------------------
 
-    public function getLeaderboardKelas(string $tanggal, ?int $kelasId = null): array
+    public function getLeaderboardKelas(string $startDate, ?int $kelasId = null, ?string $endDate = null): array
     {
+        $endDate = $endDate ?? $startDate;
+
         $builder = $this->select('kelas.nama_kelas, COUNT(absensi.id_absensi) as total_hadir')
             ->join('kelas', 'kelas.id_kelas = absensi.kelas_id')
-            ->where('absensi.tanggal', $tanggal)
+            ->where('absensi.tanggal >=', $startDate)
+            ->where('absensi.tanggal <=', $endDate)
             ->whereIn('absensi.status', ['Hadir', 'Dispensasi', 'Terlambat'])
             ->groupBy('absensi.kelas_id')
             ->orderBy('total_hadir', 'DESC')->limit(5);

@@ -5,17 +5,20 @@ namespace App\Controllers\Web;
 use App\Controllers\BaseController;
 use App\Models\PengajuanIzinModel;
 use App\Models\AbsensiModel;
+use App\Models\HariLiburModel;
 use CodeIgniter\I18n\Time;
 
 class Izin extends BaseController
 {
     protected PengajuanIzinModel $izinModel;
     protected AbsensiModel $absensiModel;
+    protected HariLiburModel $liburModel;
 
     public function __construct()
     {
         $this->izinModel    = new PengajuanIzinModel();
         $this->absensiModel = new AbsensiModel();
+        $this->liburModel   = new HariLiburModel();
     }
 
     private function checkAksesWaliKelas(int $targetKelasId): bool
@@ -29,9 +32,12 @@ class Izin extends BaseController
     public function index()
     {
         $searchFilter = $this->request->getGet('search');
+        $statusFilter = $this->request->getGet('status');
+        $dateFrom     = $this->request->getGet('date_from');
+        $dateTo       = $this->request->getGet('date_to');
 
         $sortParam = $this->request->getGet('sort') ?? 'created_at-desc';
-        $sortParts = explode('-', $sortParam);
+        $sortParts = explode('-', (string) $sortParam);
         $sortCol   = $sortParts[0] ?? 'created_at';
         $sortDir   = $sortParts[1] ?? 'desc';
 
@@ -41,19 +47,35 @@ class Izin extends BaseController
         $isWaliKelas = session()->get('is_wali_kelas');
         $kelasFilter = $isWaliKelas ? (int) session()->get('kelas_id') : null;
 
-        $daftarIzin = $this->izinModel->getPaginatedIzin($kelasFilter, $searchFilter, $perPage, $sortCol, $sortDir);
-        $pager      = $this->izinModel->pager;
+        $daftarIzin = $this->izinModel->getPaginatedIzin(
+            $kelasFilter,
+            $searchFilter,
+            $perPage,
+            $sortCol,
+            $sortDir,
+            $statusFilter ?: null,
+            $dateFrom ?: null,
+            $dateTo ?: null
+        );
+        $pager = $this->izinModel->pager;
+
+        // Counter badge per status
+        $counts = $this->izinModel->getStatusCounts($kelasFilter);
 
         $data = [
-            'title'        => 'Manajemen Pengajuan Izin',
-            'search_aktif' => $searchFilter,
-            'sort_col'     => $sortCol,
-            'sort_dir'     => $sortDir,
-            'daftarIzin'   => $daftarIzin,
-            'pager_links'  => $pager->links('default', 'tailwind_pagination'),
-            'total_data'   => $pager->getTotal('default'),
-            'page'         => $page,
-            'perPage'      => $perPage
+            'title'         => 'Manajemen Pengajuan Izin',
+            'search_aktif'  => $searchFilter,
+            'status_aktif'  => $statusFilter,
+            'date_from'     => $dateFrom,
+            'date_to'       => $dateTo,
+            'sort_col'      => $sortCol,
+            'sort_dir'      => $sortDir,
+            'daftarIzin'    => $daftarIzin,
+            'counts'        => $counts,
+            'pager_links'   => $pager->links('default', 'tailwind_pagination'),
+            'total_data'    => $pager->getTotal('default'),
+            'page'          => $page,
+            'perPage'       => $perPage
         ];
 
         return view('web/izin/index', $data);
@@ -75,6 +97,13 @@ class Izin extends BaseController
             return redirect()->back()->with('error', 'Akses Ditolak: Anda tidak berhak memproses izin siswa dari kelas lain.');
         }
 
+        // Ambil daftar tanggal hari libur dalam rentang izin
+        $liburRows = $this->liburModel
+            ->where('tanggal >=', $izin['tanggal_mulai'])
+            ->where('tanggal <=', $izin['tanggal_selesai'])
+            ->findAll();
+        $liburSet = array_column($liburRows, 'tanggal'); // ['2026-08-17', ...]
+
         $this->izinModel->db->transStart();
 
         $this->izinModel->update($idIzin, ['status' => 'Approved']);
@@ -90,13 +119,20 @@ class Izin extends BaseController
         $insertData = [];
 
         while ($tglMulai->toDateString() <= $tglSelesai->toDateString()) {
-            $insertData[] = [
-                'siswa_id'   => $izin['siswa_id'],
-                'kelas_id'   => $izin['kelas_id'],
-                'tanggal'    => $tglMulai->toDateString(),
-                'status'     => $izin['jenis'],
-                'keterangan' => 'Disetujui via sistem: ' . $izin['alasan']
-            ];
+            $dateStr   = $tglMulai->toDateString();
+            $dayOfWeek = (int) $tglMulai->toDateTime()->format('N'); // 1=Sen, 6=Sab, 7=Min
+
+            // FITUR 3: Lewati hari Sabtu (6), Minggu (7), dan hari libur nasional
+            if ($dayOfWeek < 6 && !in_array($dateStr, $liburSet)) {
+                $insertData[] = [
+                    'siswa_id'   => $izin['siswa_id'],
+                    'kelas_id'   => $izin['kelas_id'],
+                    'tanggal'    => $dateStr,
+                    'status'     => $izin['jenis'],
+                    'keterangan' => 'Disetujui via sistem: ' . $izin['alasan']
+                ];
+            }
+
             $tglMulai = $tglMulai->addDays(1);
         }
 
@@ -110,7 +146,11 @@ class Izin extends BaseController
             return redirect()->back()->with('error', 'Terjadi kesalahan sistem saat menyetujui izin.');
         }
 
-        return redirect()->back()->with('success', 'Pengajuan berhasil disetujui. Data absensi otomatis diperbarui.');
+        $jumlahHari = count($insertData);
+        return redirect()->back()->with(
+            'success',
+            "Pengajuan berhasil disetujui. {$jumlahHari} hari kerja absensi otomatis dibuat (hari libur & weekend dilewati)."
+        );
     }
 
     public function reject(string $idIzin)
@@ -129,7 +169,14 @@ class Izin extends BaseController
             return redirect()->back()->with('error', 'Akses Ditolak: Anda tidak berhak menolak izin siswa dari kelas lain.');
         }
 
-        $this->izinModel->update($idIzin, ['status' => 'Rejected']);
+        // FITUR 7: Simpan catatan penolakan
+        $catatan = trim((string) $this->request->getPost('catatan_penolakan'));
+
+        $this->izinModel->update($idIzin, [
+            'status'             => 'Rejected',
+            'catatan_penolakan'  => $catatan ?: null,
+        ]);
+
         return redirect()->back()->with('success', 'Pengajuan izin telah ditolak.');
     }
 }

@@ -26,6 +26,8 @@ $routes->group('admin', ['filter' => ['webAuth', 'dynamicAccess'], 'namespace' =
     });
 
     $routes->get('dashboard', 'Dashboard::index');
+    $routes->get('dashboard/data', 'Dashboard::getData');
+
 
     $routes->group('siswa', function ($routes) {
         $routes->get('/', 'Siswa::index');

@@ -59,9 +59,12 @@ class Absensi extends BaseController
         $absensi = $this->absensiModel->getPaginatedAbsensiHarian($tanggalFilter, $kelasFilter, $searchFilter, $perPage, $sortCol, $sortDir);
         $pager   = $this->absensiModel->pager;
 
+        // Ringkasan statistik kehadiran untuk tanggal & kelas yang difilter
+        $summary = $this->absensiModel->getDailySummary($tanggalFilter, $kelasFilter);
+
         $cacheKeySiswa = 'list_siswa_dropdown_' . ($isWaliKelas ? $kelasSessionId : 'all');
 
-        $siswaList = cache()->remember($cacheKeySiswa, 3600, function () use ($isWaliKelas, $kelasSessionId) {
+        $siswaList = cache()->remember($cacheKeySiswa, 300, function () use ($isWaliKelas, $kelasSessionId) {
             $query = $this->siswaModel
                 ->select('siswa.id_siswa, siswa.nis, siswa.nama_siswa, kelas.nama_kelas')
                 ->join('kelas', 'kelas.id_kelas = siswa.kelas_id', 'left')
@@ -87,6 +90,7 @@ class Absensi extends BaseController
             'absensi'      => $absensi,
             'siswa'        => $siswaList,
             'list_kelas'   => $listKelas,
+            'summary'      => $summary,
             'pager_links'  => $pager->links('default', 'tailwind_pagination'),
             'total_data'   => $pager->getTotal('default'),
             'page'         => $page,
@@ -104,7 +108,7 @@ class Absensi extends BaseController
         $aturanValidasi = [
             'siswa_id'   => 'required|numeric',
             'tanggal'    => 'required|valid_date[Y-m-d]',
-            'status'     => 'required|in_list[Hadir,Sakit,Izin,Alpa]'
+            'status'     => 'required|in_list[Hadir,Dispensasi,Sakit,Izin,Alpa]'
         ];
 
         if (!$this->validate($aturanValidasi)) {
@@ -125,8 +129,9 @@ class Absensi extends BaseController
         $sekarangObject = Time::now('Asia/Jakarta');
         $tanggalHariIni = $sekarangObject->toDateString();
 
+        // Hadir dan Dispensasi keduanya perlu jam_masuk
         $jamMasuk = null;
-        if ($status === 'Hadir') {
+        if (in_array($status, ['Hadir', 'Dispensasi'])) {
             $jamMasuk = ($tanggal === $tanggalHariIni) ? $sekarangObject->toTimeString() : '07:00:00';
         }
 
