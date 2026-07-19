@@ -89,21 +89,53 @@ class Siswa extends BaseController
 
         $siswa = $this->siswaModel->getPaginatedSiswa($kelasFilter, $searchFilter, $perPage, $sortCol, $sortDir);
 
+        // FITUR 5: Cari nama kelas aktif untuk badge filter
+        $namaKelasAktif = '';
+        if (!empty($kelasFilter)) {
+            foreach ($listKelas as $lk) {
+                if ((string) $lk['id_kelas'] === (string) $kelasFilter) {
+                    $namaKelasAktif = $lk['nama_kelas'];
+                    break;
+                }
+            }
+        }
+
+        // FITUR 2: Summary stats — mengikuti filter kelas aktif
+        $statsBuilder = $this->db->table('siswa');
+        if (!empty($kelasFilter)) {
+            $statsBuilder->where('kelas_id', $kelasFilter);
+        }
+        $statsRow = $statsBuilder->select(
+            'COUNT(*) as total,
+             SUM(device_id IS NOT NULL) as terikat_hp,
+             SUM(is_blocked = 1) as terblokir,
+             SUM(foto_profil IS NULL OR foto_profil = \'\') as belum_foto'
+        )->get()->getRowArray();
+
+        $summary = [
+            'total'      => (int) ($statsRow['total'] ?? 0),
+            'terikat_hp' => (int) ($statsRow['terikat_hp'] ?? 0),
+            'terblokir'  => (int) ($statsRow['terblokir'] ?? 0),
+            'belum_foto' => (int) ($statsRow['belum_foto'] ?? 0),
+        ];
+
         $data = [
-            'title'         => 'Daftar Siswa',
-            'siswa'         => $siswa,
-            'list_kelas'    => $listKelas,
-            'list_zona'     => $listZona,
-            'kelas_aktif'   => $kelasFilter,
-            'search_aktif'  => $searchFilter,
-            'sort_aktif'    => $sortParam,
-            'sort_col'      => $sortCol,
-            'sort_dir'      => $sortDir,
-            'pager_links'   => $this->siswaModel->pager->links('default', 'tailwind_pagination'),
-            'total_data'    => $this->siswaModel->pager->getTotal('default'),
-            'page'          => $page,
-            'perPage'       => $perPage,
-            'is_wali_kelas' => $isWaliKelas
+            'title'            => 'Daftar Siswa',
+            'siswa'            => $siswa,
+            'list_kelas'       => $listKelas,
+            'list_zona'        => $listZona,
+            'kelas_aktif'      => $kelasFilter,
+            'nama_kelas_aktif' => $namaKelasAktif,
+            'summary'          => $summary,
+            'search_aktif'     => $searchFilter,
+            'sort_aktif'       => $sortParam,
+            'sort_col'         => $sortCol,
+            'sort_dir'         => $sortDir,
+            'pager_links'      => $this->siswaModel->pager->links('default', 'tailwind_pagination'),
+            'total_data'       => $this->siswaModel->pager->getTotal('default'),
+            'page'             => $page,
+            'perPage'          => $perPage,
+            'is_wali_kelas'    => $isWaliKelas
         ];
 
         return view('web/siswa', $data);

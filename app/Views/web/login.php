@@ -4,67 +4,98 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login Admin - Geofence System</title>
+    <title>Sistem Autentikasi | GeofenceApp</title>
 
     <link rel="stylesheet" href="<?= base_url('css/app.css') ?>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* Animasi Blob Custom jika tidak ada di tailwind.config */
+        @keyframes blob {
+            0% { transform: translate(0px, 0px) scale(1); }
+            33% { transform: translate(30px, -50px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+            100% { transform: translate(0px, 0px) scale(1); }
+        }
+        .animate-blob {
+            animation: blob 10s infinite alternate;
+        }
+        .animation-delay-2000 {
+            animation-delay: 2s;
+        }
+        .animation-delay-4000 {
+            animation-delay: 4s;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+        }
+    </style>
 </head>
 
-<body class="bg-slate-900 flex items-center justify-center min-h-screen relative overflow-hidden font-sans">
+<body class="bg-slate-900 flex items-center justify-center min-h-screen relative overflow-hidden font-sans selection:bg-blue-500 selection:text-white">
 
-    <div class="absolute top-0 left-0 w-96 h-96 bg-blue-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
-    <div class="absolute top-0 right-0 w-96 h-96 bg-indigo-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
-    <div class="absolute -bottom-32 left-20 w-96 h-96 bg-emerald-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
+    <!-- Efek Latar Belakang Aurora / Mesh Gradient -->
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-900/40 via-slate-900 to-slate-950 z-0"></div>
+    
+    <div class="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-600 rounded-full mix-blend-screen filter blur-[120px] opacity-20 animate-blob z-0"></div>
+    <div class="absolute top-[20%] right-[-10%] w-[400px] h-[400px] bg-indigo-600 rounded-full mix-blend-screen filter blur-[100px] opacity-20 animate-blob animation-delay-2000 z-0"></div>
+    <div class="absolute bottom-[-10%] left-[20%] w-[600px] h-[600px] bg-emerald-600 rounded-full mix-blend-screen filter blur-[130px] opacity-10 animate-blob animation-delay-4000 z-0"></div>
 
-    <div class="bg-white/95 backdrop-blur-sm p-8 md:p-10 rounded-3xl shadow-2xl w-full max-w-md z-10 border border-white/20">
+    <!-- Kotak Login Utama -->
+    <div class="glass-panel p-8 md:p-12 rounded-[2rem] shadow-2xl w-full max-w-md z-10 border border-white/20 transform transition-all duration-500 hover:shadow-blue-900/30">
 
-        <div class="text-center mb-8">
-            <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 text-blue-600 mb-4 shadow-inner">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-                </svg>
+        <!-- Header Identitas -->
+        <div class="text-center mb-10">
+            <div class="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white mb-5 shadow-xl shadow-blue-500/30 transform -rotate-6 hover:rotate-0 transition-transform duration-300">
+                <i class="fas fa-fingerprint text-4xl"></i>
             </div>
-            <h1 class="text-2xl font-bold text-gray-800">Geofence<span class="text-blue-600">App</span></h1>
-            <p class="text-sm text-gray-500 mt-1">Sistem Absensi Berbasis Lokasi</p>
+            <h1 class="text-3xl font-black text-gray-800 tracking-tight">Geofence<span class="text-blue-600">App</span></h1>
+            <p class="text-xs font-bold text-gray-400 mt-2 uppercase tracking-widest">Portal Manajemen Presensi</p>
         </div>
 
         <form action="<?= base_url('admin/login_action') ?>" method="POST" id="formLogin" class="space-y-6">
             <?= csrf_field() ?>
 
+            <!-- Field Username -->
             <div>
-                <label for="username" class="block text-xs font-bold text-gray-600 uppercase mb-2">Username</label>
-                <div class="relative">
-                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                        </svg>
+                <label for="username" class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Nama Pengguna (Username)</label>
+                <div class="relative group">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
+                        <i class="fas fa-user text-sm"></i>
                     </div>
-                    <input type="text" name="username" id="username" value="<?= old('username') ?>" required class="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-gray-50 focus:bg-white" placeholder="Masukkan username">
+                    <input type="text" name="username" id="username" value="<?= old('username') ?>" required class="w-full pl-11 pr-4 py-3.5 border border-gray-200 rounded-xl text-sm font-bold text-gray-800 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all bg-gray-50 focus:bg-white shadow-sm" placeholder="Ketik username Anda" autocomplete="username">
                 </div>
             </div>
 
+            <!-- Field Password -->
             <div>
-                <label for="password" class="block text-xs font-bold text-gray-600 uppercase mb-2">Password</label>
-                <div class="relative">
-                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                        </svg>
+                <label for="password" class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Kata Sandi (Password)</label>
+                <div class="relative group">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
+                        <i class="fas fa-lock text-sm"></i>
                     </div>
-                    <input type="password" name="password" id="password" required class="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-gray-50 focus:bg-white" placeholder="••••••••">
-                    <button type="button" onclick="togglePassword()" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-blue-500 transition-colors" id="btnTogglePw">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" id="iconEye">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                        </svg>
+                    <input type="password" name="password" id="password" required class="w-full pl-11 pr-12 py-3.5 border border-gray-200 rounded-xl text-sm font-bold text-gray-800 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all bg-gray-50 focus:bg-white shadow-sm" placeholder="••••••••" autocomplete="current-password">
+                    <button type="button" onclick="togglePassword()" class="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-blue-600 transition-colors outline-none" title="Intip Sandi">
+                        <i class="fas fa-eye text-sm" id="iconEye"></i>
                     </button>
                 </div>
             </div>
 
-            <button type="submit" id="btnSubmit" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-blue-600/30 hover:bg-blue-700 hover:shadow-blue-700/40 transition-all active:scale-[0.98] flex justify-center items-center">
-                Masuk Sistem
-            </button>
+            <!-- Tombol Submit -->
+            <div class="pt-2">
+                <button type="submit" id="btnSubmit" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-blue-500/30 hover:from-blue-700 hover:to-indigo-700 hover:shadow-blue-500/40 transition-all active:scale-95 flex justify-center items-center gap-2 group">
+                    <span id="btnText">Otorisasi & Masuk</span>
+                    <i class="fas fa-sign-in-alt group-hover:translate-x-1 transition-transform" id="btnIcon"></i>
+                </button>
+            </div>
         </form>
+        
+        <div class="mt-8 text-center border-t border-gray-100 pt-6">
+            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest"><i class="fas fa-shield-alt mr-1"></i> Dilindungi oleh Enkripsi End-to-End</p>
+        </div>
     </div>
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
@@ -77,15 +108,14 @@
 
             if (pwField.type === 'password') {
                 pwField.type = 'text';
-                iconEye.innerHTML = `
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.29 3.29m0 0a10.05 10.05 0 015.188-1.581c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path>
-                `;
+                iconEye.classList.remove('fa-eye');
+                iconEye.classList.add('fa-eye-slash');
+                iconEye.classList.add('text-blue-600');
             } else {
                 pwField.type = 'password';
-                iconEye.innerHTML = `
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                `;
+                iconEye.classList.remove('fa-eye-slash');
+                iconEye.classList.remove('text-blue-600');
+                iconEye.classList.add('fa-eye');
             }
         }
 
@@ -94,6 +124,10 @@
             "progressBar": true,
             "positionClass": "toast-top-center",
             "timeOut": "4000",
+            "showEasing": "swing",
+            "hideEasing": "linear",
+            "showMethod": "fadeIn",
+            "hideMethod": "fadeOut"
         };
 
         <?php if (session()->getFlashdata('error')) : ?>
@@ -101,14 +135,23 @@
         <?php endif; ?>
 
         <?php if (session()->getFlashdata('warning')) : ?>
-            toastr.warning("<?= esc((string) session()->getFlashdata('warning')) ?>", "Sesi Habis");
+            toastr.warning("<?= esc((string) session()->getFlashdata('warning')) ?>", "Sesi Berakhir");
+        <?php endif; ?>
+        
+        <?php if (session()->getFlashdata('success')) : ?>
+            toastr.success("<?= esc((string) session()->getFlashdata('success')) ?>", "Informasi");
         <?php endif; ?>
 
         $('#formLogin').on('submit', function() {
             const btn = $('#btnSubmit');
-            btn.html('<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Memproses...');
+            const icon = $('#btnIcon');
+            const text = $('#btnText');
+            
+            icon.removeClass('fa-sign-in-alt group-hover:translate-x-1').addClass('fa-spinner fa-spin');
+            text.text('Mengautentikasi...');
+            
             btn.prop('disabled', true);
-            btn.addClass('opacity-80 cursor-not-allowed');
+            btn.addClass('opacity-90 cursor-not-allowed');
         });
     </script>
 </body>

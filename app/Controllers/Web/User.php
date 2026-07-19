@@ -15,7 +15,7 @@ class User extends BaseController
     }
 
     /**
-     * @return mixed
+     * Halaman profil user sendiri.
      */
     public function profile()
     {
@@ -31,7 +31,7 @@ class User extends BaseController
     }
 
     /**
-     * @return mixed
+     * Simpan perubahan profil user sendiri.
      */
     public function updateProfile()
     {
@@ -90,44 +90,74 @@ class User extends BaseController
     }
 
     /**
-     * @return mixed
+     * Halaman daftar user/guru dengan info wali kelas (FITUR 3).
      */
     public function index()
     {
-        $users = $this->userModel->select('users.*, roles.nama_role, roles.warna_badge')
+        // Join kelas untuk mendapatkan info wali kelas per user (FITUR 3)
+        $users = $this->userModel
+            ->select('users.*, roles.nama_role, roles.warna_badge, kelas.nama_kelas as wali_kelas_nama, kelas.id_kelas as wali_kelas_id_kelas')
             ->join('roles', 'roles.id_role = users.role_id')
+            ->join('kelas', 'kelas.wali_kelas_id = users.id_user', 'left')
             ->orderBy('users.role_id', 'ASC')
             ->orderBy('users.nama_lengkap', 'ASC')
             ->findAll();
 
         $roles = $this->db->table('roles')->get()->getResultArray();
 
+        // FITUR 4: Hitung jumlah user per role untuk summary counter
+        $summary = [];
+        foreach ($users as $u) {
+            $roleName = $u['nama_role'] ?? 'Unknown';
+            $summary[$roleName] = ($summary[$roleName] ?? 0) + 1;
+        }
+
+        // Daftar kelas untuk dropdown pilihan wali kelas (FITUR 3)
+        $listKelas = $this->db->table('kelas')
+            ->select('id_kelas, nama_kelas')
+            ->orderBy('nama_kelas', 'ASC')
+            ->get()
+            ->getResultArray();
+
         $data = [
-            'title' => 'Data Guru & Administrator',
-            'users' => $users,
-            'roles' => $roles
+            'title'      => 'Data Guru & Administrator',
+            'users'      => $users,
+            'roles'      => $roles,
+            'summary'    => $summary,
+            'listKelas'  => $listKelas,
         ];
 
         return view('web/user', $data);
     }
 
     /**
-     * @return mixed
+     * Tambah atau Edit user (Tambah = tidak ada id_user, Edit = ada id_user).
+     * FITUR 2: Mendukung field password + foto.
      */
     public function store()
     {
         $idUser = $this->request->getPost('id_user');
+        $isEdit = !empty($idUser);
 
-        $ruleUsername = empty($idUser) ? 'required|is_unique[users.username]' : "required|is_unique[users.username,id_user,{$idUser}]";
+        $ruleUsername = $isEdit
+            ? "required|min_length[4]|max_length[50]|is_unique[users.username,id_user,{$idUser}]"
+            : 'required|min_length[4]|max_length[50]|is_unique[users.username]';
 
         $rules = [
-            'nama_lengkap' => 'required',
+            'nama_lengkap' => 'required|min_length[3]|max_length[100]',
             'username'     => $ruleUsername,
-            'role_id'      => 'required|integer'
+            'role_id'      => 'required|integer',
+            'foto'         => 'max_size[foto,2048]|is_image[foto]|mime_in[foto,image/jpg,image/jpeg,image/png]',
         ];
 
+        // Password wajib saat tambah, opsional saat edit
+        if (!$isEdit) {
+            $rules['password'] = 'permit_empty|min_length[6]';
+        }
+
         if (!$this->validate($rules)) {
-            return redirect()->back()->withInput()->with('error', 'Validasi gagal. Pastikan username unik dan form terisi benar.');
+            $errors = $this->validator->getErrors();
+            return redirect()->back()->withInput()->with('error', 'Validasi gagal: ' . reset($errors));
         }
 
         $data = [
@@ -136,28 +166,50 @@ class User extends BaseController
             'role_id'      => (int) $this->request->getPost('role_id'),
         ];
 
-        if (empty($idUser)) {
-            $password = (string) $this->request->getPost('password');
-            if (empty($password)) $password = '123456';
-            $data['password_hash'] = password_hash($password, PASSWORD_BCRYPT);
-
-            $this->userModel->insert($data);
-            $msg = 'Pengguna baru berhasil ditambahkan.';
-        } else {
-            $password = (string) $this->request->getPost('password');
+        // --- Penanganan Password (FITUR 2) ---
+        $password = trim((string) $this->request->getPost('password'));
+        if ($isEdit) {
+            // Edit: hanya update jika field password diisi
             if (!empty($password)) {
                 $data['password_hash'] = password_hash($password, PASSWORD_BCRYPT);
             }
-            $this->userModel->update($idUser, $data);
+        } else {
+            // Tambah: jika kosong pakai default '123456'
+            if (empty($password)) {
+                $password = '123456';
+            }
+            $data['password_hash'] = password_hash($password, PASSWORD_BCRYPT);
+        }
+
+        // --- Penanganan Foto (FITUR 7) ---
+        $foto = $this->request->getFile('foto');
+        if ($foto && $foto->isValid() && !$foto->hasMoved()) {
+            $newName = $foto->getRandomName();
+            $foto->move(FCPATH . 'uploads/profiles', $newName);
+            $data['foto'] = $newName;
+
+            // Hapus foto lama jika edit
+            if ($isEdit) {
+                $oldUser = $this->userModel->find((int) $idUser);
+                if ($oldUser && !empty($oldUser['foto']) && file_exists(FCPATH . 'uploads/profiles/' . $oldUser['foto'])) {
+                    unlink(FCPATH . 'uploads/profiles/' . $oldUser['foto']);
+                }
+            }
+        }
+
+        if ($isEdit) {
+            $this->userModel->update((int) $idUser, $data);
             $msg = 'Data pengguna berhasil diperbarui.';
+        } else {
+            $this->userModel->insert($data);
+            $msg = 'Pengguna baru berhasil ditambahkan. Password default: ' . $password;
         }
 
         return redirect()->to('/admin/user')->with('success', $msg);
     }
 
     /**
-     * @param string $id
-     * @return mixed
+     * Hapus user (dilindungi dari hapus Superadmin & diri sendiri).
      */
     public function delete(string $id)
     {
@@ -167,14 +219,22 @@ class User extends BaseController
             return redirect()->back()->with('error', 'Keamanan: Akun Superadmin atau akun Anda sendiri tidak dapat dihapus.');
         }
 
+        // Hapus foto profil jika ada
+        $userToDelete = $this->userModel->find($idTarget);
+        if ($userToDelete && !empty($userToDelete['foto'])) {
+            $fotoPath = FCPATH . 'uploads/profiles/' . $userToDelete['foto'];
+            if (file_exists($fotoPath)) {
+                unlink($fotoPath);
+            }
+        }
+
         $this->userModel->delete($idTarget);
 
         return redirect()->to('/admin/user')->with('success', 'Akun pengguna berhasil dihapus.');
     }
 
     /**
-     * @param string $id
-     * @return mixed
+     * Reset password user ke default '123456'.
      */
     public function reset(string $id)
     {
@@ -191,12 +251,12 @@ class User extends BaseController
     }
 
     /**
-     * @return mixed
+     * Halaman manajemen hak akses per role.
      */
     public function hakAkses()
     {
-        $roles = $this->db->table('roles')->get()->getResultArray();
-        $menus = $this->db->table('menus')->orderBy('urutan', 'ASC')->get()->getResultArray();
+        $roles    = $this->db->table('roles')->get()->getResultArray();
+        $menus    = $this->db->table('menus')->orderBy('urutan', 'ASC')->get()->getResultArray();
         $roleMenus = $this->db->table('role_menus')->get()->getResultArray();
 
         $akses = [];
@@ -205,35 +265,31 @@ class User extends BaseController
         }
 
         $data = [
-            'title' => 'Pengaturan Hak Akses',
-            'roles' => $roles,
-            'menus' => $menus,
-            'akses' => $akses
+            'title'  => 'Pengaturan Hak Akses',
+            'roles'  => $roles,
+            'menus'  => $menus,
+            'akses'  => $akses
         ];
 
         return view('web/hak_akses', $data);
     }
 
     /**
-     * @return mixed
+     * Simpan konfigurasi hak akses per role.
      */
     public function saveHakAkses()
     {
-        // PERBAIKAN: Ambil data matriks permissions dari form
         $permissions = $this->request->getPost('permissions');
 
-        // Hapus semua hak akses terlebih dahulu (Kecuali Role 1 / Superadmin)
+        // Hapus semua hak akses (kecuali Superadmin/role 1)
         $this->db->table('role_menus')->where('id_role !=', 1)->delete();
 
         if (!empty($permissions) && is_array($permissions)) {
             $insertData = [];
 
-            // Looping berdasarkan role
             foreach ($permissions as $roleId => $menuIds) {
-                // Lewati role 1 karena bersifat mutlak
                 if ($roleId == 1) continue;
 
-                // Looping berdasarkan menu yang dicentang pada role tersebut
                 foreach ($menuIds as $menuId) {
                     $insertData[] = [
                         'id_role' => (int) $roleId,
@@ -241,11 +297,9 @@ class User extends BaseController
                     ];
                 }
 
-                // Hapus cache untuk role ini (jika Anda menggunakan sistem caching menu)
                 cache()->delete('global_menus_role_' . $roleId);
             }
 
-            // Simpan batch ke database
             if (!empty($insertData)) {
                 $this->db->table('role_menus')->insertBatch($insertData);
             }

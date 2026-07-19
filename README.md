@@ -1,69 +1,65 @@
-# CodeIgniter 4 Application Starter
+# GeofenceApp - Sistem Manajemen Presensi Berbasis Lokasi
 
-## What is CodeIgniter?
+GeofenceApp adalah sistem informasi administrasi dan presensi (absensi) sekolah/instansi berbasis lokasi (Geofencing) yang dibangun di atas framework **CodeIgniter 4**, berpadu dengan fungsionalitas **Tailwind CSS** untuk menyajikan antarmuka pengguna (UI/UX) tingkat *Enterprise*.
 
-CodeIgniter is a PHP full-stack web framework that is light, fast, flexible and secure.
-More information can be found at the [official site](https://codeigniter.com).
+Sistem ini mendukung fitur validasi lokasi berlapis, manajemen *fraud* (kecurangan), zona magang/PKL yang dinamis, hingga notifikasi siaran *(broadcast)* menggunakan Firebase Cloud Messaging.
 
-This repository holds a composer-installable app starter.
-It has been built from the
-[development repository](https://github.com/codeigniter4/CodeIgniter4).
+---
 
-More information about the plans for version 4 can be found in [CodeIgniter 4](https://forum.codeigniter.com/forumdisplay.php?fid=28) on the forums.
+## 🚀 Log Pembaruan (Changelog) - UI/UX Enterprise Overhaul
+*(Juli 2026)*
 
-You can read the [user guide](https://codeigniter.com/user_guide/)
-corresponding to the latest version of the framework.
+Sistem baru saja melalui fase perombakan antarmuka pengguna (UI) dan pengalaman pengguna (UX) besar-besaran untuk seluruh modul antarmuka Web Admin. Berikut adalah daftar pembaruan yang telah diterapkan:
 
-## Installation & updates
+### 1. 🛡️ Autentikasi & Gerbang Utama (Login)
+- **Aurora Mesh Background:** Latar belakang dirombak menggunakan efek *radial-gradient blob* dinamis bergaya aurora (Biru, Indigo, Emerald).
+- **Glassmorphism Panel:** Kartu form login kini menggunakan efek kaca es semi-transparan (`backdrop-blur`).
+- **Floating 3D Identity:** Penyematan logo aplikasi bergradien 3D interaktif yang merespons kursor mouse.
+- **Konsistensi Ikonografi:** Integrasi penuh FontAwesome untuk semua input field dan *Eye-Toggle* (Intip Sandi).
 
-`composer create-project codeigniter4/appstarter` then `composer update` whenever
-there is a new release of the framework.
+### 2. 🎛️ Tata Letak Utama (Sidebar & Top Navbar)
+- **Active State Gradient:** Menu aktif pada sidebar kini disorot menggunakan *gradient button* dengan efek *Glow Shadow*.
+- **Smooth Profile Dropdown:** Animasi menu profil (Kanan Atas) ditingkatkan dari gaya kaku menjadi animasi *Fade & Scale-in* yang sangat halus ala iOS/macOS.
+- **Glass Navbar:** Header navigasi atas kini menggunakan efek *backdrop-blur* (transparan-kaca) sehingga tabel di bawahnya terlihat menyatu saat di-*scroll*.
+- **Destructive Hover:** Tombol *Logout* kini menyala merah bergradien saat akan diklik sebagai indikator tindakan akhir.
 
-When updating, check the release notes to see if there are any changes you might need to apply
-to your `app` folder. The affected files can be copied or merged from
-`vendor/codeigniter4/framework/app`.
+### 3. 👥 Manajemen Siswa & Profil 360
+- **Gradient Identity Card:** Halaman detail siswa diperkaya dengan latar belakang bingkai bergradien dinamis di belakang kotak foto profil.
+- **Analitik Watermark Ikon:** Kotak ringkasan statistik (Hadir, Alpa, Telat) kini memiliki ikon raksasa transparan (watermark) di latar belakangnya.
+- **Bukti Visual (Modal):** Latar belakang *Modal* untuk melihat foto *selfie* masuk/pulang presensi kini dilapisi efek *blur* premium dengan transisi pembesaran foto (*zoom-in*).
 
-## Setup
+### 4. 🏢 Manajemen Mutasi & Kelas
+- **Smart Stepper Mutasi:** Halaman mutasi kelas masal kini memiliki antarmuka pencarian cepat (*Live-Search*) dan pemindahan data yang jauh lebih terorganisir.
+- **Avatar Otomatis:** Jika siswa tidak memiliki foto profil, sistem otomatis men- *generate* avatar melingkar berdasarkan inisial huruf pertama nama.
 
-Copy `env` to `.env` and tailor for your app, specifically the baseURL
-and any database settings.
+### 5. 📍 Zona Kehadiran (Geofence & PKL)
+- **Peta Interaktif (Leaflet):** Tampilan modal penentuan titik radius (*Geofencing*) dipoles lebih bersih.
+- **Dropdown Aksi Modern:** Menghilangkan jejeran tombol aksi yang berdesakan di tabel, diganti menjadi tombol *Dropdown Options* tiga titik yang minimalis.
 
-## Important Change with index.php
+### 6. 📅 Rekapitulasi & Hari Libur
+- **Progress Bar Kehadiran:** Tabel laporan kini memvisualisasikan persentase kehadiran siswa menggunakan bilah progres (*Progress Bar*) warna-warni secara langsung.
+- **Calendar Sheet UX:** Halaman manajemen Hari Libur dibentuk menyerupai carikan kalender nyata (Merah untuk libur).
+- **Auto-Dimming Data:** Data hari libur yang sudah lampau (kadaluarsa) otomatis diredupkan (*opacity-50*) agar Admin fokus pada agenda libur mendatang.
 
-`index.php` is no longer in the root of the project! It has been moved inside the *public* folder,
-for better security and separation of components.
+### 7. 📢 Pengumuman (Broadcast Firebase)
+- **Gradient Badges:** Pengumuman kini dibedakan dengan latar warna gradien khusus berdasarkan tipenya (Biru untuk Info, Oranye untuk Peringatan, Merah untuk Sistem).
+- **Anti-Spam Click:** Penyematan animasi `.btn-loading` (Spinner Putar) untuk mencegah Admin mengirim notifikasi ganda ke HP siswa secara tidak sengaja akibat koneksi lambat.
 
-This means that you should configure your web server to "point" to your project's *public* folder, and
-not to the project root. A better practice would be to configure a virtual host to point there. A poor practice would be to point your web server to the project root and expect to enter *public/...*, as the rest of your logic and the
-framework are exposed.
+### 8. ⚙️ Konfigurasi Sistem, Hak Akses (RBAC), & Profil Admin
+- **Toggle Switch iOS:** Matriks pengaturan Hak Akses (RBAC) tidak lagi menggunakan *checkbox browser default*, melainkan beralih ke *CSS Toggle Switch* mulus layaknya di ponsel pintar.
+- **Optimasi Gambar (*Client-Side Compression*):** Saat Admin mengunggah foto profil, foto dipotong dan dikompresi di sisi *browser* (maks 700x700px) sebelum menyentuh *server*, menghemat *bandwidth* secara drastis.
+- **Layout Berbasis Form Premium:** Penambahan *inline-icon* FontAwesome secara masif di sebelah kiri setiap kotak input (Nama, Username, Sandi, App ID, Link APK, dll) untuk identitas visual yang solid.
 
-**Please** read the user guide for a better explanation of how CI4 works!
+---
 
-## Repository Management
+## 🛠️ Persyaratan Lingkungan (Environment)
+- PHP 8.1 atau lebih baru.
+- Ekstensi PHP: `intl`, `mbstring`, `gd`, `curl`, `mysqlnd`.
+- Node.js & NPM (Untuk *build Tailwind CSS*).
+- MySQL / MariaDB 10.x.
 
-We use GitHub issues, in our main repository, to track **BUGS** and to track approved **DEVELOPMENT** work packages.
-We use our [forum](http://forum.codeigniter.com) to provide SUPPORT and to discuss
-FEATURE REQUESTS.
-
-This repository is a "distribution" one, built by our release preparation script.
-Problems with it can be raised on our forum, or as issues in the main repository.
-
-## Server Requirements
-
-PHP version 8.2 or higher is required, with the following extensions installed:
-
-- [intl](http://php.net/manual/en/intl.requirements.php)
-- [mbstring](http://php.net/manual/en/mbstring.installation.php)
-
-> [!WARNING]
-> - The end of life date for PHP 7.4 was November 28, 2022.
-> - The end of life date for PHP 8.0 was November 26, 2023.
-> - The end of life date for PHP 8.1 was December 31, 2025.
-> - If you are still using below PHP 8.2, you should upgrade immediately.
-> - The end of life date for PHP 8.2 will be December 31, 2026.
-
-Additionally, make sure that the following extensions are enabled in your PHP:
-
-- json (enabled by default - don't turn it off)
-- [mysqlnd](http://php.net/manual/en/mysqlnd.install.php) if you plan to use MySQL
-- [libcurl](http://php.net/manual/en/curl.requirements.php) if you plan to use the HTTP\CURLRequest library
+## 📦 Menjalankan Sistem Secara Lokal
+1. Konfigurasikan kredensial database di dalam file `.env`.
+2. Jalankan perintah `php spark serve` untuk menghidupkan *backend*.
+3. (Pilihan) Jalankan perintah `npm run dev` pada tab terminal lain untuk mengaktifkan kompilasi *Tailwind CSS Real-time*.
+4. Akses melalui `http://localhost:8080/admin/login`.

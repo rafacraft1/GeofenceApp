@@ -10,6 +10,39 @@
 <?= $this->extend('layout/admin') ?>
 
 <?= $this->section('content') ?>
+<style>
+    /* Transisi mulus untuk Smart Merge Warning */
+    .warning-collapsible {
+        display: grid;
+        grid-template-rows: 0fr;
+        opacity: 0;
+        transition: grid-template-rows 0.35s ease, opacity 0.3s ease, margin-top 0.3s ease;
+        margin-top: 0;
+    }
+    .warning-collapsible.open {
+        grid-template-rows: 1fr;
+        opacity: 1;
+        margin-top: 0.75rem;
+    }
+    .warning-collapsible > .warning-inner { overflow: hidden; }
+
+    /* Custom scrollbar untuk list siswa */
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+    }
+</style>
+
 <div class="mb-6 flex flex-col md:flex-row justify-between md:items-end gap-4">
     <div>
         <h2 class="text-2xl font-bold text-gray-800">Mutasi & Kenaikan Kelas</h2>
@@ -19,12 +52,18 @@
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
+    <!-- KOLOM KIRI: STEP 1 -->
     <div class="lg:col-span-1">
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 h-fit sticky top-6">
-            <h3 class="text-sm font-bold text-gray-800 mb-4 uppercase tracking-wide border-b pb-2">1. Pilih Kelas Asal</h3>
+            <h3 class="flex items-center gap-3 text-sm font-bold text-gray-800 mb-5 border-b border-gray-100 pb-3">
+                <span class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs">1</span>
+                Pilih Kelas Asal
+            </h3>
+            
             <form action="<?= base_url('admin/mutasi') ?>" method="GET" id="formPilihAsal">
-                <label class="block text-xs font-bold text-gray-600 mb-2">Kelas Saat Ini</label>
-                <select name="asal" onchange="document.getElementById('formPilihAsal').submit()" class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 cursor-pointer">
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Kelas Saat Ini</label>
+                <select name="asal" onchange="document.getElementById('formPilihAsal').submit()" 
+                        class="w-full border border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 cursor-pointer transition-all hover:bg-white">
                     <option value="">-- Silakan Pilih --</option>
                     <?php foreach ($listKelas as $k): ?>
                         <option value="<?= esc((string) $k['id_kelas']) ?>" <?= ((string) $kelasAsalId === (string) $k['id_kelas']) ? 'selected' : '' ?>>
@@ -35,97 +74,161 @@
             </form>
 
             <?php if ($kelasAsalData): ?>
-                <div class="mt-6 bg-blue-50 p-4 rounded-xl border border-blue-100">
-                    <p class="text-[10px] text-blue-500 font-bold uppercase tracking-widest mb-1">Informasi Kelas</p>
-                    <p class="text-lg font-black text-blue-800"><?= esc((string) $kelasAsalData['nama_kelas']) ?></p>
-                    <p class="text-xs text-blue-600 mt-1 flex items-center gap-2">
-                        <i class="fas fa-user-tie"></i> Wali: <span class="font-bold"><?= esc((string) ($kelasAsalData['nama_wali'] ?? 'Kosong')) ?></span>
+                <div class="mt-6 bg-gradient-to-br from-blue-50 to-indigo-50 p-5 rounded-xl border border-blue-100 shadow-sm">
+                    <p class="text-[10px] text-blue-500 font-bold uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                        <i class="fas fa-info-circle"></i> Informasi Kelas
                     </p>
-                    <p class="text-xs text-blue-600 mt-1 flex items-center gap-2">
-                        <i class="fas fa-users"></i> Total: <span class="font-bold"><?= count($siswaAsal) ?> Siswa</span>
-                    </p>
+                    <p class="text-xl font-black text-blue-900 mb-3"><?= esc((string) $kelasAsalData['nama_kelas']) ?></p>
+                    
+                    <div class="space-y-2">
+                        <div class="flex items-start gap-2.5">
+                            <div class="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                                <i class="fas fa-user-tie text-[10px]"></i>
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-bold text-blue-400 uppercase">Wali Kelas</p>
+                                <p class="text-xs font-bold text-blue-800 leading-tight"><?= esc((string) ($kelasAsalData['nama_wali'] ?? 'Belum Ditentukan')) ?></p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-2.5">
+                            <div class="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                                <i class="fas fa-users text-[10px]"></i>
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-bold text-indigo-400 uppercase">Total Siswa</p>
+                                <p class="text-xs font-bold text-indigo-800 leading-tight"><?= count($siswaAsal) ?> Orang</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             <?php endif; ?>
         </div>
     </div>
 
+    <!-- KOLOM KANAN: STEP 2 & 3 -->
     <div class="lg:col-span-2">
         <?php if (empty($kelasAsalId)): ?>
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 flex flex-col items-center justify-center text-center h-full min-h-[300px]">
-                <div class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4 text-gray-400">
-                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
-                    </svg>
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 flex flex-col items-center justify-center text-center h-full min-h-[350px]">
+                <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-5 text-gray-300 shadow-inner">
+                    <i class="fas fa-exchange-alt text-3xl"></i>
                 </div>
-                <h3 class="text-lg font-bold text-gray-700">Belum Ada Kelas yang Dipilih</h3>
-                <p class="text-sm text-gray-500 mt-2 max-w-sm">Pilih kelas asal terlebih dahulu dari panel di sebelah kiri untuk melihat daftar siswa yang dapat dimutasi.</p>
+                <h3 class="text-lg font-bold text-gray-700">Belum Ada Kelas Asal</h3>
+                <p class="text-sm text-gray-500 mt-2 max-w-md leading-relaxed">Pilih kelas asal terlebih dahulu dari panel di sebelah kiri untuk melihat daftar siswa dan mengatur tujuan mutasi.</p>
             </div>
         <?php elseif (empty($siswaAsal)): ?>
-            <div class="bg-amber-50 rounded-2xl border border-amber-100 p-8 text-center text-amber-600">
-                <p class="font-bold">Kelas ini kosong.</p>
-                <p class="text-sm mt-1">Tidak ada siswa yang dapat dipindahkan.</p>
+            <div class="bg-amber-50 rounded-2xl border border-amber-100 p-12 text-center text-amber-600 h-full min-h-[350px] flex flex-col justify-center items-center">
+                <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 text-amber-400 shadow-sm">
+                    <i class="fas fa-box-open text-2xl"></i>
+                </div>
+                <p class="font-bold text-lg">Kelas ini kosong</p>
+                <p class="text-sm mt-1 text-amber-700/70 max-w-sm">Tidak ada data siswa yang dapat dipindahkan dari kelas ini. Silakan pilih kelas lain.</p>
             </div>
         <?php else: ?>
-            <form action="<?= base_url('admin/mutasi/proses') ?>" method="POST" id="formMutasi" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <form action="<?= base_url('admin/mutasi/proses') ?>" method="POST" id="formMutasi" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col min-h-full">
                 <?= csrf_field() ?>
                 <input type="hidden" name="kelas_asal" value="<?= esc((string) $kelasAsalId) ?>">
 
-                <h3 class="text-sm font-bold text-gray-800 mb-4 uppercase tracking-wide border-b pb-2 flex justify-between items-center">
-                    <span>2. Seleksi Siswa</span>
-                    <label class="flex items-center gap-2 text-xs font-bold text-blue-600 cursor-pointer bg-blue-50 px-3 py-1.5 rounded-lg">
-                        <input type="checkbox" id="checkAll" checked class="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer">
-                        Pilih Semua Siswa
+                <!-- STEP 2: SELEKSI SISWA -->
+                <h3 class="flex justify-between items-center text-sm font-bold text-gray-800 mb-4 border-b border-gray-100 pb-3">
+                    <span class="flex items-center gap-3">
+                        <span class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs shrink-0">2</span>
+                        Seleksi Siswa
+                    </span>
+                    <label class="flex items-center gap-2 text-xs font-bold text-blue-700 cursor-pointer bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors border border-blue-100">
+                        <input type="checkbox" id="checkAll" checked class="rounded border-blue-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer">
+                        Pilih Semua
                     </label>
                 </h3>
 
-                <div class="max-h-[300px] overflow-y-auto custom-scrollbar mb-8 pr-2 space-y-2">
-                    <?php foreach ($siswaAsal as $siswa): ?>
-                        <label class="flex items-center justify-between p-3 border border-gray-100 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors group">
-                            <div class="flex items-center gap-3">
-                                <input type="checkbox" name="siswa_ids[]" value="<?= esc((string) $siswa['id_siswa']) ?>" checked class="siswa-checkbox rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer">
-                                <div>
-                                    <p class="text-sm font-bold text-gray-800 group-hover:text-blue-600 transition-colors"><?= esc((string) $siswa['nama_siswa']) ?></p>
-                                    <p class="text-[10px] font-medium text-gray-500">NIS: <?= esc((string) $siswa['nis']) ?></p>
+                <!-- Live Search Inline -->
+                <div class="relative mb-3">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fas fa-search text-gray-400 text-sm"></i>
+                    </div>
+                    <input type="text" id="searchSiswa" placeholder="Ketik nama atau NIS untuk mencari..." 
+                           class="w-full border border-gray-200 rounded-xl py-2 pl-9 pr-3 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                </div>
+
+                <div class="max-h-[280px] overflow-y-auto custom-scrollbar mb-8 pr-2 space-y-1.5" id="siswaListContainer">
+                    <?php foreach ($siswaAsal as $siswa): 
+                        // Inisial untuk avatar
+                        $inisial = mb_strtoupper(mb_substr((string) ($siswa['nama_siswa'] ?? 'U'), 0, 1));
+                    ?>
+                        <label class="siswa-item flex items-center justify-between p-2.5 border border-transparent border-b-gray-50 hover:border-blue-100 hover:bg-blue-50/50 rounded-xl cursor-pointer transition-colors group">
+                            <div class="flex items-center gap-3.5 w-full">
+                                <input type="checkbox" name="siswa_ids[]" value="<?= esc((string) $siswa['id_siswa']) ?>" checked 
+                                       class="siswa-checkbox rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4.5 h-4.5 cursor-pointer ml-1">
+                                <div class="w-9 h-9 rounded-full bg-slate-100 text-slate-500 border border-slate-200 flex items-center justify-center font-bold text-xs shrink-0 shadow-sm group-hover:bg-white group-hover:text-blue-600 transition-colors">
+                                    <?= $inisial ?>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="siswa-nama text-sm font-bold text-gray-800 truncate group-hover:text-blue-700 transition-colors"><?= esc((string) $siswa['nama_siswa']) ?></p>
+                                    <div class="flex items-center gap-2 mt-0.5">
+                                        <p class="siswa-nis text-[10px] font-semibold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded inline-block">NIS: <?= esc((string) $siswa['nis']) ?></p>
+                                        <?php if (!empty($siswa['is_blocked'])): ?>
+                                            <span class="text-[9px] font-black text-white bg-red-500 px-1.5 py-0.5 rounded">BLOCKED</span>
+                                        <?php endif; ?>
+                                    </div>
                                 </div>
                             </div>
                         </label>
                     <?php endforeach; ?>
+                    
+                    <!-- Empty state untuk pencarian -->
+                    <div id="emptySearch" class="hidden py-8 text-center text-gray-400">
+                        <i class="fas fa-search-minus text-2xl mb-2"></i>
+                        <p class="text-xs font-medium">Siswa tidak ditemukan.</p>
+                    </div>
                 </div>
 
-                <h3 class="text-sm font-bold text-gray-800 mb-4 uppercase tracking-wide border-b pb-2">3. Konfigurasi Destinasi</h3>
-                <div class="bg-gray-50 p-5 rounded-xl border border-gray-100 mb-6">
-                    <label class="block text-xs font-bold text-gray-600 mb-2">Pindah Menuju Kelas:</label>
-                    <select name="kelas_tujuan" id="kelas_tujuan" class="w-full border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white cursor-pointer" required>
-                        <option value="">-- Pilih Kelas Tujuan --</option>
-                        <?php foreach ($listKelas as $k): ?>
-                            <?php if ($k['id_kelas'] != $kelasAsalId): ?>
-                                <option value="<?= esc((string) $k['id_kelas']) ?>"><?= esc((string) $k['nama_kelas']) ?></option>
-                            <?php endif; ?>
-                        <?php endforeach; ?>
-                    </select>
-
-                    <div id="mergeWarning" class="mt-3 hidden"></div>
-
-                    <label class="mt-5 flex items-start gap-3 cursor-pointer p-4 bg-white rounded-xl border border-gray-200 hover:border-blue-300 transition-all">
-                        <div class="relative flex items-center h-5">
-                            <input type="checkbox" name="pindah_wali" value="1" class="peer h-5 w-5 cursor-pointer appearance-none rounded-md border border-gray-300 checked:border-blue-600 checked:bg-blue-600 transition-all">
-                            <svg class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 text-white opacity-0 peer-checked:opacity-100 pointer-events-none" viewBox="0 0 14 10" fill="none">
-                                <path d="M1 5L4.5 8.5L13 1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                            </svg>
+                <div class="mt-auto">
+                    <!-- STEP 3: DESTINASI -->
+                    <h3 class="flex items-center gap-3 text-sm font-bold text-gray-800 mb-4 border-b border-gray-100 pb-3">
+                        <span class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs shrink-0">3</span>
+                        Konfigurasi Tujuan
+                    </h3>
+                    
+                    <div class="bg-slate-50 p-5 rounded-xl border border-slate-200 mb-6 relative overflow-hidden">
+                        <!-- Dekorasi background -->
+                        <div class="absolute -right-4 -bottom-4 opacity-5 pointer-events-none">
+                            <i class="fas fa-random text-6xl"></i>
                         </div>
-                        <div>
-                            <p class="text-sm font-bold text-gray-800">Pindahkan juga Wali Kelas ke kelas tujuan?</p>
-                            <p class="text-[10px] text-gray-500 mt-0.5 leading-relaxed">Jika dicentang, <?= esc((string) ($kelasAsalData['nama_wali'] ?? 'Wali Kelas')) ?> akan dicabut dari kelas ini dan otomatis menjadi wali kelas di kelas tujuan.</p>
+
+                        <label class="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Pindah Menuju Kelas:</label>
+                        <select name="kelas_tujuan" id="kelas_tujuan" class="w-full border border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white cursor-pointer shadow-sm relative z-10" required>
+                            <option value="">-- Pilih Kelas Tujuan --</option>
+                            <?php foreach ($listKelas as $k): ?>
+                                <?php if ($k['id_kelas'] != $kelasAsalId): ?>
+                                    <option value="<?= esc((string) $k['id_kelas']) ?>"><?= esc((string) $k['nama_kelas']) ?></option>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        </select>
+
+                        <!-- Smart Merge Warning (Animated) -->
+                        <div class="warning-collapsible" id="mergeWarningWrapper">
+                            <div class="warning-inner" id="mergeWarning"></div>
                         </div>
-                    </label>
+
+                        <!-- Opsi Pindah Wali Kelas -->
+                        <label id="lbl-pindah-wali" class="mt-4 flex items-start gap-3 cursor-pointer p-4 bg-white rounded-xl border border-gray-200 hover:border-blue-300 transition-all shadow-sm relative z-10 group">
+                            <div class="relative flex items-center h-5 mt-0.5">
+                                <input type="checkbox" name="pindah_wali" id="chk-pindah-wali" value="1" class="peer h-5 w-5 cursor-pointer appearance-none rounded-md border-2 border-gray-300 checked:border-blue-600 checked:bg-blue-600 transition-all">
+                                <svg class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" viewBox="0 0 14 10" fill="none">
+                                    <path d="M1 5L4.5 8.5L13 1" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold text-gray-800 group-hover:text-blue-700 transition-colors">Pindahkan juga Wali Kelas ke kelas tujuan?</p>
+                                <p class="text-[10px] text-gray-500 mt-1 leading-relaxed">Jika dicentang, <span class="font-bold text-gray-700"><?= esc((string) ($kelasAsalData['nama_wali'] ?? 'Wali Kelas')) ?></span> akan dicabut dari kelas saat ini dan otomatis menjadi wali di kelas tujuan.</p>
+                            </div>
+                        </label>
+                    </div>
+
+                    <button type="button" onclick="konfirmasiMutasi()" class="w-full bg-blue-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-blue-600/30 hover:bg-blue-700 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-blue-600/40 transition-all flex items-center justify-center gap-2">
+                        <i class="fas fa-exchange-alt"></i>
+                        Eksekusi Mutasi Massal
+                    </button>
                 </div>
-
-                <button type="button" onclick="konfirmasiMutasi()" class="w-full bg-blue-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-md hover:bg-blue-700 hover:shadow-lg transition-all flex items-center justify-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
-                    </svg>
-                    Eksekusi Mutasi Massal
-                </button>
             </form>
         <?php endif; ?>
     </div>
@@ -137,34 +240,92 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     document.addEventListener("DOMContentLoaded", function() {
-        // Logika Check All Siswa
+        
+        // --- 1. Logika Check All Siswa ---
         const checkAll = document.getElementById('checkAll');
         const checkboxes = document.querySelectorAll('.siswa-checkbox');
+        const countVisibleCheckboxes = () => document.querySelectorAll('.siswa-item:not(.hidden) .siswa-checkbox').length;
+        const countCheckedVisible = () => document.querySelectorAll('.siswa-item:not(.hidden) .siswa-checkbox:checked').length;
+
+        function updateCheckAllState() {
+            if(!checkAll) return;
+            const total = countVisibleCheckboxes();
+            const checked = countCheckedVisible();
+            
+            if (total === 0) {
+                checkAll.checked = false;
+                checkAll.indeterminate = false;
+            } else {
+                checkAll.checked = (total === checked);
+                checkAll.indeterminate = (checked > 0 && checked < total);
+            }
+        }
 
         if (checkAll) {
             checkAll.addEventListener('change', function() {
-                checkboxes.forEach(cb => cb.checked = checkAll.checked);
+                // Hanya centang yang visible dari hasil filter pencarian
+                document.querySelectorAll('.siswa-item:not(.hidden) .siswa-checkbox').forEach(cb => {
+                    cb.checked = checkAll.checked;
+                });
             });
 
             checkboxes.forEach(cb => {
-                cb.addEventListener('change', function() {
-                    const allChecked = Array.from(checkboxes).every(c => c.checked);
-                    const someChecked = Array.from(checkboxes).some(c => c.checked);
-                    checkAll.checked = allChecked;
-                    checkAll.indeterminate = someChecked && !allChecked;
-                });
+                cb.addEventListener('change', updateCheckAllState);
             });
         }
 
-        // Logika Smart Merge Warning (AJAX)
+        // --- 2. Live Search Filter Siswa ---
+        const searchInput = document.getElementById('searchSiswa');
+        if(searchInput) {
+            searchInput.addEventListener('input', function(e) {
+                const term = e.target.value.toLowerCase();
+                const items = document.querySelectorAll('.siswa-item');
+                let found = false;
+
+                items.forEach(item => {
+                    const nama = item.querySelector('.siswa-nama').innerText.toLowerCase();
+                    const nis = item.querySelector('.siswa-nis').innerText.toLowerCase();
+                    
+                    if (nama.includes(term) || nis.includes(term)) {
+                        item.classList.remove('hidden');
+                        found = true;
+                    } else {
+                        item.classList.add('hidden');
+                    }
+                });
+
+                document.getElementById('emptySearch').classList.toggle('hidden', found);
+                updateCheckAllState(); // Update checkbox "Pilih Semua" saat list berubah
+            });
+        }
+
+
+        // --- 3. Styling State Opsi Wali Kelas ---
+        const chkWali = document.getElementById('chk-pindah-wali');
+        const lblWali = document.getElementById('lbl-pindah-wali');
+        if(chkWali && lblWali) {
+            chkWali.addEventListener('change', function() {
+                if (this.checked) {
+                    lblWali.classList.remove('border-gray-200', 'bg-white');
+                    lblWali.classList.add('border-blue-400', 'bg-blue-50/50');
+                } else {
+                    lblWali.classList.add('border-gray-200', 'bg-white');
+                    lblWali.classList.remove('border-blue-400', 'bg-blue-50/50');
+                }
+            });
+        }
+
+
+        // --- 4. Logika Smart Merge Warning (AJAX) ---
         const kelasTujuan = document.getElementById('kelas_tujuan');
+        const warningWrapper = document.getElementById('mergeWarningWrapper');
         const warningDiv = document.getElementById('mergeWarning');
 
         if (kelasTujuan) {
             kelasTujuan.addEventListener('change', function() {
                 const id = this.value;
                 if (!id) {
-                    warningDiv.classList.add('hidden');
+                    warningWrapper.classList.remove('open');
                     return;
                 }
 
@@ -175,60 +336,91 @@
                         if (data.status === 200) {
                             if (data.jumlah > 0) {
                                 warningDiv.innerHTML = `
-                                    <div class="flex gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800">
-                                        <svg class="w-5 h-5 shrink-0 text-amber-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
-                                        <div class="text-[11px] leading-relaxed">
-                                            <strong class="block mb-0.5">SMART MERGE PERINGATAN:</strong>
+                                    <div class="flex gap-3.5 p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 shadow-sm">
+                                        <div class="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                                            <i class="fas fa-exclamation-triangle text-amber-500 text-sm"></i>
+                                        </div>
+                                        <div class="text-[11px] leading-relaxed pt-0.5">
+                                            <strong class="block mb-1 text-xs text-amber-700 tracking-wide">SMART MERGE WARNING</strong>
                                             Kelas tujuan ini sudah memiliki <b>${data.jumlah} Siswa</b> (Siswa tinggal kelas). <br>
-                                            Siswa yang Anda pindahkan akan digabungkan dengan mereka. Wali kelas tujuan saat ini adalah: <b>${data.nama_wali}</b>.
+                                            Siswa yang dipindahkan akan digabungkan. Wali kelas saat ini: <b>${data.nama_wali}</b>.
                                         </div>
                                     </div>
                                 `;
-                                warningDiv.classList.remove('hidden');
                             } else {
                                 warningDiv.innerHTML = `
-                                    <div class="flex gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800">
-                                        <svg class="w-5 h-5 shrink-0 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
-                                        <div class="text-[11px] leading-relaxed">
-                                            <strong class="block mb-0.5">KELAS KOSONG & AMAN:</strong>
-                                            Kelas tujuan ini belum memiliki siswa. Aman untuk dieksekusi.
+                                    <div class="flex gap-3.5 p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 shadow-sm">
+                                        <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                                            <i class="fas fa-check-circle text-emerald-500 text-sm"></i>
+                                        </div>
+                                        <div class="text-[11px] leading-relaxed pt-0.5">
+                                            <strong class="block mb-1 text-xs text-emerald-700 tracking-wide">KELAS KOSONG & AMAN</strong>
+                                            Kelas tujuan ini belum memiliki siswa sama sekali. Aman untuk dieksekusi.
                                         </div>
                                     </div>
                                 `;
-                                warningDiv.classList.remove('hidden');
                             }
+                            warningWrapper.classList.add('open');
                         }
+                    })
+                    .catch(() => {
+                        warningWrapper.classList.remove('open');
                     });
             });
         }
     });
 
     function konfirmasiMutasi() {
-        const checkedCount = document.querySelectorAll('.siswa-checkbox:checked').length;
+        const checkboxes = document.querySelectorAll('.siswa-checkbox:checked');
+        const checkedCount = checkboxes.length;
         const tujuan = document.getElementById('kelas_tujuan');
         const textTujuan = tujuan.options[tujuan.selectedIndex].text;
 
         if (checkedCount === 0) {
-            Swal.fire('Validasi', 'Pilih minimal satu siswa yang akan dipindahkan.', 'warning');
+            Swal.fire({
+                title: 'Validasi',
+                text: 'Pilih minimal satu siswa yang akan dipindahkan.',
+                icon: 'warning',
+                confirmButtonColor: '#3b82f6',
+                customClass: { popup: 'rounded-2xl' }
+            });
             return;
         }
         if (!tujuan.value) {
-            Swal.fire('Validasi', 'Kelas tujuan wajib dipilih.', 'warning');
+            Swal.fire({
+                title: 'Validasi',
+                text: 'Kelas tujuan wajib dipilih.',
+                icon: 'warning',
+                confirmButtonColor: '#3b82f6',
+                customClass: { popup: 'rounded-2xl' }
+            });
             return;
         }
 
         Swal.fire({
             title: 'Eksekusi Mutasi Massal?',
-            html: `Anda akan memindahkan <b>${checkedCount} Siswa</b> menuju kelas <b>${textTujuan}</b>.<br><br><span class="text-xs text-red-500">Pastikan data yang dipilih sudah benar!</span>`,
-            icon: 'warning',
+            html: `Anda akan memindahkan <b>${checkedCount} Siswa</b> menuju kelas <b>${textTujuan}</b>.<br><br><span class="text-xs text-red-500 font-bold bg-red-50 px-3 py-2 rounded-lg inline-block border border-red-100">Pastikan data yang dipilih sudah benar!</span>`,
+            icon: 'question',
             showCancelButton: true,
             confirmButtonColor: '#2563eb',
             cancelButtonColor: '#94a3b8',
             confirmButtonText: 'Ya, Pindahkan Sekarang',
             cancelButtonText: 'Batal',
-            reverseButtons: true
+            reverseButtons: true,
+            customClass: {
+                popup: 'rounded-2xl',
+                confirmButton: 'rounded-xl font-bold px-5 py-2.5 shadow-lg shadow-blue-500/30',
+                cancelButton: 'rounded-xl font-bold px-5 py-2.5'
+            }
         }).then((result) => {
             if (result.isConfirmed) {
+                // Tampilkan loading visual saat proses submit
+                Swal.fire({
+                    title: 'Memproses...',
+                    text: 'Sedang memindahkan data siswa dan absensi',
+                    allowOutsideClick: false,
+                    didOpen: () => { Swal.showLoading() }
+                });
                 document.getElementById('formMutasi').submit();
             }
         });

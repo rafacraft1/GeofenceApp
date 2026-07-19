@@ -238,7 +238,7 @@ class InitSistem extends Migration
 
     public function down()
     {
-        $this->db->query('SET FOREIGN_KEY_CHECKS=0');
+        if ($this->db->DBDriver !== 'SQLite3') { $this->db->query('SET FOREIGN_KEY_CHECKS=0'); }
 
         $this->forge->dropTable('audit_logs', true);
         $this->forge->dropTable('role_menus', true);
@@ -256,6 +256,6 @@ class InitSistem extends Migration
         $this->forge->dropTable('users', true);
         $this->forge->dropTable('roles', true);
 
-        $this->db->query('SET FOREIGN_KEY_CHECKS=1');
+        if ($this->db->DBDriver !== 'SQLite3') { $this->db->query('SET FOREIGN_KEY_CHECKS=1'); }
     }
 }

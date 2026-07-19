@@ -25,24 +25,61 @@ class Kelas extends BaseController
 
     public function index()
     {
-        // Ambil data guru untuk wali kelas (Role 2)
-        $listGuru = $this->userModel->where('role_id', 2)->orderBy('nama_lengkap', 'ASC')->findAll();
+        // FITUR 8: Perluas scope guru — semua user kecuali Superadmin (role 1)
+        $listGuru = $this->userModel
+            ->select('id_user, nama_lengkap')
+            ->where('role_id !=', 1)
+            ->orderBy('nama_lengkap', 'ASC')
+            ->findAll();
 
-        // MENCEGAH DUPLIKASI ZONA DEFAULT DI DROPDOWN UI
-        // Hanya ambil data zona untuk penempatan kelas PKL/Magang massal (is_default = 0)
-        $listZona = $this->zonaModel->where('is_default', 0)->orderBy('nama_zona', 'ASC')->findAll();
+        // FITUR 6: Buat peta wali_kelas_id → nama_kelas untuk badge "Sudah Wali"
+        $waliRows = $this->db->table('kelas')
+            ->select('wali_kelas_id, nama_kelas')
+            ->where('wali_kelas_id IS NOT NULL', null, false)
+            ->get()
+            ->getResultArray();
 
-        $search = (string) $this->request->getGet('search');
-        $page   = (int) ($this->request->getGet('page') ?? 1);
+        $waliMap = []; // [user_id (int) => nama_kelas]
+        foreach ($waliRows as $w) {
+            $waliMap[(int) $w['wali_kelas_id']] = $w['nama_kelas'];
+        }
+
+        // Hanya zona non-default (untuk PKL/Kunjungan massal)
+        $listZona = $this->zonaModel
+            ->where('is_default', 0)
+            ->orderBy('nama_zona', 'ASC')
+            ->findAll();
+
+        $search  = (string) $this->request->getGet('search');
+        $page    = (int) ($this->request->getGet('page') ?? 1);
         $perPage = 10;
 
         $daftarKelas = $this->kelasModel->getPaginatedKelas($search, $perPage);
+
+        // FITUR 1: Summary stats — satu query agregat
+        $statRow = $this->db->query("
+            SELECT
+                COUNT(k.id_kelas) as total_kelas,
+                SUM(k.wali_kelas_id IS NOT NULL) as ada_wali,
+                SUM(k.zona_id IS NOT NULL) as kelas_pkl,
+                COALESCE((SELECT COUNT(*) FROM siswa), 0) as total_siswa
+            FROM kelas k
+        ")->getRowArray();
+
+        $summary = [
+            'total_kelas' => (int) ($statRow['total_kelas'] ?? 0),
+            'ada_wali'    => (int) ($statRow['ada_wali'] ?? 0),
+            'kelas_pkl'   => (int) ($statRow['kelas_pkl'] ?? 0),
+            'total_siswa' => (int) ($statRow['total_siswa'] ?? 0),
+        ];
 
         $data = [
             'title'        => 'Manajemen Kelas & Zona PKL',
             'daftar_kelas' => $daftarKelas,
             'list_guru'    => $listGuru,
             'list_zona'    => $listZona,
+            'wali_map'     => $waliMap,
+            'summary'      => $summary,
             'search_aktif' => $search,
             'pager_links'  => $this->kelasModel->pager->links('default', 'tailwind_pagination'),
             'total_data'   => $this->kelasModel->pager->getTotal('default'),
@@ -103,7 +140,7 @@ class Kelas extends BaseController
             'zona_id'       => empty($zonaId) ? null : (int) $zonaId
         ]);
 
-        // Bersihkan cache siswa karena perubahan zona kelas berdampak pada aturan geofence siswa di dalamnya
+        // Bersihkan cache siswa karena perubahan zona kelas berdampak pada geofence
         cache()->deleteMatching('siswa_auth_*');
 
         return redirect()->to('/admin/kelas')->with('success', 'Data kelas berhasil diperbarui.');
